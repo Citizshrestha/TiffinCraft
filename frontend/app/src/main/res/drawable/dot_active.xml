@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http:
+    android:shape="oval">
+    <solid android:color="#E07B3A"/>
+    <size android:width="10dp" android:height="10dp"/>
+</shape>

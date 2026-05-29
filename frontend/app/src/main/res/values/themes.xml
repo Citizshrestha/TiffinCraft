@@ -1,0 +1,29 @@
+<resources xmlns:tools="http:
+
+    <style name="Base.Theme.TiffinCraft" parent="Theme.Material3.DayNight.NoActionBar">
+
+        <item name="colorPrimary">@color/brown_dark</item>
+        <item name="colorSecondary">@color/orange_warm</item>
+        <item name="colorTertiary">@color/cream_bg</item>
+
+        <item name="android:colorBackground">@color/cream_bg</item>
+
+        <item name="android:statusBarColor">@color/cream_bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+
+    </style>
+
+    <style name="Theme.TiffinCraft" parent="Base.Theme.TiffinCraft" />
+
+    <style name="Theme.TiffinCraft.NoActionBar" parent="Theme.TiffinCraft">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+
+    <style name="Theme.TiffinCraft.Splash" parent="Theme.TiffinCraft.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowTranslucentStatus">true</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+</resources>
