@@ -1,4 +1,21 @@
 <resources>
     <string name="app_name">TiffinCraft</string>
     <string name="tagline">Homemade meals\ncrafted with love</string>
+
+    <string name="onboarding1_title">Homemade\nis the best</string>
+    <string name="onboarding1_desc">Delicious homemade meals made by trustable home cooks near you.</string>
+
+    <string name="onboarding2_title">Healthy Food\nHappy Life</string>
+    <string name="onboarding2_desc">Nutritious, hygienic and affordable meals for your daily life.</string>
+
+    <string name="select_role_title">Select your role</string>
+    <string name="select_role_desc">Choose the role you want to continue</string>
+    <string name="role_customer">I\'m a Customer</string>
+    <string name="role_customer_desc">Order homemade meals</string>
+    <string name="role_cook">I\'m a Home Cook</string>
+    <string name="role_cook_desc">Share your cooking</string>
+
+    <string name="skip">Skip</string>
+    <string name="next">Next</string>
+
 </resources>
