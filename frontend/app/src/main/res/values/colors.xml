@@ -7,4 +7,13 @@
     <color name="brown_text">#5C3D1E</color>
     <color name="orange_warm">#E07B3A</color>
     <color name="green_brand">#1EAD6F</color>
+
+
+    <color name="green_primary">#2E7D32</color>
+    <color name="green_light">#4CAF50</color>
+    <color name="text_title">#1A1A1A</color>
+    <color name="text_desc">#666666</color>
+    <color name="text_skip">#9E9E9E</color>
+    <color name="dot_active">#4CAF50</color>
+    <color name="dot_inactive">#E0E0E0</color>
 </resources>
