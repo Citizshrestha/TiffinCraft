@@ -71,12 +71,12 @@
             android:id="@+id/tvSkip"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/skip"
-            android:textSize="16sp"
-            android:textColor="@color/text_skip"
-            android:layout_centerVertical="true"
             android:layout_alignParentStart="true"
-            android:padding="8dp"/>
+            android:layout_centerVertical="true"
+            android:padding="8dp"
+            android:text="@string/skip"
+            android:textColor="#888888"
+            android:textSize="16sp" />
 
         <!-- Dot indicators (center) -->
         <LinearLayout

@@ -18,4 +18,42 @@
     <string name="skip">Skip</string>
     <string name="next">Next</string>
 
+    <string name="welcome_back">Welcome Back! 👋</string>
+    <string name="login_continue">Login to continue</string>
+    <string name="email_address">Email address</string>
+    <string name="password">Password</string>
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="login_btn">Login</string>
+    <string name="or_divider">or continue with</string>
+    <string name="continue_google">Continue with Google</string>
+    <string name="dont_have_account">Don\'t have an account? </string>
+    <string name="register">Sign Up</string>
+    <string name="error_email_required">Email is required</string>
+    <string name="error_email_invalid">Please enter a valid email</string>
+    <string name="error_password_required">Password is required</string>
+    <string name="error_password_length">Password must be at least 6 characters</string>
+    <string name="google_signin_coming_soon">Google Sign-In coming soon</string>
+    <string name="facebook_signin_coming_soon">Facebook Sign-In coming soon</string>
+    <string name="email_or_phone">Email or Phone</string>
+
+    <string name="back">Back</string>
+    <string name="create_account">Create Account</string>
+    <string name="join_tiffincraft">Let\'s get you started</string>
+    <string name="registering_as_customer">Registering as Customer</string>
+    <string name="registering_as_cook">Registering as Home Cook</string>
+    <string name="full_name">Full Name</string>
+    <string name="phone_number">Phone Number</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="create_account_btn">Sign Up</string>
+    <string name="register_google">Register with Google</string>
+    <string name="already_have_account">Already have an account? </string>
+    <string name="error_name_required">Full name is required</string>
+    <string name="error_name_length">Name must be at least 2 characters</string>
+    <string name="error_phone_required">Phone number is required</string>
+    <string name="error_phone_invalid">Please enter a valid phone number (min 10 digits)</string>
+    <string name="error_confirm_password_required">Please confirm your password</string>
+    <string name="error_passwords_dont_match">Passwords do not match</string>
+    <string name="account_created_success">Account created successfully!</string>
+    <string name="registering">Registering…</string>
+
 </resources>

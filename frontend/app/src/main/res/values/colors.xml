@@ -1,19 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Base colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Primary Green Theme - Updated to lighter, more modern palette -->
+    <color name="green_primary">#4CAF50</color>
+    <color name="green_primary_light">#81C784</color>
+    <color name="green_primary_dark">#388E3C</color>
+    <color name="green_surface">#E8F5E9</color>
+    <color name="green_surface_light">#F1F8F4</color>
+    <color name="green_brand">#66BB6A</color>
+
+    <!-- Onboarding colors -->
     <color name="cream_bg">#FAF6EE</color>
     <color name="brown_dark">#3E1F00</color>
-    <color name="brown_text">#5C3D1E</color>
-    <color name="orange_warm">#E07B3A</color>
-    <color name="green_brand">#1EAD6F</color>
+    <color name="orange_warm">#FF9800</color>
+    <color name="orange_light">#FFE0B2</color>
 
+    <!-- Card backgrounds - Light, not grey -->
+    <color name="card_light_green">#F1F8F4</color>
+    <color name="card_light_blue">#E3F2FD</color>
+    <color name="card_light_orange">#FFF3E0</color>
+    <color name="card_light_purple">#F3E5F5</color>
 
-    <color name="green_primary">#2E7D32</color>
-    <color name="green_light">#4CAF50</color>
+    <!-- Text colors -->
     <color name="text_title">#1A1A1A</color>
+    <color name="text_subtitle">#666666</color>
+    <color name="text_hint">#757575</color>
     <color name="text_desc">#666666</color>
-    <color name="text_skip">#9E9E9E</color>
-    <color name="dot_active">#4CAF50</color>
-    <color name="dot_inactive">#E0E0E0</color>
+    <color name="text_on_light">#424242</color>
+
+    <!-- UI colors -->
+    <color name="error_red">#D32F2F</color>
+    <color name="input_border">#E0E0E0</color>
+    <color name="divider_text">#999999</color>
+    <color name="card_subtitle">#999999</color>
 </resources>
