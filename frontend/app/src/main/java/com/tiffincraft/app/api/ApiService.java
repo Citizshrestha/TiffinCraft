@@ -9,6 +9,7 @@ import com.tiffincraft.app.models.MealResponse;
 import com.tiffincraft.app.models.RegisterRequest;
 import com.tiffincraft.app.models.RegisterResponse;
 
+import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.DELETE;
@@ -20,6 +21,10 @@ import retrofit2.http.Path;
 import retrofit2.http.Query;
 
 public interface ApiService {
+
+    // Health check endpoint
+    @GET("../health")
+    Call<ResponseBody> healthCheck();
 
     @POST("auth/register")
     Call<RegisterResponse> register(@Body RegisterRequest request);
