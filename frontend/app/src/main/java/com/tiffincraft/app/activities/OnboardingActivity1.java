@@ -19,16 +19,17 @@ public class OnboardingActivity1 extends AppCompatActivity {
         Button btnNext = findViewById(R.id.btnNext);
         TextView tvSkip = findViewById(R.id.tvSkip);
 
-        // Next button → go to Onboarding 2
         btnNext.setOnClickListener(v -> {
-            startActivity(new Intent(OnboardingActivity1.this,
-                    OnboardingActivity2.class));
+            Intent i = new Intent(OnboardingActivity1.this,
+                    OnboardingActivity2.class);
+            startActivity(i);
+            finish();
         });
 
-        // Skip → go directly to Select Role
         tvSkip.setOnClickListener(v -> {
-            startActivity(new Intent(OnboardingActivity1.this,
-                    SelectRoleActivity.class));
+            Intent i = new Intent(OnboardingActivity1.this,
+                    SelectRoleActivity.class);
+            startActivity(i);
             finish();
         });
     }

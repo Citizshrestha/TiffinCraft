@@ -24,13 +24,17 @@ public class SplashActivity extends AppCompatActivity {
 
             if (sessionManager.isLoggedIn()) {
                 String role = sessionManager.getRole();
+                Intent intent;
                 if ("cook".equals(role)) {
-                    
+                    intent = new Intent(SplashActivity.this, CookHomeActivity.class);
                 } else {
-                    
+                    intent = new Intent(SplashActivity.this, CustomerHomeActivity.class);
                 }
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
             } else {
-                startActivity(new Intent(SplashActivity.this, OnboardingActivity1.class));
+                Intent i = new Intent(SplashActivity.this, OnboardingActivity1.class);
+                startActivity(i);
             }
             finish();
         }, SPLASH_DELAY);
