@@ -2,13 +2,14 @@
 
     <style name="Base.Theme.TiffinCraft" parent="Theme.Material3.DayNight.NoActionBar">
 
-        <item name="colorPrimary">@color/brown_dark</item>
-        <item name="colorSecondary">@color/orange_warm</item>
-        <item name="colorTertiary">@color/cream_bg</item>
+        <item name="colorPrimary">@color/green_primary</item>
+        <item name="colorPrimaryVariant">@color/green_primary_dark</item>
+        <item name="colorSecondary">@color/green_primary_light</item>
+        <item name="colorTertiary">@color/green_surface_light</item>
 
-        <item name="android:colorBackground">@color/cream_bg</item>
+        <item name="android:colorBackground">@color/white</item>
 
-        <item name="android:statusBarColor">@color/cream_bg</item>
+        <item name="android:statusBarColor">@color/white</item>
         <item name="android:windowLightStatusBar">true</item>
 
     </style>
