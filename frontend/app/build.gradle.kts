@@ -53,7 +53,13 @@ dependencies {
     
     implementation("io.socket:socket.io-client:2.1.1")
 
-    
+
     implementation("com.github.bumptech.glide:glide:4.16.0")
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
+
+    // Google Sign-In
+    implementation("com.google.android.gms:play-services-auth:21.0.0")
+
+    // Facebook Login
+    implementation("com.facebook.android:facebook-login:16.3.0")
 }
