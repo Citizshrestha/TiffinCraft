@@ -335,13 +335,13 @@ public class RegisterActivity extends AppCompatActivity {
 
                     if (registerResponse.isSuccess()) {
                         Toast.makeText(RegisterActivity.this,
-                            "Account created successfully! Please login.",
+                            "Account created successfully!",
                             Toast.LENGTH_SHORT).show();
 
-                        Intent intent = new Intent(RegisterActivity.this, LoginActivity.class);
+                        // Navigate to OTP Screen
+                        Intent intent = new Intent(RegisterActivity.this, OtpActivity.class);
                         intent.putExtra("role", role);
-                        intent.putExtra("registered_email", email);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        intent.putExtra("phone", phone);
                         startActivity(intent);
                         finish();
                     } else {

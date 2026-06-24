@@ -16,8 +16,9 @@ import com.tiffincraft.app.session.SessionManager;
 
 public class CustomerHomeActivity extends AppCompatActivity {
 
-    private TextView tvUserName, tvWelcome;
+    private TextView tvUserName, tvWelcome, tvSeeAllCooks;
     private TextView tvOrdersCount, tvFavoritesCount;
+    private View cardSearch;
     private BottomNavigationView bottomNavigation;
     private SessionManager sessionManager;
 
@@ -35,6 +36,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
         initViews();
         loadUserData();
         setupBottomNavigation();
+        setupClickListeners();
         applyEntranceAnimations();
     }
 
@@ -43,7 +45,23 @@ public class CustomerHomeActivity extends AppCompatActivity {
         tvWelcome = findViewById(R.id.tvWelcome);
         tvOrdersCount = findViewById(R.id.tvOrdersCount);
         tvFavoritesCount = findViewById(R.id.tvFavoritesCount);
+        tvSeeAllCooks = findViewById(R.id.tvSeeAllCooks);
+        cardSearch = findViewById(R.id.cardSearch);
         bottomNavigation = findViewById(R.id.bottomNavigation);
+    }
+
+    private void setupClickListeners() {
+        if (cardSearch != null) {
+            cardSearch.setOnClickListener(v -> {
+                startActivity(new Intent(CustomerHomeActivity.this, SearchFilterActivity.class));
+            });
+        }
+
+        if (tvSeeAllCooks != null) {
+            tvSeeAllCooks.setOnClickListener(v -> {
+                startActivity(new Intent(CustomerHomeActivity.this, CookListActivity.class));
+            });
+        }
     }
 
     private void loadUserData() {
@@ -67,10 +85,10 @@ public class CustomerHomeActivity extends AppCompatActivity {
             if (itemId == R.id.nav_home) {
                 return true;
             } else if (itemId == R.id.nav_orders) {
-                Toast.makeText(this, "Orders coming soon", Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(this, OrderHistoryActivity.class));
                 return false;
             } else if (itemId == R.id.nav_favorites) {
-                Toast.makeText(this, "Favorites coming soon", Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(this, FavoritesActivity.class));
                 return false;
             } else if (itemId == R.id.nav_profile) {
                 showLogoutDialog();

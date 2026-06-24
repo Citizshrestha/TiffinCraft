@@ -1,0 +1,95 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build Android APK",
+      "type": "shell",
+      "command": ".\\gradlew.bat",
+      "args": ["assembleDebug"],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Clean and Build Android APK",
+      "type": "shell",
+      "command": ".\\gradlew.bat",
+      "args": ["clean", "assembleDebug"],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Backend Server",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev"],
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^([^\\s].*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*starting.*$",
+          "endsPattern": "^.*Server running.*$"
+        }
+      }
+    },
+    {
+      "label": "Install APK to Device (ADB)",
+      "type": "shell",
+      "command": "C:\\android\\platform-tools\\adb.exe",
+      "args": [
+        "install",
+        "-r",
+        "app\\build\\outputs\\apk\\debug\\app-debug.apk"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build and Install APK",
+      "dependsOrder": "sequence",
+      "dependsOn": ["Build Android APK", "Install APK to Device (ADB)"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

@@ -83,7 +83,7 @@ public class CookHomeActivity extends AppCompatActivity {
                 })
                 .start();
 
-            Toast.makeText(this, "Add meal feature coming soon", Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(this, AddMenuActivity.class));
         });
     }
 
@@ -96,13 +96,13 @@ public class CookHomeActivity extends AppCompatActivity {
             if (itemId == R.id.nav_home) {
                 return true;
             } else if (itemId == R.id.nav_meals) {
-                Toast.makeText(this, "Meals management coming soon", Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(this, AddMenuActivity.class));
                 return false;
             } else if (itemId == R.id.nav_orders) {
-                Toast.makeText(this, "Orders coming soon", Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(this, ManageOrdersActivity.class));
                 return false;
             } else if (itemId == R.id.nav_profile) {
-                showLogoutDialog();
+                startActivity(new Intent(this, CookProfileActivity.class));
                 return false;
             }
 

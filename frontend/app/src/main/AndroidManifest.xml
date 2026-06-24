@@ -46,10 +46,6 @@
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
         <activity
-            android:name=".activities.ForgotPasswordActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
             android:name=".activities.RegisterActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
@@ -61,6 +57,26 @@
             android:name=".activities.CookHomeActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
+        <activity
+            android:name=".activities.CookDetailsActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.FavoritesActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.OrderDetailsCustomerActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.OrderDetailsCookActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.UpdateStatusActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+        
     </application>
 
 </manifest>

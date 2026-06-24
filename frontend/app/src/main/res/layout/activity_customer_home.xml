@@ -203,14 +203,35 @@
             </LinearLayout>
 
             <!-- Section Header -->
-            <TextView
-                android:layout_width="wrap_content"
+            <RelativeLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Popular Meals"
-                android:textColor="@color/text_title"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:id="@+id/tvPopularMeals"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:text="Popular Meals"
+                    android:textColor="@color/text_title"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvSeeAllCooks"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:text="See All"
+                    android:textColor="@color/green_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:clickable="true"
+                    android:focusable="true" />
+            </RelativeLayout>
 
             <!-- Coming Soon Message -->
             <androidx.cardview.widget.CardView

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    android:orientation="vertical">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_arrow_back"
+            app:tint="@color/text_title" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="@string/order_details"
+            android:textColor="@color/text_title"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+            
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Order #TC123456"
+                android:textColor="@color/text_title"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+                
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="22 May 2024, 12:30 PM"
+                android:textColor="@color/text_subtitle"
+                android:textSize="13sp" />
+
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/input_border" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Items"
+                android:textColor="@color/text_title"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="1x Lunch Tiffin (Anita\'s Kitchen)\n- Roti (2)\n- Sabzi\n- Dal\n- Rice"
+                android:textColor="@color/text_on_light" />
+
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/input_border" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Total Amount: ₹ 120"
+                android:textColor="@color/green_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

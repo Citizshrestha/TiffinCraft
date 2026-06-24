@@ -1,0 +1,15 @@
+{
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.import.gradle.wrapper.enabled": true,
+    "java.import.gradle.version": "9.4.1",
+    "java.import.gradle.home": "",
+    "java.compile.nullAnalysis.mode": "disabled",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-21",
+            "path": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.11.10-hotspot",
+            "default": true
+        }
+    ],
+    "java.jdt.ls.java.home": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.11.10-hotspot"
+}
