@@ -1,7 +1,7 @@
 import db from "../config/db.js";
+import { deleteFile, buildFileUrl } from "../utils/fileHelper.js";
 
-// POST /api/cook/profile
-// Cook sets up their profile after registering
+
 export const setupCookProfile = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -14,7 +14,6 @@ export const setupCookProfile = async (req, res) => {
             });
         }
 
-        // Check if cook profile exists (created at register time)
         const [existing] = await db.promise().query(
             "SELECT id FROM cook_profiles WHERE user_id = ?",
             [userId]
@@ -27,7 +26,6 @@ export const setupCookProfile = async (req, res) => {
             });
         }
 
-        // Update the cook profile with additional details
         await db.promise().query(
             `UPDATE cook_profiles
              SET kitchen_name = ?, food_type = ?, description = ?, capacity_per_day = ?
@@ -50,8 +48,52 @@ export const setupCookProfile = async (req, res) => {
     }
 };
 
-// GET /api/cook/profile
-// Cook views their own profile
+export const uploadCookProfileImage = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "No image file provided."
+            });
+        }
+
+        // Get current image to delete old one
+        const [users] = await db.promise().query(
+            "SELECT profile_image FROM users WHERE id = ?",
+            [userId]
+        );
+
+        // Delete old image if exists
+        if (users[0]?.profile_image) {
+            deleteFile(users[0].profile_image);
+        }
+
+        // Build public URL
+        const imageUrl = buildFileUrl(req, "profiles", req.file.filename);
+
+        // Update user profile image
+        await db.promise().query(
+            "UPDATE users SET profile_image = ? WHERE id = ?",
+            [imageUrl, userId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile image uploaded successfully.",
+            image_url: imageUrl
+        });
+
+    } catch (error) {
+        console.error("uploadCookProfileImage error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};
 export const getMyCookProfile = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -86,14 +128,23 @@ export const getMyCookProfile = async (req, res) => {
     }
 };
 
-// PUT /api/cook/profile
-// Cook updates their profile
 export const updateCookProfile = async (req, res) => {
     try {
         const userId = req.user.id;
         const { kitchen_name, food_type, description, capacity_per_day, bio, specialties } = req.body;
 
-        // Build dynamic update query
+        const [profile] = await db.promise().query(
+            "SELECT user_id FROM cook_profiles WHERE user_id = ?",
+            [userId]
+        );
+
+        if (profile.length === 0) {
+            return res.status(403).json({
+                success: false,
+                message: "You don't have permission to update this profile."
+            });
+        }
+
         const updates = [];
         const values = [];
 
@@ -151,8 +202,6 @@ export const updateCookProfile = async (req, res) => {
     }
 };
 
-// GET /api/cooks
-// Public - get all approved cooks for customers to browse
 export const getAllCooks = async (req, res) => {
     try {
         const [cooks] = await db.promise().query(
@@ -177,9 +226,6 @@ export const getAllCooks = async (req, res) => {
         });
     }
 };
-
-// GET /api/cooks/:cookId
-// Public - get one cook's full profile by their user ID
 export const getCookById = async (req, res) => {
     try {
         const { cookId } = req.params;

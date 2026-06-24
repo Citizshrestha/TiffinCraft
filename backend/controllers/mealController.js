@@ -1,7 +1,6 @@
 import db from "../config/db.js";
+import { deleteFile, buildFileUrl } from "../utils/fileHelper.js";
 
-// POST /api/meals
-// Cook adds a new meal to their menu
 export const addMeal = async (req, res) => {
     try {
         const cookId = req.user.id;
@@ -20,7 +19,6 @@ export const addMeal = async (req, res) => {
             image_url
         } = req.body;
 
-        // Validate required fields
         if (!name || !price) {
             return res.status(400).json({
                 success: false,
@@ -35,7 +33,6 @@ export const addMeal = async (req, res) => {
             });
         }
 
-        // Insert meal
         const [result] = await db.promise().query(
             `INSERT INTO meals (
                 cook_id, name, description, price, category, cuisine_type,
@@ -75,8 +72,6 @@ export const addMeal = async (req, res) => {
     }
 };
 
-// GET /api/meals/my
-// Cook views all their own meals
 export const getMyMeals = async (req, res) => {
     try {
         const cookId = req.user.id;
@@ -103,8 +98,6 @@ export const getMyMeals = async (req, res) => {
     }
 };
 
-// GET /api/meals/cook/:cookId
-// Public - customers view all available meals for a specific cook
 export const getMealsByCook = async (req, res) => {
     try {
         const { cookId } = req.params;
@@ -133,8 +126,57 @@ export const getMealsByCook = async (req, res) => {
     }
 };
 
-// GET /api/meals
-// Public - get all available meals (for browsing/search)
+export const uploadMealImage = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+        const { mealId } = req.params;
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "No image file provided."
+            });
+        }
+
+        const [meals] = await db.promise().query(
+            "SELECT id, image_url FROM meals WHERE id = ? AND cook_id = ?",
+            [mealId, cookId]
+        );
+
+        if (meals.length === 0) {
+            return res.status(403).json({
+                success: false,
+                message: "Meal not found or access denied."
+            });
+        }
+
+        if (meals[0].image_url) {
+            deleteFile(meals[0].image_url);
+        }
+
+        const imageUrl = buildFileUrl(req, "meals", req.file.filename);
+
+        await db.promise().query(
+            "UPDATE meals SET image_url = ? WHERE id = ?",
+            [imageUrl, mealId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Meal image uploaded successfully.",
+            image_url: imageUrl
+        });
+
+    } catch (error) {
+        console.error("uploadMealImage error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};
+
 export const getAllMeals = async (req, res) => {
     try {
         const { category, cuisine_type, is_vegetarian, is_vegan, max_price } = req.query;
