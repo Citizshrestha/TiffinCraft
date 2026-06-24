@@ -214,7 +214,7 @@
             android:id="@+id/btnSignUp"
             android:layout_width="match_parent"
             android:layout_height="54dp"
-            android:layout_marginBottom="28dp"
+            android:layout_marginBottom="24dp"
             android:text="Sign Up"
             android:textColor="#FFFFFF"
             android:textSize="16sp"
@@ -223,7 +223,65 @@
             app:cornerRadius="27dp"
             app:elevation="0dp" />
 
-        <!-- 11. Login Link -->
+        <!-- 11. OR DIVIDER -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginBottom="20dp"
+            android:gravity="center"
+            android:text="@string/or_divider"
+            android:textColor="#AAAAAA"
+            android:textSize="13sp" />
+
+        <!-- 12. SOCIAL BUTTONS -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="28dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <!-- Google Button -->
+            <LinearLayout
+                android:id="@+id/btnGoogleSignIn"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_marginEnd="20dp"
+                android:background="@drawable/social_btn_circle"
+                android:clickable="true"
+                android:elevation="3dp"
+                android:focusable="true"
+                android:gravity="center">
+
+                <ImageView
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:contentDescription="Google sign in"
+                    android:src="@drawable/ic_google" />
+            </LinearLayout>
+
+            <!-- Facebook Button -->
+            <LinearLayout
+                android:id="@+id/btnFacebookSignIn"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:background="@drawable/social_btn_circle"
+                android:clickable="true"
+                android:elevation="3dp"
+                android:focusable="true"
+                android:gravity="center">
+
+                <ImageView
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:contentDescription="Facebook sign in"
+                    android:src="@drawable/ic_facebook" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 13. Login Link -->
         <LinearLayout
             android:id="@+id/layoutLoginLink"
             android:layout_width="wrap_content"
