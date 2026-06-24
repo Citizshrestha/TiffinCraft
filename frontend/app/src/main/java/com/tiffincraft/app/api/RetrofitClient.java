@@ -3,6 +3,9 @@ package com.tiffincraft.app.api;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import okhttp3.Cookie;
+import okhttp3.CookieJar;
+import okhttp3.HttpUrl;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -12,6 +15,9 @@ import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class RetrofitClient {
@@ -52,10 +58,33 @@ public class RetrofitClient {
             }
         };
 
+        CookieJar cookieJar = new CookieJar() {
+            private final HashMap<String, List<Cookie>> cookieStore = new HashMap<>();
+
+            @Override
+            public void saveFromResponse(HttpUrl url, List<Cookie> cookies) {
+                cookieStore.put(url.host(), cookies);
+
+                for (Cookie cookie : cookies) {
+                    if ("auth_token".equals(cookie.name())) {
+                        SharedPreferences prefs = context.getSharedPreferences("TiffinCraftPrefs", Context.MODE_PRIVATE);
+                        prefs.edit().putString("auth_token", cookie.value()).apply();
+                    }
+                }
+            }
+
+            @Override
+            public List<Cookie> loadForRequest(HttpUrl url) {
+                List<Cookie> cookies = cookieStore.get(url.host());
+                return cookies != null ? cookies : new ArrayList<>();
+            }
+        };
+
         OkHttpClient okHttpClient = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)
+                .cookieJar(cookieJar)
                 .addInterceptor(authInterceptor)
                 .addInterceptor(loggingInterceptor)
                 .build();

@@ -2,12 +2,18 @@ package com.tiffincraft.app.api;
 
 import com.tiffincraft.app.models.CookProfileRequest;
 import com.tiffincraft.app.models.CookProfileResponse;
+import com.tiffincraft.app.models.FacebookLoginRequest;
+import com.tiffincraft.app.models.ForgotPasswordRequest;
+import com.tiffincraft.app.models.GoogleLoginRequest;
 import com.tiffincraft.app.models.LoginRequest;
 import com.tiffincraft.app.models.LoginResponse;
 import com.tiffincraft.app.models.MealRequest;
 import com.tiffincraft.app.models.MealResponse;
+import com.tiffincraft.app.models.OtpRequest;
 import com.tiffincraft.app.models.RegisterRequest;
 import com.tiffincraft.app.models.RegisterResponse;
+import com.tiffincraft.app.models.ResendOtpRequest;
+import com.tiffincraft.app.models.ResetPasswordRequest;
 
 import retrofit2.Call;
 import retrofit2.http.Body;
@@ -26,6 +32,24 @@ public interface ApiService {
 
     @POST("auth/login")
     Call<LoginResponse> login(@Body LoginRequest request);
+
+    @POST("auth/verify-otp")
+    Call<LoginResponse> verifyOtp(@Body OtpRequest request);
+
+    @POST("auth/resend-otp")
+    Call<RegisterResponse> resendOtp(@Body ResendOtpRequest request);
+
+    @POST("auth/forgot-password")
+    Call<RegisterResponse> forgotPassword(@Body ForgotPasswordRequest request);
+
+    @POST("auth/reset-password")
+    Call<RegisterResponse> resetPassword(@Body ResetPasswordRequest request);
+
+    @POST("auth/google/verify")
+    Call<LoginResponse> googleLogin(@Body GoogleLoginRequest request);
+
+    @POST("auth/facebook/verify")
+    Call<LoginResponse> facebookLogin(@Body FacebookLoginRequest request);
 
     @POST("auth/logout")
     Call<RegisterResponse> logout(@Header("Authorization") String token);

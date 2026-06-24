@@ -29,6 +29,10 @@ public class SessionManager {
         editor.apply();
     }
 
+    public void saveSession(String token, String role, int userId, String fullName) {
+        createSession(role, token, String.valueOf(userId), fullName);
+    }
+
     public boolean isLoggedIn() {
         return prefs.getBoolean(KEY_IS_LOGGED_IN, false);
     }
