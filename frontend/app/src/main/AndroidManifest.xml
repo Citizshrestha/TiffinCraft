@@ -97,6 +97,90 @@
             android:name=".activities.CookHomeActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
+        <activity
+            android:name=".activities.AddMenuActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.ManageOrdersActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.CookProfileActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.CookEarningsActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.CookSplashActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.CookListActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.CookDetailsActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.MealSelectionActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.CartActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.DeliveryAddressActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.OrderSummaryActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.OrderPlacedActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.TrackOrderActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.OrderHistoryActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.OrderDetailsCustomerActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.OrderDetailsCookActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.UpdateStatusActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.FavoritesActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.SearchFilterActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.RateReviewActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.CustomerProfileActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
     </application>
 
 </manifest>
