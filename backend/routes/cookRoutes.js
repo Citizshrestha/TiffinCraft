@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { protect, roleOnly } from "../middleware/authMiddleware.js";
+import { uploadProfileImage } from "../middleware/uploadMiddleware.js";
 import {
     setupCookProfile,
     getMyCookProfile,
     updateCookProfile,
-      uploadCookProfileImage,
+    uploadCookProfileImage,
     getAllCooks,
     getCookById
 } from "../controllers/cookController.js";

@@ -106,6 +106,7 @@ export const verifyOTP = async (req, res) => {
         );
 
         return res.status(200).json({
+            success: true,
             message: "Email verified successfully!",
             token,
             user: {
@@ -209,6 +210,7 @@ export const loginUser = async (req, res) => {
         );
 
         return res.status(200).json({
+            success: true,
             message: "Login successful.",
             token,
             user: {

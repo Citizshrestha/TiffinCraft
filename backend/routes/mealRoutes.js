@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { protect, roleOnly } from "../middleware/authMiddleware.js";
+import { uploadMealImage } from "../middleware/uploadMiddleware.js";
 import {
     addMeal,
     getMyMeals,
