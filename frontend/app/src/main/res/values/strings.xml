@@ -103,4 +103,38 @@
     <string name="oauth_network_error">Network error during sign-in</string>
     <string name="google_signin_failed_code">Google sign-in failed (code %1$d). If this is 10, the app\'s SHA-1 + package is not registered in Google Cloud Console.</string>
 
+    <!-- Customer Screens -->
+    <string name="my_cart">My Cart</string>
+    <string name="total_payable">Total Payable</string>
+    <string name="proceed_to_checkout">Proceed to Checkout</string>
+    <string name="cook_details">Cook Details</string>
+    <string name="todays_menu">Today\'s Menu</string>
+    <string name="items_included">Items Included</string>
+    <string name="order_now">Order Now</string>
+    <string name="all_cooks">All Cooks</string>
+    <string name="delivery_address">Delivery Address</string>
+    <string name="home">Home</string>
+    <string name="work">Work</string>
+    <string name="proceed_here">Proceed Here</string>
+    <string name="my_favorites">My Favorites</string>
+    <string name="meal_selection">Meal Selection</string>
+    <string name="add_to_cart">Add to Cart</string>
+    <string name="order_details">Order Details</string>
+    <string name="order_history">Order History</string>
+    <string name="order_placed_success">Order Placed Successfully!</string>
+    <string name="track_order">Track Order</string>
+    <string name="back_to_home">Back to Home</string>
+    <string name="order_summary">Order Summary</string>
+    <string name="place_order">Place Order</string>
+    <string name="rate_your_experience">Rate Your Experience</string>
+    <string name="submit_review">Submit Review</string>
+    <string name="search_filter">Search &amp; Filter</string>
+    <string name="search_hint">Search for cooks or meals</string>
+    <string name="filters">Filters</string>
+    <string name="distance">Distance</string>
+    <string name="meal_type">Meal Type</string>
+    <string name="ratings">Ratings</string>
+    <string name="clear_all">Clear All</string>
+    <string name="apply_filters">Apply Filters</string>
+
 </resources>

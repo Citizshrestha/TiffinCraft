@@ -9,6 +9,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.Map;
 
 import io.socket.client.IO;
 import io.socket.client.Socket;
@@ -54,7 +56,7 @@ public class SocketManager {
             options.reconnectionDelay = 1000;
             options.reconnectionAttempts = 5;
 
-            JSONObject auth = new JSONObject();
+            Map<String, String> auth = new HashMap<>();
             auth.put("token", token.replace("Bearer ", ""));
             options.auth = auth;
 
@@ -86,7 +88,7 @@ public class SocketManager {
 
             socket.connect();
 
-        } catch (URISyntaxException | JSONException e) {
+        } catch (URISyntaxException e) {
             Log.e(TAG, "Socket initialization error", e);
         }
     }

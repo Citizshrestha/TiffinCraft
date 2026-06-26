@@ -1,5 +1,7 @@
 package com.tiffincraft.app.models;
 
+import com.google.gson.annotations.SerializedName;
+
 public class LoginResponse {
     private boolean success;
     private String message;
@@ -40,10 +42,12 @@ public class LoginResponse {
 
     public static class User {
         private int id;
+        @SerializedName("full_name")
         private String fullName;
         private String email;
         private String phone;
         private String role;
+        @SerializedName("profile_image")
         private String profileImage;
 
         public int getId() {
