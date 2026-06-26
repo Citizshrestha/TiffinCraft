@@ -6,7 +6,6 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -69,7 +68,6 @@ public class CookHomeActivity extends AppCompatActivity {
 
     private void setupListeners() {
         btnAddMeal.setOnClickListener(v -> {
-            // Add button press animation
             v.animate()
                 .scaleX(0.95f)
                 .scaleY(0.95f)
@@ -82,10 +80,26 @@ public class CookHomeActivity extends AppCompatActivity {
                         .start();
                 })
                 .start();
-
-            Toast.makeText(this, "Add meal feature coming soon", Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(CookHomeActivity.this, AddMenuActivity.class));
         });
+
+        // Profile avatar tapped → go to cook profile
+        View imgProfile = findViewById(R.id.imgProfile);
+        if (imgProfile != null) {
+            imgProfile.setOnClickListener(v ->
+                startActivity(new Intent(CookHomeActivity.this, CookProfileActivity.class))
+            );
+        }
+
+        // Revenue card tapped → go to earnings
+        View tvRevenueCard = tvRevenue != null ? (View) tvRevenue.getParent() : null;
+        if (tvRevenueCard != null) {
+            tvRevenueCard.setOnClickListener(v ->
+                startActivity(new Intent(CookHomeActivity.this, CookEarningsActivity.class))
+            );
+        }
     }
+
 
     private void setupBottomNavigation() {
         bottomNavigation.setSelectedItemId(R.id.nav_home);
@@ -96,40 +110,18 @@ public class CookHomeActivity extends AppCompatActivity {
             if (itemId == R.id.nav_home) {
                 return true;
             } else if (itemId == R.id.nav_meals) {
-                Toast.makeText(this, "Meals management coming soon", Toast.LENGTH_SHORT).show();
-                return false;
+                startActivity(new Intent(CookHomeActivity.this, AddMenuActivity.class));
+                return true;
             } else if (itemId == R.id.nav_orders) {
-                Toast.makeText(this, "Orders coming soon", Toast.LENGTH_SHORT).show();
-                return false;
+                startActivity(new Intent(CookHomeActivity.this, ManageOrdersActivity.class));
+                return true;
             } else if (itemId == R.id.nav_profile) {
-                showLogoutDialog();
-                return false;
+                startActivity(new Intent(CookHomeActivity.this, CookProfileActivity.class));
+                return true;
             }
 
             return false;
         });
-    }
-
-    private void showLogoutDialog() {
-        new android.app.AlertDialog.Builder(this)
-            .setTitle("Logout")
-            .setMessage("Are you sure you want to logout?")
-            .setPositiveButton("Logout", (dialog, which) -> {
-                performLogout();
-            })
-            .setNegativeButton("Cancel", null)
-            .show();
-    }
-
-    private void performLogout() {
-        sessionManager.logout();
-
-        Toast.makeText(this, "Logged out successfully", Toast.LENGTH_SHORT).show();
-
-        Intent intent = new Intent(CookHomeActivity.this, SelectRoleActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        finish();
     }
 
     private void applyEntranceAnimations() {

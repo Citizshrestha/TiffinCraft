@@ -5,7 +5,6 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -34,6 +33,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
         initViews();
         loadUserData();
+        setupListeners();
         setupBottomNavigation();
         applyEntranceAnimations();
     }
@@ -58,6 +58,24 @@ public class CustomerHomeActivity extends AppCompatActivity {
         tvFavoritesCount.setText("0");
     }
 
+    private void setupListeners() {
+        // Search bar tapped → open cook/meal search
+        View cardSearch = findViewById(R.id.cardSearch);
+        if (cardSearch != null) {
+            cardSearch.setOnClickListener(v ->
+                startActivity(new Intent(CustomerHomeActivity.this, CookListActivity.class))
+            );
+        }
+
+        // Profile image tapped → open profile
+        View imgProfile = findViewById(R.id.imgProfile);
+        if (imgProfile != null) {
+            imgProfile.setOnClickListener(v ->
+                startActivity(new Intent(CustomerHomeActivity.this, CustomerProfileActivity.class))
+            );
+        }
+    }
+
     private void setupBottomNavigation() {
         bottomNavigation.setSelectedItemId(R.id.nav_home);
 
@@ -67,40 +85,18 @@ public class CustomerHomeActivity extends AppCompatActivity {
             if (itemId == R.id.nav_home) {
                 return true;
             } else if (itemId == R.id.nav_orders) {
-                Toast.makeText(this, "Orders coming soon", Toast.LENGTH_SHORT).show();
-                return false;
+                startActivity(new Intent(CustomerHomeActivity.this, OrderHistoryActivity.class));
+                return true;
             } else if (itemId == R.id.nav_favorites) {
-                Toast.makeText(this, "Favorites coming soon", Toast.LENGTH_SHORT).show();
-                return false;
+                startActivity(new Intent(CustomerHomeActivity.this, FavoritesActivity.class));
+                return true;
             } else if (itemId == R.id.nav_profile) {
-                showLogoutDialog();
-                return false;
+                startActivity(new Intent(CustomerHomeActivity.this, CustomerProfileActivity.class));
+                return true;
             }
 
             return false;
         });
-    }
-
-    private void showLogoutDialog() {
-        new android.app.AlertDialog.Builder(this)
-            .setTitle("Logout")
-            .setMessage("Are you sure you want to logout?")
-            .setPositiveButton("Logout", (dialog, which) -> {
-                performLogout();
-            })
-            .setNegativeButton("Cancel", null)
-            .show();
-    }
-
-    private void performLogout() {
-        sessionManager.logout();
-
-        Toast.makeText(this, "Logged out successfully", Toast.LENGTH_SHORT).show();
-
-        Intent intent = new Intent(CustomerHomeActivity.this, SelectRoleActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        finish();
     }
 
     private void applyEntranceAnimations() {
@@ -120,7 +116,6 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        // Show exit confirmation or minimize app
         Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.addCategory(Intent.CATEGORY_HOME);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
