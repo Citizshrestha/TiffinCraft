@@ -75,12 +75,12 @@ public class ForgotPasswordActivity extends AppCompatActivity {
 
         if (email.isEmpty()) {
             tilEmail.setError(getString(R.string.error_email_required));
-            tilEmail.startAnimation(android.view.animation.AnimationUtils.loadAnimation(this, R.anim.shake));
+            etEmail.requestFocus();
             return;
         }
         if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
             tilEmail.setError(getString(R.string.error_email_invalid));
-            tilEmail.startAnimation(android.view.animation.AnimationUtils.loadAnimation(this, R.anim.shake));
+            etEmail.requestFocus();
             return;
         }
 
