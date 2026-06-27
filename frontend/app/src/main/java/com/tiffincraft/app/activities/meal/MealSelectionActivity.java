@@ -3,6 +3,7 @@ package com.tiffincraft.app.activities.meal;
 import android.content.Intent;
 import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
+import com.tiffincraft.app.activities.common.CartActivity;
 import com.tiffincraft.app.databinding.ActivityMealSelectionBinding;
 
 public class MealSelectionActivity extends AppCompatActivity {

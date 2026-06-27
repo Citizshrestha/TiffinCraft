@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.os.Looper;
 import androidx.appcompat.app.AppCompatActivity;
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.auth.LoginActivity;
 
 public class CookSplashActivity extends AppCompatActivity {
     @Override

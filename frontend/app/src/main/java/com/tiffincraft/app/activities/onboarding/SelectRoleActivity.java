@@ -7,6 +7,7 @@ import android.view.WindowManager;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.auth.LoginActivity;
 
 public class SelectRoleActivity extends AppCompatActivity {
 

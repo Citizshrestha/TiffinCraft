@@ -3,6 +3,7 @@ package com.tiffincraft.app.activities.order;
 import android.content.Intent;
 import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
+import com.tiffincraft.app.activities.order.OrderPlacedActivity;
 import com.tiffincraft.app.databinding.ActivityOrderSummaryBinding;
 
 public class OrderSummaryActivity extends AppCompatActivity {

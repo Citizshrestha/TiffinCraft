@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat;
 
 import com.google.android.material.button.MaterialButton;
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.meal.MealSelectionActivity;
 
 public class CookDetailsActivity extends AppCompatActivity {
 

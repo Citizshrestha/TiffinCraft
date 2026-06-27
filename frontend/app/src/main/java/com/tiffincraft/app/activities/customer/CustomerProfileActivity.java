@@ -11,6 +11,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.customer.FavoritesActivity;
+import com.tiffincraft.app.activities.order.OrderHistoryActivity;
 import com.tiffincraft.app.session.SessionManager;
 
 public class CustomerProfileActivity extends AppCompatActivity {
