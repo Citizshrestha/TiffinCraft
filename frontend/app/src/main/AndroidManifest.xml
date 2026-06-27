@@ -47,6 +47,10 @@
             </intent-filter>
         </activity>
 
+        <!-- ============ ONLY ONE LAUNCHER ACTIVITY ============ -->
+        <!-- This is the screen that opens when the app icon is tapped.
+             To preview a DIFFERENT screen first, change android:name below
+             to point at that Activity instead (see steps under the code block). -->
         <activity
             android:name=".activities.SplashActivity"
             android:exported="true"
@@ -65,121 +69,15 @@
             android:name=".activities.OnboardingActivity2"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
-        <activity
-            android:name=".activities.SelectRoleActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.LoginActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.ForgotPasswordActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.RegisterActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.OtpActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.ResetPasswordActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.CustomerHomeActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
+        <!-- ============ REGULAR ACTIVITY (no intent-filter) ============ -->
+        <!-- Not a launcher entry point anymore. Launched either by code
+             (Intent from another Activity) or temporarily via adb (see steps below). -->
         <activity
             android:name=".activities.CookHomeActivity"
+            android:exported="true"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
-        <activity
-            android:name=".activities.AddMenuActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.ManageOrdersActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.CookProfileActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.CookEarningsActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.CookSplashActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.CookListActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.CookDetailsActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.MealSelectionActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.CartActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.DeliveryAddressActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.OrderSummaryActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.OrderPlacedActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.TrackOrderActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.OrderHistoryActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.OrderDetailsCustomerActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.OrderDetailsCookActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.UpdateStatusActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.FavoritesActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.SearchFilterActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.RateReviewActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
-
-        <activity
-            android:name=".activities.CustomerProfileActivity"
-            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+       
 
     </application>
 

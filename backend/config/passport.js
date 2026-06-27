@@ -7,12 +7,18 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // ── GOOGLE STRATEGY ──
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.GOOGLE_CALLBACK_URL,
-    scope: ['profile', 'email']
-},
+// Only configure Google OAuth if credentials are provided
+if (process.env.GOOGLE_CLIENT_ID && 
+    process.env.GOOGLE_CLIENT_ID !== 'placeholder-client-id' &&
+    process.env.GOOGLE_CLIENT_SECRET && 
+    process.env.GOOGLE_CLIENT_SECRET !== 'placeholder-client-secret') {
+    
+    passport.use(new GoogleStrategy({
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: process.env.GOOGLE_CALLBACK_URL,
+        scope: ['profile', 'email']
+    },
 async (accessToken, refreshToken, profile, done) => {
     try {
         const email = profile.emails[0].value;
@@ -68,5 +74,9 @@ async (accessToken, refreshToken, profile, done) => {
         return done(error, null);
     }
 }));
+} else {
+    console.log('⚠️  Google OAuth not configured - using placeholder credentials');
+    console.log('   To enable Google login, update GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env');
+}
 
 export default passport;
