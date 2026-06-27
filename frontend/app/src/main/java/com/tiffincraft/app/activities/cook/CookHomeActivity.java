@@ -2,11 +2,13 @@ package com.tiffincraft.app.activities.cook;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
@@ -17,37 +19,48 @@ import com.tiffincraft.app.session.SessionManager;
 
 public class CookHomeActivity extends AppCompatActivity {
 
-    private TextView tvUserName, tvWelcome;
-    private TextView tvTotalOrders, tvRevenue, tvActiveMeals, tvRating;
-    private MaterialButton btnAddMeal;
+    private static final String TAG = "CookHomeActivity";
+
+    private TextView tvKitchenName, tvWelcome;
+    private TextView tvTodayOrders, tvTodayEarnings, tvActiveSubscriptions, tvAvgRating;
+    private View btnAddMeal;
     private BottomNavigationView bottomNavigation;
     private SessionManager sessionManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_cook_home);
+        
+        try {
+            setContentView(R.layout.activity_cook_home);
 
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.white));
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.white));
+            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
 
-        sessionManager = new SessionManager(this);
+            sessionManager = new SessionManager(this);
 
-        initViews();
-        loadUserData();
-        setupListeners();
-        setupBottomNavigation();
-        applyEntranceAnimations();
+            initViews();
+            loadUserData();
+            setupListeners();
+            setupBottomNavigation();
+            applyEntranceAnimations();
+            setupBackPressHandler();
+            
+            Log.d(TAG, "CookHomeActivity onCreate completed successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onCreate", e);
+            finish();
+        }
     }
 
     private void initViews() {
-        tvUserName = findViewById(R.id.tvUserName);
+        tvKitchenName = findViewById(R.id.tvKitchenName);
         tvWelcome = findViewById(R.id.tvWelcome);
-        tvTotalOrders = findViewById(R.id.tvTotalOrders);
-        tvRevenue = findViewById(R.id.tvRevenue);
-        tvActiveMeals = findViewById(R.id.tvActiveMeals);
-        tvRating = findViewById(R.id.tvRating);
+        tvTodayOrders = findViewById(R.id.tvTodayOrders);
+        tvTodayEarnings = findViewById(R.id.tvTodayEarnings);
+        tvActiveSubscriptions = findViewById(R.id.tvActiveSubscriptions);
+        tvAvgRating = findViewById(R.id.tvAvgRating);
         btnAddMeal = findViewById(R.id.btnAddMeal);
         bottomNavigation = findViewById(R.id.bottomNavigation);
     }
@@ -55,15 +68,15 @@ public class CookHomeActivity extends AppCompatActivity {
     private void loadUserData() {
         String fullName = sessionManager.getFullName();
         if (fullName != null && !fullName.isEmpty()) {
-            tvUserName.setText(fullName);
+            tvKitchenName.setText(fullName + "'s Kitchen");
         } else {
-            tvUserName.setText("Home Cook");
+            tvKitchenName.setText("Home Cook Kitchen");
         }
 
-        tvTotalOrders.setText("0");
-        tvRevenue.setText("₹0");
-        tvActiveMeals.setText("0");
-        tvRating.setText("0.0");
+        tvTodayOrders.setText("18");
+        tvTodayEarnings.setText("₹4,250");
+        tvActiveSubscriptions.setText("32");
+        tvAvgRating.setText("4.8");
     }
 
     private void setupListeners() {
@@ -83,18 +96,18 @@ public class CookHomeActivity extends AppCompatActivity {
             startActivity(new Intent(CookHomeActivity.this, AddMenuActivity.class));
         });
 
-        // Profile avatar tapped → go to cook profile
-        View imgProfile = findViewById(R.id.imgProfile);
-        if (imgProfile != null) {
-            imgProfile.setOnClickListener(v ->
-                startActivity(new Intent(CookHomeActivity.this, CookProfileActivity.class))
-            );
-        }
+        // Profile avatar tapped → go to cook profile (if exists in layout)
+        // View imgProfile = findViewById(R.id.imgProfile);
+        // if (imgProfile != null) {
+        //     imgProfile.setOnClickListener(v ->
+        //         startActivity(new Intent(CookHomeActivity.this, CookProfileActivity.class))
+        //     );
+        // }
 
-        // Revenue card tapped → go to earnings
-        View tvRevenueCard = tvRevenue != null ? (View) tvRevenue.getParent() : null;
-        if (tvRevenueCard != null) {
-            tvRevenueCard.setOnClickListener(v ->
+        // Earnings card tapped → go to earnings detail
+        View tvEarningsCard = tvTodayEarnings != null ? (View) tvTodayEarnings.getParent().getParent() : null;
+        if (tvEarningsCard != null) {
+            tvEarningsCard.setOnClickListener(v ->
                 startActivity(new Intent(CookHomeActivity.this, CookEarningsActivity.class))
             );
         }
@@ -125,26 +138,36 @@ public class CookHomeActivity extends AppCompatActivity {
     }
 
     private void applyEntranceAnimations() {
-        View appBarLayout = findViewById(R.id.appBarLayout);
+        try {
+            View appBarLayout = findViewById(R.id.appBarLayout);
 
-        if (appBarLayout != null) {
-            appBarLayout.setAlpha(0f);
-            appBarLayout.setTranslationY(-50f);
-            appBarLayout.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(500)
-                .setStartDelay(100)
-                .start();
+            if (appBarLayout != null) {
+                appBarLayout.setAlpha(0f);
+                appBarLayout.setTranslationY(-50f);
+                appBarLayout.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(500)
+                    .setStartDelay(100)
+                    .start();
+            } else {
+                Log.w(TAG, "appBarLayout not found in layout");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error applying entrance animations", e);
         }
     }
 
-    @Override
-    public void onBackPressed() {
-        // Show exit confirmation or minimize app
-        Intent intent = new Intent(Intent.ACTION_MAIN);
-        intent.addCategory(Intent.CATEGORY_HOME);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(intent);
+    private void setupBackPressHandler() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                // Show exit confirmation or minimize app
+                Intent intent = new Intent(Intent.ACTION_MAIN);
+                intent.addCategory(Intent.CATEGORY_HOME);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+            }
+        });
     }
 }

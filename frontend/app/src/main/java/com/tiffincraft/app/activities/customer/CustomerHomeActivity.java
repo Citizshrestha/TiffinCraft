@@ -9,6 +9,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
@@ -38,43 +39,62 @@ public class CustomerHomeActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_customer_home);
+        
+        try {
+            setContentView(R.layout.activity_customer_home);
 
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.white));
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.white));
+            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
 
-        sessionManager = new SessionManager(this);
+            sessionManager = new SessionManager(this);
 
-        initViews();
-        loadUserData();
-        setupListeners();
-        setupBottomNavigation();
-        applyEntranceAnimations();
+            initViews();
+            loadUserData();
+            setupListeners();
+            setupBottomNavigation();
+            applyEntranceAnimations();
+            setupBackPressHandler();
+            
+            Log.d(TAG, "CustomerHomeActivity onCreate completed successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onCreate", e);
+            finish();
+        }
     }
 
     private void initViews() {
-        tvGreeting = findViewById(R.id.tvGreeting);
-        tvSubtitle = findViewById(R.id.tvSubtitle);
-        notificationButton = findViewById(R.id.notificationButton);
-        searchBar = findViewById(R.id.searchBar);
-        heroBanner = findViewById(R.id.heroBanner);
-        notificationDot = findViewById(R.id.notificationDot);
-        tvViewAll = findViewById(R.id.tvViewAll);
-        fabCart = findViewById(R.id.fabCart);
-        cartBadge = findViewById(R.id.cartBadge);
-        bottomNavigation = findViewById(R.id.bottomNavigation);
-        
-        // Apply circular clipping to banner image container
-        View bannerImageContainer = findViewById(R.id.bannerImageContainer);
-        if (bannerImageContainer != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-            bannerImageContainer.setOutlineProvider(new android.view.ViewOutlineProvider() {
-                @Override
-                public void getOutline(android.view.View view, android.graphics.Outline outline) {
-                    outline.setOval(0, 0, view.getWidth(), view.getHeight());
-                }
-            });
-            bannerImageContainer.setClipToOutline(true);
+        try {
+            tvGreeting = findViewById(R.id.tvGreeting);
+            tvSubtitle = findViewById(R.id.tvSubtitle);
+            notificationButton = findViewById(R.id.notificationButton);
+            searchBar = findViewById(R.id.searchBar);
+            heroBanner = findViewById(R.id.heroBanner);
+            notificationDot = findViewById(R.id.notificationDot);
+            tvViewAll = findViewById(R.id.tvViewAll);
+            fabCart = findViewById(R.id.fabCart);
+            cartBadge = findViewById(R.id.cartBadge);
+            bottomNavigation = findViewById(R.id.bottomNavigation);
+            
+            // Apply circular clipping to banner image container
+            View bannerImageContainer = findViewById(R.id.bannerImageContainer);
+            if (bannerImageContainer != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                bannerImageContainer.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                    @Override
+                    public void getOutline(android.view.View view, android.graphics.Outline outline) {
+                        outline.setOval(0, 0, view.getWidth(), view.getHeight());
+                    }
+                });
+                bannerImageContainer.setClipToOutline(true);
+            }
+            
+            // Log missing views
+            if (tvGreeting == null) Log.e(TAG, "tvGreeting is null");
+            if (bottomNavigation == null) Log.e(TAG, "bottomNavigation is null");
+            if (fabCart == null) Log.e(TAG, "fabCart is null");
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing views", e);
         }
     }
 
@@ -141,7 +161,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
                 // startActivity(new Intent(this, FavoritesActivity.class));
                 return true;
             } else if (itemId == R.id.nav_profile) {
-                // startActivity(new Intent(this, ProfileActivity.class));
+                startActivity(new Intent(this, CustomerProfileActivity.class));
                 return true;
             }
 
@@ -150,49 +170,57 @@ public class CustomerHomeActivity extends AppCompatActivity {
     }
 
     private void applyEntranceAnimations() {
-        View headerSection = findViewById(R.id.tvGreeting);
+        try {
+            View headerSection = findViewById(R.id.tvGreeting);
 
-        if (headerSection != null) {
-            headerSection.setAlpha(0f);
-            headerSection.setTranslationY(-20f);
-            headerSection.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(400)
-                .setStartDelay(100)
-                .start();
-        }
+            if (headerSection != null) {
+                headerSection.setAlpha(0f);
+                headerSection.setTranslationY(-20f);
+                headerSection.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(400)
+                    .setStartDelay(100)
+                    .start();
+            }
 
-        if (searchBar != null) {
-            searchBar.setAlpha(0f);
-            searchBar.setTranslationY(-20f);
-            searchBar.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(400)
-                .setStartDelay(200)
-                .start();
-        }
+            if (searchBar != null) {
+                searchBar.setAlpha(0f);
+                searchBar.setTranslationY(-20f);
+                searchBar.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(400)
+                    .setStartDelay(200)
+                    .start();
+            }
 
-        if (heroBanner != null) {
-            heroBanner.setAlpha(0f);
-            heroBanner.setScaleX(0.9f);
-            heroBanner.setScaleY(0.9f);
-            heroBanner.animate()
-                .alpha(1f)
-                .scaleX(1f)
-                .scaleY(1f)
-                .setDuration(500)
-                .setStartDelay(300)
-                .start();
+            if (heroBanner != null) {
+                heroBanner.setAlpha(0f);
+                heroBanner.setScaleX(0.9f);
+                heroBanner.setScaleY(0.9f);
+                heroBanner.animate()
+                    .alpha(1f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(500)
+                    .setStartDelay(300)
+                    .start();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error applying entrance animations", e);
         }
     }
 
-    @Override
-    public void onBackPressed() {
-        Intent intent = new Intent(Intent.ACTION_MAIN);
-        intent.addCategory(Intent.CATEGORY_HOME);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(intent);
+    private void setupBackPressHandler() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                Intent intent = new Intent(Intent.ACTION_MAIN);
+                intent.addCategory(Intent.CATEGORY_HOME);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+            }
+        });
     }
 }
