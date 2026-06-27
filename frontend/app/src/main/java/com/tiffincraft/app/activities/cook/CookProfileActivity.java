@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.tiffincraft.app.databinding.ActivityCookProfileBinding;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.activities.onboarding.SelectRoleActivity;
 
 public class CookProfileActivity extends AppCompatActivity {
 

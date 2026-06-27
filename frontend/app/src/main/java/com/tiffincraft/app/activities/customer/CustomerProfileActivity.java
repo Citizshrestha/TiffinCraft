@@ -14,6 +14,7 @@ import com.tiffincraft.app.R;
 import com.tiffincraft.app.activities.customer.FavoritesActivity;
 import com.tiffincraft.app.activities.order.OrderHistoryActivity;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.activities.onboarding.SelectRoleActivity;
 
 public class CustomerProfileActivity extends AppCompatActivity {
 
