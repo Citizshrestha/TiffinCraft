@@ -84,7 +84,7 @@
                         android:layout_gravity="top|end"
                         android:layout_marginTop="10dp"
                         android:layout_marginEnd="10dp"
-                        android:background="@drawable/circle_red_dot" />
+                        android:background="@drawable/circle_badge_red" />
 
                 </FrameLayout>
 
@@ -748,7 +748,7 @@
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="20dp"
         android:layout_marginBottom="90dp"
-        android:src="@drawable/ic_shopping_bag"
+        android:src="@drawable/ic_bag"
         app:backgroundTint="#4CAF50"
         app:tint="#FFFFFF"
         app:fabSize="normal"
