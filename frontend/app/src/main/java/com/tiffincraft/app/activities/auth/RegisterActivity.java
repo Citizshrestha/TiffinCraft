@@ -34,6 +34,8 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.cook.CookHomeActivity;
+import com.tiffincraft.app.activities.customer.CustomerHomeActivity;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.FacebookLoginRequest;
 import com.tiffincraft.app.models.GoogleLoginRequest;

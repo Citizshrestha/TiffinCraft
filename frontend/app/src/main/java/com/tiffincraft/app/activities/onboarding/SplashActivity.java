@@ -8,6 +8,8 @@ import android.os.Looper;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.cook.CookHomeActivity;
+import com.tiffincraft.app.activities.customer.CustomerHomeActivity;
 import com.tiffincraft.app.session.SessionManager;
 
 public class SplashActivity extends AppCompatActivity {

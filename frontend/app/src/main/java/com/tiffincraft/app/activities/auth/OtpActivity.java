@@ -16,6 +16,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.cook.CookHomeActivity;
+import com.tiffincraft.app.activities.customer.CustomerHomeActivity;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.LoginResponse;
 import com.tiffincraft.app.models.OtpRequest;
