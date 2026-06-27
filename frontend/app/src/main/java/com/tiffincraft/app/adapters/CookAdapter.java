@@ -9,7 +9,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.tiffincraft.app.R;
-import com.tiffincraft.app.activities.CookDetailsActivity;
+import com.tiffincraft.app.activities.meal.CookDetailsActivity;
 
 import java.util.List;
 

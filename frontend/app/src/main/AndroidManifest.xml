@@ -47,12 +47,8 @@
             </intent-filter>
         </activity>
 
-        <!-- ============ ONLY ONE LAUNCHER ACTIVITY ============ -->
-        <!-- This is the screen that opens when the app icon is tapped.
-             To preview a DIFFERENT screen first, change android:name below
-             to point at that Activity instead (see steps under the code block). -->
         <activity
-            android:name=".activities.SplashActivity"
+            android:name=".activities.onboarding.SplashActivity"
             android:exported="true"
             android:theme="@style/Theme.TiffinCraft.Splash">
             <intent-filter>
@@ -62,22 +58,128 @@
         </activity>
 
         <activity
-            android:name=".activities.OnboardingActivity1"
+            android:name=".activities.onboarding.OnboardingActivity1"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
         <activity
-            android:name=".activities.OnboardingActivity2"
+            android:name=".activities.onboarding.OnboardingActivity2"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
-        <!-- ============ REGULAR ACTIVITY (no intent-filter) ============ -->
-        <!-- Not a launcher entry point anymore. Launched either by code
-             (Intent from another Activity) or temporarily via adb (see steps below). -->
         <activity
-            android:name=".activities.CookHomeActivity"
-            android:exported="true"
+            android:name=".activities.onboarding.SelectRoleActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
-       
+        <activity
+            android:name=".activities.auth.LoginActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.auth.ForgotPasswordActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.auth.RegisterActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.auth.OtpActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.auth.ResetPasswordActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.customer.CustomerHomeActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.CookHomeActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.AddMenuActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.ManageOrdersActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.CookProfileActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.CookEarningsActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.CookSplashActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.meal.CookListActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.meal.CookDetailsActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.meal.MealSelectionActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.common.CartActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.common.DeliveryAddressActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.order.OrderSummaryActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.order.OrderPlacedActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.order.TrackOrderActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.order.OrderHistoryActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.order.OrderDetailsCustomerActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.order.OrderDetailsCookActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.UpdateStatusActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.customer.FavoritesActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.common.SearchFilterActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.common.RateReviewActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.customer.CustomerProfileActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
     </application>
 
