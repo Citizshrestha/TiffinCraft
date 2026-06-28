@@ -19,6 +19,10 @@ export const addMeal = async (req, res) => {
             image_url
         } = req.body;
 
+        console.log("=== addMeal called ===");
+        console.log("Cook ID:", cookId);
+        console.log("Request body:", JSON.stringify(req.body, null, 2));
+
         if (!name || !price) {
             return res.status(400).json({
                 success: false,
@@ -56,6 +60,8 @@ export const addMeal = async (req, res) => {
             ]
         );
 
+        console.log("Meal inserted with ID:", result.insertId);
+
         return res.status(201).json({
             success: true,
             message: "Meal added successfully!",
@@ -76,12 +82,19 @@ export const getMyMeals = async (req, res) => {
     try {
         const cookId = req.user.id;
 
+        console.log("=== getMyMeals called ===");
+        console.log("Cook ID:", cookId);
+        console.log("User info:", req.user);
+
         const [meals] = await db.promise().query(
             `SELECT * FROM meals
              WHERE cook_id = ?
              ORDER BY created_at DESC`,
             [cookId]
         );
+
+        console.log("Meals found:", meals.length);
+        console.log("Meals data:", JSON.stringify(meals, null, 2));
 
         return res.status(200).json({
             success: true,
@@ -131,6 +144,20 @@ export const uploadMealImage = async (req, res) => {
         const cookId = req.user.id;
         const { mealId } = req.params;
 
+        console.log("=== uploadMealImage called ===");
+        console.log("Cook ID:", cookId);
+        console.log("Meal ID:", mealId);
+        console.log("File:", req.file ? "Present" : "Missing");
+        if (req.file) {
+            console.log("File details:", {
+                originalname: req.file.originalname,
+                filename: req.file.filename,
+                path: req.file.path,
+                size: req.file.size,
+                mimetype: req.file.mimetype
+            });
+        }
+
         if (!req.file) {
             return res.status(400).json({
                 success: false,
@@ -138,28 +165,37 @@ export const uploadMealImage = async (req, res) => {
             });
         }
 
+        // Check if meal exists and belongs to this cook
         const [meals] = await db.promise().query(
             "SELECT id, image_url FROM meals WHERE id = ? AND cook_id = ?",
             [mealId, cookId]
         );
 
         if (meals.length === 0) {
+            console.log("❌ Meal not found or access denied");
             return res.status(403).json({
                 success: false,
                 message: "Meal not found or access denied."
             });
         }
 
+        // Delete old image if exists
         if (meals[0].image_url) {
             deleteFile(meals[0].image_url);
+            console.log("Deleted old image:", meals[0].image_url);
         }
 
+        // Build public URL
         const imageUrl = buildFileUrl(req, "meals", req.file.filename);
+        console.log("New image URL:", imageUrl);
 
+        // Update meal image_url
         await db.promise().query(
             "UPDATE meals SET image_url = ? WHERE id = ?",
             [imageUrl, mealId]
         );
+
+        console.log("✅ Meal image uploaded successfully");
 
         return res.status(200).json({
             success: true,
@@ -168,7 +204,7 @@ export const uploadMealImage = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("uploadMealImage error:", error);
+        console.error("❌ uploadMealImage error:", error);
         return res.status(500).json({
             success: false,
             message: "Server error.",

@@ -18,6 +18,6 @@ export const deleteFile = (filePath) => {
 
 export const buildFileUrl = (req, folder, filename) => {
     if (!filename) return null;
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    return `${baseUrl}/uploads/${folder}/${filename}`;
+    // Store relative path in database - app will add base URL
+    return `/uploads/${folder}/${filename}`;
 };

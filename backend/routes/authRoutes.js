@@ -15,7 +15,7 @@ import {
     verifyGoogleToken
 } from "../controllers/oauthController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
-import { uploadProfile } from "../middleware/uploadMiddleware.js";
+import { uploadProfileImage } from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
@@ -30,7 +30,7 @@ router.get("/me", authMiddleware, getCurrentUser);
 // Customer profile endpoints
 router.get("/profile", authMiddleware, getCustomerProfile);
 router.put("/profile", authMiddleware, updateCustomerProfile);
-router.post("/profile/image", authMiddleware, uploadProfile.single("profile_image"), uploadCustomerProfileImage);
+router.post("/profile/image", authMiddleware, uploadProfileImage, uploadCustomerProfileImage);
 
 // Mobile OAuth token verification endpoints
 router.post("/google/verify", verifyGoogleToken);

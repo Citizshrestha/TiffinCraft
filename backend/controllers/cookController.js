@@ -259,3 +259,159 @@ export const getCookById = async (req, res) => {
         });
     }
 };
+
+export const getCookDashboard = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+
+        // Get today's orders count
+        const [[todayOrders]] = await db.promise().query(
+            `SELECT COUNT(*) as count
+             FROM orders
+             WHERE cook_id = ? AND DATE(created_at) = CURDATE()`,
+            [cookId]
+        );
+
+        // Get yesterday's orders count for percentage calculation
+        const [[yesterdayOrders]] = await db.promise().query(
+            `SELECT COUNT(*) as count
+             FROM orders
+             WHERE cook_id = ? AND DATE(created_at) = CURDATE() - INTERVAL 1 DAY`,
+            [cookId]
+        );
+
+        // Calculate today's orders percentage change
+        const todayOrdersCount = todayOrders.count || 0;
+        const yesterdayOrdersCount = yesterdayOrders.count || 0;
+        let todayOrdersChange = 0;
+        if (yesterdayOrdersCount > 0) {
+            todayOrdersChange = ((todayOrdersCount - yesterdayOrdersCount) / yesterdayOrdersCount) * 100;
+        } else if (todayOrdersCount > 0) {
+            todayOrdersChange = 100;
+        }
+
+        // Get today's earnings (exclude cancelled orders)
+        const [[todayEarnings]] = await db.promise().query(
+            `SELECT COALESCE(SUM(total_amount), 0) as amount
+             FROM orders
+             WHERE cook_id = ?
+             AND DATE(created_at) = CURDATE()
+             AND status != 'cancelled'`,
+            [cookId]
+        );
+
+        // Get yesterday's earnings for percentage calculation
+        const [[yesterdayEarnings]] = await db.promise().query(
+            `SELECT COALESCE(SUM(total_amount), 0) as amount
+             FROM orders
+             WHERE cook_id = ?
+             AND DATE(created_at) = CURDATE() - INTERVAL 1 DAY
+             AND status != 'cancelled'`,
+            [cookId]
+        );
+
+        // Calculate earnings percentage change
+        const todayEarningsAmount = parseFloat(todayEarnings.amount) || 0;
+        const yesterdayEarningsAmount = parseFloat(yesterdayEarnings.amount) || 0;
+        let todayEarningsChange = 0;
+        if (yesterdayEarningsAmount > 0) {
+            todayEarningsChange = ((todayEarningsAmount - yesterdayEarningsAmount) / yesterdayEarningsAmount) * 100;
+        } else if (todayEarningsAmount > 0) {
+            todayEarningsChange = 100;
+        }
+
+        // Get active orders (not delivered or cancelled) - substitute for subscriptions
+        const [[activeOrders]] = await db.promise().query(
+            `SELECT COUNT(*) as count
+             FROM orders
+             WHERE cook_id = ?
+             AND status NOT IN ('delivered', 'cancelled')`,
+            [cookId]
+        );
+
+        // Get last week's active orders for comparison
+        const [[lastWeekActiveOrders]] = await db.promise().query(
+            `SELECT COUNT(*) as count
+             FROM orders
+             WHERE cook_id = ?
+             AND DATE(created_at) >= CURDATE() - INTERVAL 7 DAY
+             AND DATE(created_at) < CURDATE()
+             AND status NOT IN ('delivered', 'cancelled')`,
+            [cookId]
+        );
+
+        // Calculate active orders percentage change
+        const activeOrdersCount = activeOrders.count || 0;
+        const lastWeekActiveOrdersCount = lastWeekActiveOrders.count || 0;
+        let activeOrdersChange = 0;
+        if (lastWeekActiveOrdersCount > 0) {
+            activeOrdersChange = ((activeOrdersCount - lastWeekActiveOrdersCount) / lastWeekActiveOrdersCount) * 100;
+        } else if (activeOrdersCount > 0) {
+            activeOrdersChange = 100;
+        }
+
+        // Get average rating
+        const [[ratingData]] = await db.promise().query(
+            `SELECT
+                COALESCE(AVG(rating), 0) as avg_rating,
+                COUNT(*) as review_count
+             FROM reviews
+             WHERE cook_id = ?`,
+            [cookId]
+        );
+
+        // Get last week's average rating for comparison
+        const [[lastWeekRating]] = await db.promise().query(
+            `SELECT COALESCE(AVG(rating), 0) as avg_rating
+             FROM reviews
+             WHERE cook_id = ?
+             AND DATE(created_at) >= CURDATE() - INTERVAL 7 DAY
+             AND DATE(created_at) < CURDATE()`,
+            [cookId]
+        );
+
+        const avgRating = parseFloat(ratingData.avg_rating) || 0;
+        const lastWeekAvgRating = parseFloat(lastWeekRating.avg_rating) || 0;
+        let ratingChange = 0;
+        if (lastWeekAvgRating > 0) {
+            ratingChange = avgRating - lastWeekAvgRating;
+        } else if (avgRating > 0) {
+            ratingChange = avgRating;
+        }
+
+        return res.status(200).json({
+            success: true,
+            dashboard: {
+                today_orders: {
+                    count: todayOrdersCount,
+                    change_percentage: Math.round(todayOrdersChange * 10) / 10,
+                    vs_label: "vs yesterday"
+                },
+                today_earnings: {
+                    amount: todayEarningsAmount,
+                    change_percentage: Math.round(todayEarningsChange * 10) / 10,
+                    vs_label: "vs yesterday"
+                },
+                active_orders: {
+                    count: activeOrdersCount,
+                    change_percentage: Math.round(activeOrdersChange * 10) / 10,
+                    vs_label: "vs last week"
+                },
+                average_rating: {
+                    rating: Math.round(avgRating * 10) / 10,
+                    change_value: Math.round(ratingChange * 10) / 10,
+                    review_count: ratingData.review_count || 0,
+                    vs_label: "based on " + (ratingData.review_count || 0) + " reviews"
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error("getCookDashboard error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};

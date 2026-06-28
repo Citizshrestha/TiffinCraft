@@ -7,7 +7,8 @@ import {
     updateCookProfile,
     uploadCookProfileImage,
     getAllCooks,
-    getCookById
+    getCookById,
+    getCookDashboard
 } from "../controllers/cookController.js";
 
 const router = Router();
@@ -23,6 +24,9 @@ router.post(
     uploadProfileImage,
     uploadCookProfileImage
 );
+
+// Dashboard endpoint
+router.get("/dashboard", protect, roleOnly("cook"), getCookDashboard);
 
 router.get("/", getAllCooks);
 router.get("/:cookId", getCookById);
