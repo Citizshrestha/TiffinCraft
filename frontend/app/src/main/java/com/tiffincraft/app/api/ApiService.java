@@ -183,4 +183,28 @@ public interface ApiService {
     Call<RegisterResponse> markAllNotificationsAsRead(
             @Header("Authorization") String token
     );
+
+    // Favorites endpoints
+    @GET("favorites")
+    Call<com.tiffincraft.app.models.FavoriteResponse> getFavorites(
+            @Header("Authorization") String token
+    );
+
+    @POST("favorites")
+    Call<com.tiffincraft.app.models.FavoriteResponse> addToFavorites(
+            @Header("Authorization") String token,
+            @Body com.google.gson.JsonObject requestBody
+    );
+
+    @DELETE("favorites/{cookId}")
+    Call<com.tiffincraft.app.models.FavoriteResponse> removeFromFavorites(
+            @Header("Authorization") String token,
+            @Path("cookId") int cookId
+    );
+
+    @GET("favorites/check/{cookId}")
+    Call<com.tiffincraft.app.models.FavoriteResponse> checkFavoriteStatus(
+            @Header("Authorization") String token,
+            @Path("cookId") int cookId
+    );
 }
