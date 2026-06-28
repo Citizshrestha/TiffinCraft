@@ -12,9 +12,12 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.load.model.GlideUrl;
+import com.bumptech.glide.load.model.LazyHeaders;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.Meal;
 
 import java.util.List;
@@ -67,18 +70,18 @@ public class MealAdapter extends RecyclerView.Adapter<MealAdapter.MealViewHolder
         }
         
         if (meal.getImageUrl() != null && !meal.getImageUrl().isEmpty()) {
-            String imageUrl;
-            // Handle both full URLs and relative paths
-            if (meal.getImageUrl().startsWith("http")) {
-                imageUrl = meal.getImageUrl();
-            } else {
-                imageUrl = "http://192.168.100.115:5000" + meal.getImageUrl();
-            }
-            
+            String imageUrl = meal.getImageUrl().startsWith("http")
+                    ? meal.getImageUrl()
+                    : RetrofitClient.SERVER_URL + meal.getImageUrl();
+
+            GlideUrl glideUrl = new GlideUrl(imageUrl, new LazyHeaders.Builder()
+                    .addHeader("Bypass-Tunnel-Reminder", "true")
+                    .build());
+
             Glide.with(context)
-                .load(imageUrl)
-                .diskCacheStrategy(DiskCacheStrategy.NONE) // Don't cache to see updates immediately
-                .skipMemoryCache(true) // Skip memory cache
+                .load(glideUrl)
+                .diskCacheStrategy(DiskCacheStrategy.NONE)
+                .skipMemoryCache(true)
                 .placeholder(placeholderImage)
                 .error(placeholderImage)
                 .centerCrop()

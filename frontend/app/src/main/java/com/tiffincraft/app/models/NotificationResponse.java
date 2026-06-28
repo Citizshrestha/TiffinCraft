@@ -7,21 +7,28 @@ public class NotificationResponse {
     @SerializedName("success")
     private boolean success;
 
-    @SerializedName("notifications")
-    private List<CustomerDashboardResponse.Notification> notifications;
-
     @SerializedName("message")
     private String message;
+
+    @SerializedName("notifications")
+    private List<Notification> notifications;
+
+    @SerializedName("unread_count")
+    private int unreadCount;
 
     public boolean isSuccess() {
         return success;
     }
 
-    public List<CustomerDashboardResponse.Notification> getNotifications() {
+    public String getMessage() {
+        return message;
+    }
+
+    public List<Notification> getNotifications() {
         return notifications;
     }
 
-    public String getMessage() {
-        return message;
+    public int getUnreadCount() {
+        return unreadCount;
     }
 }

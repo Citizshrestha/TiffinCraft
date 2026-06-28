@@ -11,11 +11,15 @@ import com.tiffincraft.app.models.LoginRequest;
 import com.tiffincraft.app.models.LoginResponse;
 import com.tiffincraft.app.models.MealRequest;
 import com.tiffincraft.app.models.MealResponse;
+import com.tiffincraft.app.models.NotificationResponse;
+import com.tiffincraft.app.models.Order;
+import com.tiffincraft.app.models.OrderResponse;
 import com.tiffincraft.app.models.OtpRequest;
 import com.tiffincraft.app.models.RegisterRequest;
 import com.tiffincraft.app.models.RegisterResponse;
 import com.tiffincraft.app.models.ResendOtpRequest;
 import com.tiffincraft.app.models.ResetPasswordRequest;
+import com.tiffincraft.app.models.UpdateOrderStatusRequest;
 import com.tiffincraft.app.models.UploadResponse;
 
 import okhttp3.MultipartBody;
@@ -189,5 +193,41 @@ public interface ApiService {
     @GET("cook/dashboard")
     Call<DashboardResponse> getCookDashboard(
             @Header("Authorization") String authToken
+    );
+
+    // Notifications endpoints
+    @GET("notifications")
+    Call<NotificationResponse> getNotifications(
+            @Header("Authorization") String token
+    );
+
+    @GET("notifications/unread-count")
+    Call<NotificationResponse> getUnreadNotificationCount(
+            @Header("Authorization") String token
+    );
+
+    @PUT("notifications/{id}/read")
+    Call<NotificationResponse> markNotificationAsRead(
+            @Header("Authorization") String token,
+            @Path("id") int notificationId
+    );
+
+    // Cook Orders endpoints
+    @GET("orders/cook/my")
+    Call<OrderResponse> getCookOrders(
+            @Header("Authorization") String token
+    );
+
+    @GET("orders/cook/my")
+    Call<OrderResponse> getCookOrdersByStatus(
+            @Header("Authorization") String token,
+            @Query("status") String status
+    );
+
+    @PUT("orders/{orderId}/status")
+    Call<OrderResponse> updateOrderStatus(
+            @Header("Authorization") String token,
+            @Path("orderId") int orderId,
+            @Body UpdateOrderStatusRequest request
     );
 }

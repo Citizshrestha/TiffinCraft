@@ -17,6 +17,8 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.model.GlideUrl;
+import com.bumptech.glide.load.model.LazyHeaders;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
@@ -60,86 +62,72 @@ public class CustomerProfileActivity extends AppCompatActivity {
 
         sessionManager = new SessionManager(this);
 
-        // Set initial name from session while loading full profile
         String fullName = sessionManager.getFullName();
         if (binding.tvCustomerName != null) {
             binding.tvCustomerName.setText((fullName != null && !fullName.isEmpty()) ? fullName : "Customer");
         }
 
-        // Show cached profile image immediately while API loads
         String cachedImage = sessionManager.getProfileImage();
         if (cachedImage != null && !cachedImage.isEmpty()) {
             loadProfileImage(cachedImage);
         }
 
-        // Load profile data from backend
         loadProfileData();
 
-        // Profile image upload click listener
         if (binding.btnEditAvatar != null) {
             binding.btnEditAvatar.setOnClickListener(v -> checkPermissionAndOpenPicker());
         }
 
-        // Setup bottom navigation
         setupBottomNavigation();
 
-        // Settings button
         if (binding.btnSettings != null) {
             binding.btnSettings.setOnClickListener(v ->
                 Toast.makeText(this, "Settings — coming soon", Toast.LENGTH_SHORT).show()
             );
         }
 
-        // Order History
         if (binding.btnOrderHistory != null) {
             binding.btnOrderHistory.setOnClickListener(v ->
                 startActivity(new Intent(this, OrderHistoryActivity.class))
             );
         }
 
-        // Favorites
         if (binding.btnFavoriteCooks != null) {
             binding.btnFavoriteCooks.setOnClickListener(v ->
                 startActivity(new Intent(this, FavoritesActivity.class))
             );
         }
 
-        // Refer & Earn
         if (binding.btnReferEarn != null) {
             binding.btnReferEarn.setOnClickListener(v ->
                 Toast.makeText(this, "Refer & Earn — coming soon", Toast.LENGTH_SHORT).show()
             );
         }
 
-        // Edit Profile
         if (binding.menuEditProfile != null) {
             binding.menuEditProfile.setOnClickListener(v ->
                 Toast.makeText(this, "Edit Profile — coming soon", Toast.LENGTH_SHORT).show()
             );
         }
 
-        // Saved Addresses
         if (binding.menuSavedAddresses != null) {
             binding.menuSavedAddresses.setOnClickListener(v ->
                 Toast.makeText(this, "Saved Addresses — coming soon", Toast.LENGTH_SHORT).show()
             );
         }
 
-        // Payment Methods
         if (binding.menuPaymentMethods != null) {
             binding.menuPaymentMethods.setOnClickListener(v ->
                 Toast.makeText(this, "Payment Methods — coming soon", Toast.LENGTH_SHORT).show()
             );
         }
 
-        // Dietary Preferences
         if (binding.menuDietaryPreferences != null) {
             binding.menuDietaryPreferences.setOnClickListener(v ->
                 Toast.makeText(this, "Dietary Preferences — coming soon", Toast.LENGTH_SHORT).show()
             );
         }
 
-        // Logout
         if (binding.btnLogoutCustomer != null) {
             binding.btnLogoutCustomer.setOnClickListener(v -> {
                 new android.app.AlertDialog.Builder(this)
@@ -158,9 +146,7 @@ public class CustomerProfileActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Setup bottom navigation
-     */
+
     private void setupBottomNavigation() {
         if (binding.bottomNavigation != null) {
             binding.bottomNavigation.setSelectedItemId(R.id.nav_profile);
@@ -334,8 +320,12 @@ public class CustomerProfileActivity extends AppCompatActivity {
         if (fullUrl != null) {
             Log.d(TAG, "Loading profile image: " + fullUrl);
 
+            GlideUrl glideUrl = new GlideUrl(fullUrl, new LazyHeaders.Builder()
+                .addHeader("Bypass-Tunnel-Reminder", "true")
+                .build());
+
             Glide.with(this)
-                .load(fullUrl)
+                .load(glideUrl)
                 .placeholder(R.drawable.avatar_customer)
                 .error(R.drawable.avatar_customer)
                 .circleCrop()

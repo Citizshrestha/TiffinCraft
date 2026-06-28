@@ -445,14 +445,23 @@ public class RegisterActivity extends AppCompatActivity {
                             RegisterResponse registerResponse = response.body();
 
                             if (registerResponse.isSuccess()) {
-                                Toast.makeText(RegisterActivity.this,
-                                    R.string.otp_sent_to_email, Toast.LENGTH_SHORT).show();
+                                if (registerResponse.isAutoVerified()) {
+                                    Toast.makeText(RegisterActivity.this,
+                                        "Registration successful! Please log in.", Toast.LENGTH_LONG).show();
+                                    Intent intent = new Intent(RegisterActivity.this, LoginActivity.class);
+                                    intent.putExtra("role", role);
+                                    startActivity(intent);
+                                    finish();
+                                } else {
+                                    Toast.makeText(RegisterActivity.this,
+                                        R.string.otp_sent_to_email, Toast.LENGTH_SHORT).show();
 
-                                Intent intent = new Intent(RegisterActivity.this, OtpActivity.class);
-                                intent.putExtra("email", email);
-                                intent.putExtra("role", role);
-                                startActivity(intent);
-                                finish();
+                                    Intent intent = new Intent(RegisterActivity.this, OtpActivity.class);
+                                    intent.putExtra("email", email);
+                                    intent.putExtra("role", role);
+                                    startActivity(intent);
+                                    finish();
+                                }
                             } else {
                                 Toast.makeText(RegisterActivity.this,
                                     registerResponse.getMessage() != null ? registerResponse.getMessage() : "Registration failed",

@@ -22,6 +22,15 @@ import com.tiffincraft.app.session.SessionManager;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.inputmethod.InputMethodManager;
+import android.content.Context;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.button.MaterialButton;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,6 +44,11 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
     private MealAdapter mealAdapter;
     private RecyclerView recyclerViewMeals;
     private View emptyStateLayout;
+    
+    // Search and Filter State
+    private String currentSearchQuery = "";
+    private String currentStatusFilter = "All"; // All, Active, Sold Out
+    private String currentDietaryFilter = "All"; // All, Veg, Non-Veg
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -80,16 +94,52 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
             });
         }
         
-        // Search and filter buttons (placeholder for now)
+        // Search button toggle
         if (binding.btnSearchMeal != null) {
             binding.btnSearchMeal.setOnClickListener(v -> {
-                Toast.makeText(this, "Search coming soon", Toast.LENGTH_SHORT).show();
+                if (binding.etSearchMeal.getVisibility() == View.VISIBLE) {
+                    // Close search
+                    binding.etSearchMeal.setVisibility(View.GONE);
+                    binding.tvTitle.setVisibility(View.VISIBLE);
+                    binding.etSearchMeal.setText("");
+                    
+                    // Hide keyboard
+                    InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                    imm.hideSoftInputFromWindow(binding.etSearchMeal.getWindowToken(), 0);
+                } else {
+                    // Open search
+                    binding.tvTitle.setVisibility(View.GONE);
+                    binding.etSearchMeal.setVisibility(View.VISIBLE);
+                    binding.etSearchMeal.requestFocus();
+                    
+                    // Show keyboard
+                    InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                    imm.showSoftInput(binding.etSearchMeal, InputMethodManager.SHOW_IMPLICIT);
+                }
             });
         }
         
+        // Search text watcher
+        if (binding.etSearchMeal != null) {
+            binding.etSearchMeal.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    currentSearchQuery = s.toString().trim().toLowerCase();
+                    filterMeals();
+                }
+                
+                @Override
+                public void afterTextChanged(Editable s) {}
+            });
+        }
+        
+        // Filter button
         if (binding.btnFilterMeal != null) {
             binding.btnFilterMeal.setOnClickListener(v -> {
-                Toast.makeText(this, "Filter coming soon", Toast.LENGTH_SHORT).show();
+                showFilterDialog();
             });
         }
     }
@@ -277,11 +327,9 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
             recyclerViewMeals.setVisibility(View.GONE);
             emptyStateLayout.setVisibility(View.VISIBLE);
         } else {
-            Log.d(TAG, "Displaying " + mealsList.size() + " meals");
-            recyclerViewMeals.setVisibility(View.VISIBLE);
-            emptyStateLayout.setVisibility(View.GONE);
-            mealAdapter.updateMeals(mealsList);
-            Log.d(TAG, "Adapter updated with meals");
+        // Update RecyclerView with currently active filters instead of all meals
+        filterMeals();
+        Log.d(TAG, "Adapter updated with filtered meals");
         }
         
         Toast.makeText(this, 
@@ -304,14 +352,124 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
         emptyStateLayout.setVisibility(View.VISIBLE);
     }
     
+    private void showFilterDialog() {
+        BottomSheetDialog filterDialog = new BottomSheetDialog(this);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_meal_filter, null);
+        filterDialog.setContentView(dialogView);
+
+        ChipGroup chipGroupStatus = dialogView.findViewById(R.id.chipGroupStatus);
+        ChipGroup chipGroupDietary = dialogView.findViewById(R.id.chipGroupDietary);
+        MaterialButton btnApplyFilters = dialogView.findViewById(R.id.btnApplyFilters);
+        MaterialButton btnResetFilters = dialogView.findViewById(R.id.btnResetFilters);
+
+        if ("Active".equals(currentStatusFilter)) {
+            ((Chip) dialogView.findViewById(R.id.chipStatusActive)).setChecked(true);
+        } else if ("Sold Out".equals(currentStatusFilter)) {
+            ((Chip) dialogView.findViewById(R.id.chipStatusSoldOut)).setChecked(true);
+        } else {
+            ((Chip) dialogView.findViewById(R.id.chipStatusAll)).setChecked(true);
+        }
+
+        if ("Veg".equals(currentDietaryFilter)) {
+            ((Chip) dialogView.findViewById(R.id.chipDietaryVeg)).setChecked(true);
+        } else if ("Non-Veg".equals(currentDietaryFilter)) {
+            ((Chip) dialogView.findViewById(R.id.chipDietaryNonVeg)).setChecked(true);
+        } else {
+            ((Chip) dialogView.findViewById(R.id.chipDietaryAll)).setChecked(true);
+        }
+
+        btnApplyFilters.setOnClickListener(v -> {
+            int selectedStatusId = chipGroupStatus.getCheckedChipId();
+            if (selectedStatusId == R.id.chipStatusActive) {
+                currentStatusFilter = "Active";
+            } else if (selectedStatusId == R.id.chipStatusSoldOut) {
+                currentStatusFilter = "Sold Out";
+            } else {
+                currentStatusFilter = "All";
+            }
+
+            int selectedDietaryId = chipGroupDietary.getCheckedChipId();
+            if (selectedDietaryId == R.id.chipDietaryVeg) {
+                currentDietaryFilter = "Veg";
+            } else if (selectedDietaryId == R.id.chipDietaryNonVeg) {
+                currentDietaryFilter = "Non-Veg";
+            } else {
+                currentDietaryFilter = "All";
+            }
+
+            filterDialog.dismiss();
+            filterMeals();
+        });
+
+        btnResetFilters.setOnClickListener(v -> {
+            ((Chip) dialogView.findViewById(R.id.chipStatusAll)).setChecked(true);
+            ((Chip) dialogView.findViewById(R.id.chipDietaryAll)).setChecked(true);
+        });
+
+        filterDialog.show();
+    }
+
+    private void filterMeals() {
+        if (mealsList == null) return;
+
+        List<Meal> filteredList = new ArrayList<>();
+        
+        for (Meal meal : mealsList) {
+            // 1. Search Query Filter
+            boolean matchesSearch = true;
+            if (!currentSearchQuery.isEmpty()) {
+                String mealName = meal.getName() != null ? meal.getName().toLowerCase() : "";
+                String mealDesc = meal.getDescription() != null ? meal.getDescription().toLowerCase() : "";
+                matchesSearch = mealName.contains(currentSearchQuery) || mealDesc.contains(currentSearchQuery);
+            }
+            
+            // 2. Status Filter
+            boolean matchesStatus = true;
+            if ("Active".equals(currentStatusFilter)) {
+                matchesStatus = meal.isAvailable();
+            } else if ("Sold Out".equals(currentStatusFilter)) {
+                matchesStatus = !meal.isAvailable();
+            }
+            
+            // 3. Dietary Filter
+            boolean matchesDietary = true;
+            if ("Veg".equals(currentDietaryFilter)) {
+                matchesDietary = meal.isVegetarian();
+            } else if ("Non-Veg".equals(currentDietaryFilter)) {
+                matchesDietary = !meal.isVegetarian();
+            }
+            
+            if (matchesSearch && matchesStatus && matchesDietary) {
+                filteredList.add(meal);
+            }
+        }
+        
+        if (filteredList.isEmpty()) {
+            recyclerViewMeals.setVisibility(View.GONE);
+            emptyStateLayout.setVisibility(View.VISIBLE);
+        } else {
+            recyclerViewMeals.setVisibility(View.VISIBLE);
+            emptyStateLayout.setVisibility(View.GONE);
+        }
+        
+        mealAdapter.updateMeals(filteredList);
+    }
+    
     // ========== MEAL ADAPTER CALLBACKS ==========
     
     @Override
     public void onEditClick(Meal meal) {
-        // TODO: Navigate to Edit Meal Activity
-        Toast.makeText(this, 
-            "Edit " + meal.getName() + " - Coming soon", 
-            Toast.LENGTH_SHORT).show();
+        Intent intent = new Intent(this, EditMealActivity.class);
+        intent.putExtra(EditMealActivity.EXTRA_MEAL_ID,          meal.getId());
+        intent.putExtra(EditMealActivity.EXTRA_MEAL_NAME,        meal.getName());
+        intent.putExtra(EditMealActivity.EXTRA_MEAL_DESCRIPTION, meal.getDescription());
+        intent.putExtra(EditMealActivity.EXTRA_MEAL_PRICE,       meal.getPrice());
+        intent.putExtra(EditMealActivity.EXTRA_MEAL_CATEGORY,    meal.getCategory());
+        intent.putExtra(EditMealActivity.EXTRA_MEAL_IS_VEG,      meal.isVegetarian());
+        intent.putExtra(EditMealActivity.EXTRA_MEAL_IS_SPICY,    "hot".equalsIgnoreCase(meal.getSpiceLevel()));
+        intent.putExtra(EditMealActivity.EXTRA_MEAL_IS_AVAILABLE,meal.isAvailable());
+        intent.putExtra(EditMealActivity.EXTRA_MEAL_IMAGE_URL,   meal.getImageUrl());
+        startActivity(intent);
     }
     
     @Override

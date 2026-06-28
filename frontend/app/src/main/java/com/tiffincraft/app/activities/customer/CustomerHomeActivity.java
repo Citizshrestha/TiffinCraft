@@ -12,6 +12,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
@@ -20,11 +21,16 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.common.NotificationActivity;
+import com.tiffincraft.app.activities.customer.NotificationsActivity;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.CustomerDashboardResponse;
+import com.tiffincraft.app.models.NotificationResponse;
+import com.tiffincraft.app.models.PopularCook;
 import com.tiffincraft.app.session.SessionManager;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import retrofit2.Call;
@@ -37,7 +43,8 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
     private TextView tvGreeting, tvSubtitle;
     private FrameLayout notificationButton, filterButton;
-    private View searchBar, heroBanner, notificationDot;
+    private View searchBar, heroBanner;
+    private TextView notificationDot;
     private TextView cartBadge, tvViewAll;
     private FloatingActionButton fabCart;
     private BottomNavigationView bottomNavigation;
@@ -74,6 +81,15 @@ public class CustomerHomeActivity extends AppCompatActivity {
             Log.e(TAG, "Error in onCreate", e);
             finish();
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (bottomNavigation != null) {
+            bottomNavigation.setSelectedItemId(R.id.nav_home);
+        }
+        fetchUnreadNotifications();
     }
 
     private void initViews() {
@@ -250,7 +266,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
         // Notification bell tapped → open notifications activity
         notificationButton.setOnClickListener(v -> {
-            Intent intent = new Intent(this, NotificationsActivity.class);
+            Intent intent = new Intent(this, NotificationActivity.class);
             startActivity(intent);
         });
 
@@ -355,6 +371,31 @@ public class CustomerHomeActivity extends AppCompatActivity {
                 intent.addCategory(Intent.CATEGORY_HOME);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
+            }
+        });
+    }
+
+    private void fetchUnreadNotifications() {
+        String token = "Bearer " + sessionManager.getToken();
+        ApiService apiService = RetrofitClient.getInstance(this).getApiService();
+
+        apiService.getUnreadNotificationCount(token).enqueue(new Callback<NotificationResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<NotificationResponse> call, @NonNull Response<NotificationResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    int count = response.body().getUnreadCount();
+                    if (count > 0) {
+                        notificationDot.setVisibility(View.VISIBLE);
+                        notificationDot.setText(count > 99 ? "99+" : String.valueOf(count));
+                    } else {
+                        notificationDot.setVisibility(View.GONE);
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<NotificationResponse> call, @NonNull Throwable t) {
+                Log.e(TAG, "Error fetching unread count", t);
             }
         });
     }

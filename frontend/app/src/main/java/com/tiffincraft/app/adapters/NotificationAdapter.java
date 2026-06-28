@@ -1,5 +1,7 @@
 package com.tiffincraft.app.adapters;
 
+import android.content.Context;
+import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,7 +12,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.tiffincraft.app.R;
-import com.tiffincraft.app.models.CustomerDashboardResponse;
+import com.tiffincraft.app.models.Notification;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -20,112 +22,105 @@ import java.util.Locale;
 
 public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapter.ViewHolder> {
 
-    private List<CustomerDashboardResponse.Notification> notifications;
-    private OnNotificationClickListener listener;
+    private final Context context;
+    private final List<Notification> notifications;
+    private final OnNotificationClickListener listener;
 
     public interface OnNotificationClickListener {
-        void onNotificationClick(CustomerDashboardResponse.Notification notification);
+        void onNotificationClick(Notification notification, int position);
     }
 
-    public NotificationAdapter(List<CustomerDashboardResponse.Notification> notifications, OnNotificationClickListener listener) {
+    public NotificationAdapter(Context context, List<Notification> notifications, OnNotificationClickListener listener) {
+        this.context = context;
         this.notifications = notifications;
         this.listener = listener;
-    }
-
-    public void updateNotifications(List<CustomerDashboardResponse.Notification> notifications) {
-        this.notifications = notifications;
-        notifyDataSetChanged();
     }
 
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_notification, parent, false);
+        View view = LayoutInflater.from(context).inflate(R.layout.item_notification, parent, false);
         return new ViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        CustomerDashboardResponse.Notification notification = notifications.get(position);
-        holder.bind(notification);
+        Notification notification = notifications.get(position);
+
+        holder.tvTitle.setText(notification.getTitle());
+        holder.tvMessage.setText(notification.getMessage());
+        
+        // Format date
+        holder.tvTime.setText(formatDate(notification.getCreatedAt()));
+
+        // Unread styling
+        if (!notification.isRead()) {
+            holder.layoutContainer.setBackgroundColor(Color.parseColor("#F5F9F5")); // Light green tint
+            holder.unreadDot.setVisibility(View.VISIBLE);
+        } else {
+            holder.layoutContainer.setBackgroundColor(Color.WHITE);
+            holder.unreadDot.setVisibility(View.GONE);
+        }
+
+        // Set icon based on type
+        if ("promo".equalsIgnoreCase(notification.getType())) {
+            holder.ivIcon.setImageResource(R.drawable.ic_offers);
+        } else if ("order_status".equalsIgnoreCase(notification.getType())) {
+            holder.ivIcon.setImageResource(R.drawable.ic_home);
+        } else {
+            holder.ivIcon.setImageResource(R.drawable.ic_notifications);
+        }
+
+        holder.itemView.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onNotificationClick(notification, position);
+            }
+        });
     }
 
     @Override
     public int getItemCount() {
-        return notifications.size();
+        return notifications == null ? 0 : notifications.size();
     }
 
-    class ViewHolder extends RecyclerView.ViewHolder {
-        private ImageView iconNotification;
-        private TextView tvTitle, tvMessage, tvTime;
-        private View unreadIndicator;
+    public void markAsRead(int position) {
+        if (position >= 0 && position < notifications.size()) {
+            notifications.get(position).setIsRead(true);
+            notifyItemChanged(position);
+        }
+    }
+
+    private String formatDate(String dateString) {
+        if (dateString == null) return "Just now";
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault());
+            Date date = sdf.parse(dateString);
+            if (date == null) return dateString;
+            
+            long diff = System.currentTimeMillis() - date.getTime();
+            long hours = diff / (60 * 60 * 1000);
+            
+            if (hours < 1) return "Just now";
+            if (hours < 24) return hours + " hours ago";
+            return (hours / 24) + " days ago";
+        } catch (ParseException e) {
+            return dateString.split("T")[0];
+        }
+    }
+
+    public static class ViewHolder extends RecyclerView.ViewHolder {
+        TextView tvTitle, tvMessage, tvTime;
+        ImageView ivIcon;
+        View unreadDot, layoutContainer;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
-            iconNotification = itemView.findViewById(R.id.iconNotification);
-            tvTitle = itemView.findViewById(R.id.tvTitle);
-            tvMessage = itemView.findViewById(R.id.tvMessage);
-            tvTime = itemView.findViewById(R.id.tvTime);
-            unreadIndicator = itemView.findViewById(R.id.unreadIndicator);
-        }
-
-        public void bind(CustomerDashboardResponse.Notification notification) {
-            tvTitle.setText(notification.getTitle());
-            tvMessage.setText(notification.getMessage());
-            tvTime.setText(formatTime(notification.getCreatedAt()));
-
-            // Show/hide unread indicator
-            if (notification.isRead()) {
-                unreadIndicator.setVisibility(View.GONE);
-                itemView.setAlpha(0.7f);
-            } else {
-                unreadIndicator.setVisibility(View.VISIBLE);
-                itemView.setAlpha(1.0f);
-            }
-
-            // Set icon based on notification type
-            String type = notification.getType();
-            if ("order".equals(type)) {
-                iconNotification.setImageResource(R.drawable.ic_view_orders);
-            } else if ("promo".equals(type)) {
-                iconNotification.setImageResource(R.drawable.ic_offers);
-            } else if ("cook".equals(type)) {
-                iconNotification.setImageResource(R.drawable.ic_cook);
-            } else {
-                iconNotification.setImageResource(R.drawable.ic_notifications);
-            }
-
-            // Click listener
-            itemView.setOnClickListener(v -> {
-                if (listener != null) {
-                    listener.onNotificationClick(notification);
-                }
-            });
-        }
-
-        private String formatTime(String timestamp) {
-            try {
-                SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-                Date date = inputFormat.parse(timestamp);
-                
-                long diff = System.currentTimeMillis() - date.getTime();
-                long seconds = diff / 1000;
-                long minutes = seconds / 60;
-                long hours = minutes / 60;
-                long days = hours / 24;
-
-                if (days > 0) {
-                    return days + "d ago";
-                } else if (hours > 0) {
-                    return hours + "h ago";
-                } else if (minutes > 0) {
-                    return minutes + "m ago";
-                } else {
-                    return "Just now";
-                }
-            } catch (ParseException e) {
-                return timestamp;
-            }
+            tvTitle = itemView.findViewById(R.id.tvNotificationTitle);
+            tvMessage = itemView.findViewById(R.id.tvNotificationMessage);
+            tvTime = itemView.findViewById(R.id.tvNotificationTime);
+            ivIcon = itemView.findViewById(R.id.ivNotificationIcon);
+            unreadDot = itemView.findViewById(R.id.unreadDot);
+            layoutContainer = itemView.findViewById(R.id.layoutNotificationContainer);
         }
     }
 }

@@ -22,8 +22,8 @@ import java.util.concurrent.TimeUnit;
 
 public class RetrofitClient {
 
-    public static final String BASE_URL = "https://swift-garlics-ring.loca.lt/api/";
-    public static final String SERVER_URL = "https://swift-garlics-ring.loca.lt";
+    public static final String BASE_URL = "https://honest-teeth-post.loca.lt/api/";
+    public static final String SERVER_URL = "https://honest-teeth-post.loca.lt";
 
     private static RetrofitClient instance;
     private final Retrofit retrofit;
@@ -40,22 +40,22 @@ public class RetrofitClient {
             public Response intercept(Chain chain) throws IOException {
                 Request originalRequest = chain.request();
 
-                if (originalRequest.header("Authorization") != null) {
-                    return chain.proceed(originalRequest);
+                // Always add the localtunnel bypass header
+                Request.Builder builder = originalRequest.newBuilder()
+                        .header("Bypass-Tunnel-Reminder", "true");
+
+                // If the request already carries an Authorization header, keep it
+                // Otherwise, try to inject the stored token
+                if (originalRequest.header("Authorization") == null) {
+                    SharedPreferences prefs = context.getSharedPreferences(
+                            "TiffinCraftSession", Context.MODE_PRIVATE);
+                    String token = prefs.getString("token", null);
+                    if (token != null && !token.isEmpty()) {
+                        builder.header("Authorization", "Bearer " + token);
+                    }
                 }
 
-                SharedPreferences prefs = context.getSharedPreferences("TiffinCraftPrefs", Context.MODE_PRIVATE);
-                String token = prefs.getString("auth_token", null);
-
-                if (token == null || token.isEmpty()) {
-                    return chain.proceed(originalRequest);
-                }
-
-                Request newRequest = originalRequest.newBuilder()
-                        .header("Authorization", "Bearer " + token)
-                        .build();
-
-                return chain.proceed(newRequest);
+                return chain.proceed(builder.build());
             }
         };
 
@@ -66,10 +66,12 @@ public class RetrofitClient {
             public void saveFromResponse(HttpUrl url, List<Cookie> cookies) {
                 cookieStore.put(url.host(), cookies);
 
+                // Save token from cookie to SessionManager prefs for consistency
                 for (Cookie cookie : cookies) {
                     if ("auth_token".equals(cookie.name())) {
-                        SharedPreferences prefs = context.getSharedPreferences("TiffinCraftPrefs", Context.MODE_PRIVATE);
-                        prefs.edit().putString("auth_token", cookie.value()).apply();
+                        SharedPreferences prefs = context.getSharedPreferences(
+                                "TiffinCraftSession", Context.MODE_PRIVATE);
+                        prefs.edit().putString("token", cookie.value()).apply();
                     }
                 }
             }
@@ -109,23 +111,28 @@ public class RetrofitClient {
         return instance;
     }
 
+    /** Call this after tunnel URL changes so the singleton is rebuilt with new URLs. */
+    public static synchronized void resetInstance() {
+        instance = null;
+    }
+
     public ApiService getApiService() {
         return retrofit.create(ApiService.class);
     }
 
     public static String getAuthToken(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences("TiffinCraftPrefs", Context.MODE_PRIVATE);
-        String token = prefs.getString("auth_token", null);
+        SharedPreferences prefs = context.getSharedPreferences("TiffinCraftSession", Context.MODE_PRIVATE);
+        String token = prefs.getString("token", null);
         return token != null ? "Bearer " + token : null;
     }
 
     public static void saveAuthToken(Context context, String token) {
-        SharedPreferences prefs = context.getSharedPreferences("TiffinCraftPrefs", Context.MODE_PRIVATE);
-        prefs.edit().putString("auth_token", token).apply();
+        SharedPreferences prefs = context.getSharedPreferences("TiffinCraftSession", Context.MODE_PRIVATE);
+        prefs.edit().putString("token", token).apply();
     }
 
     public static void clearAuthToken(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences("TiffinCraftPrefs", Context.MODE_PRIVATE);
-        prefs.edit().remove("auth_token").apply();
+        SharedPreferences prefs = context.getSharedPreferences("TiffinCraftSession", Context.MODE_PRIVATE);
+        prefs.edit().remove("token").apply();
     }
 }

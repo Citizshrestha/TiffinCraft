@@ -18,6 +18,8 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.model.GlideUrl;
+import com.bumptech.glide.load.model.LazyHeaders;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
@@ -115,16 +117,29 @@ public class CookProfileActivity extends AppCompatActivity {
     }
 
     /**
+     * Build full URL from relative path returned by backend
+     */
+    private String getFullImageUrl(String imageUrl) {
+        if (imageUrl == null || imageUrl.isEmpty()) return null;
+        if (imageUrl.startsWith("http")) return imageUrl;
+        return RetrofitClient.SERVER_URL + imageUrl;
+    }
+
+    /**
      * Load profile image from session using Glide
      */
     private void loadProfileImage() {
         String imageUrl = sessionManager.getProfileImage();
-        
-        if (imageUrl != null && !imageUrl.isEmpty()) {
-            Log.d(TAG, "Loading profile image: " + imageUrl);
-            
+        String fullUrl = getFullImageUrl(imageUrl);
+        if (fullUrl != null) {
+            Log.d(TAG, "Loading cook profile image: " + fullUrl);
+
+            GlideUrl glideUrl = new GlideUrl(fullUrl, new LazyHeaders.Builder()
+                .addHeader("Bypass-Tunnel-Reminder", "true")
+                .build());
+
             Glide.with(this)
-                .load(imageUrl)
+                .load(glideUrl)
                 .placeholder(R.drawable.ic_default_avatar)
                 .error(R.drawable.ic_default_avatar)
                 .circleCrop()
@@ -348,7 +363,8 @@ public class CookProfileActivity extends AppCompatActivity {
                     finish();
                     return true;
                 } else if (itemId == R.id.nav_meals) {
-                    startActivity(new Intent(CookProfileActivity.this, AddMenuActivity.class));
+                    startActivity(new Intent(CookProfileActivity.this, CookMealActivity.class));
+                    finish();
                     return true;
                 } else if (itemId == R.id.nav_orders) {
                     startActivity(new Intent(CookProfileActivity.this, ManageOrdersActivity.class));

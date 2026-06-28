@@ -4,6 +4,7 @@ public class RegisterResponse {
     private boolean success;
     private String message;
     private int userId;
+    private boolean autoVerified;
 
     public boolean isSuccess() {
         return success;
@@ -27,5 +28,13 @@ public class RegisterResponse {
 
     public void setUserId(int userId) {
         this.userId = userId;
+    }
+
+    public boolean isAutoVerified() {
+        return autoVerified;
+    }
+
+    public void setAutoVerified(boolean autoVerified) {
+        this.autoVerified = autoVerified;
     }
 }

@@ -15,12 +15,16 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.model.GlideUrl;
+import com.bumptech.glide.load.model.LazyHeaders;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.common.NotificationActivity;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.DashboardResponse;
 import com.tiffincraft.app.models.DashboardStats;
+import com.tiffincraft.app.models.NotificationResponse;
 import com.tiffincraft.app.session.SessionManager;
 
 import java.text.DecimalFormat;
@@ -36,6 +40,7 @@ public class CookHomeActivity extends AppCompatActivity {
     private ImageView imgCookProfilePic;
     private TextView tvKitchenName, tvWelcome;
     private TextView tvTodayOrders, tvTodayEarnings, tvActiveSubscriptions, tvAvgRating;
+    private TextView tvNotificationBadge;
     private View btnAddMeal;
     private BottomNavigationView bottomNavigation;
     private SessionManager sessionManager;
@@ -60,11 +65,26 @@ public class CookHomeActivity extends AppCompatActivity {
             applyEntranceAnimations();
             setupBackPressHandler();
             
+            // Click on notification bell
+            findViewById(R.id.btnNotifications).setOnClickListener(v -> {
+                Intent intent = new Intent(this, NotificationActivity.class);
+                startActivity(intent);
+            });
+            
             Log.d(TAG, "CookHomeActivity onCreate completed successfully");
         } catch (Exception e) {
             Log.e(TAG, "Error in onCreate", e);
             finish();
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (bottomNavigation != null) {
+            bottomNavigation.setSelectedItemId(R.id.nav_home);
+        }
+        fetchUnreadNotifications();
     }
 
     private void initViews() {
@@ -77,6 +97,7 @@ public class CookHomeActivity extends AppCompatActivity {
         tvAvgRating = findViewById(R.id.tvAvgRating);
         btnAddMeal = findViewById(R.id.btnAddMeal);
         bottomNavigation = findViewById(R.id.bottomNavigation);
+        tvNotificationBadge = findViewById(R.id.tvNotificationBadge);
     }
 
     private void loadUserData() {
@@ -92,14 +113,26 @@ public class CookHomeActivity extends AppCompatActivity {
         // Load profile picture using same method as CookProfileActivity
         String profileImageUrl = sessionManager.getProfileImage();
         if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
-            Log.d(TAG, "Loading profile image: " + profileImageUrl);
+            String fullUrl = getFullImageUrl(profileImageUrl);
+            if (fullUrl != null) {
+                Log.d(TAG, "Loading profile image: " + fullUrl);
 
-            Glide.with(this)
-                .load(profileImageUrl)
-                .placeholder(R.drawable.ic_default_avatar)
-                .error(R.drawable.ic_default_avatar)
-                .circleCrop()
-                .into(imgCookProfilePic);
+                GlideUrl glideUrl = new GlideUrl(fullUrl, new LazyHeaders.Builder()
+                    .addHeader("Bypass-Tunnel-Reminder", "true")
+                    .build());
+
+                Glide.with(this)
+                    .load(glideUrl)
+                    .placeholder(R.drawable.ic_default_avatar)
+                    .error(R.drawable.ic_default_avatar)
+                    .circleCrop()
+                    .into(imgCookProfilePic);
+            } else {
+                Glide.with(this)
+                    .load(R.drawable.ic_default_avatar)
+                    .circleCrop()
+                    .into(imgCookProfilePic);
+            }
         } else {
             // Default avatar
             Glide.with(this)
@@ -110,6 +143,15 @@ public class CookHomeActivity extends AppCompatActivity {
 
         // Fetch real dashboard data from backend
         fetchDashboardData();
+    }
+
+    /**
+     * Build full URL from relative path returned by backend
+     */
+    private String getFullImageUrl(String imageUrl) {
+        if (imageUrl == null || imageUrl.isEmpty()) return null;
+        if (imageUrl.startsWith("http")) return imageUrl;
+        return RetrofitClient.SERVER_URL + imageUrl;
     }
 
     /**
@@ -328,6 +370,31 @@ public class CookHomeActivity extends AppCompatActivity {
                 intent.addCategory(Intent.CATEGORY_HOME);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
+            }
+        });
+    }
+
+    private void fetchUnreadNotifications() {
+        String token = "Bearer " + sessionManager.getToken();
+        ApiService apiService = RetrofitClient.getInstance(this).getApiService();
+
+        apiService.getUnreadNotificationCount(token).enqueue(new Callback<NotificationResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<NotificationResponse> call, @NonNull Response<NotificationResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    int count = response.body().getUnreadCount();
+                    if (count > 0) {
+                        tvNotificationBadge.setVisibility(View.VISIBLE);
+                        tvNotificationBadge.setText(count > 99 ? "99+" : String.valueOf(count));
+                    } else {
+                        tvNotificationBadge.setVisibility(View.GONE);
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<NotificationResponse> call, @NonNull Throwable t) {
+                Log.e(TAG, "Error fetching unread count", t);
             }
         });
     }
