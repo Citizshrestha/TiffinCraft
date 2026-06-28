@@ -2,6 +2,8 @@ package com.tiffincraft.app.api;
 
 import com.tiffincraft.app.models.CookProfileRequest;
 import com.tiffincraft.app.models.CookProfileResponse;
+import com.tiffincraft.app.models.CustomerProfileRequest;
+import com.tiffincraft.app.models.CustomerProfileResponse;
 import com.tiffincraft.app.models.ForgotPasswordRequest;
 import com.tiffincraft.app.models.GoogleLoginRequest;
 import com.tiffincraft.app.models.LoginRequest;
@@ -146,5 +148,17 @@ public interface ApiService {
     Call<UploadResponse> uploadCustomerProfileImage(
             @Header("Authorization") String authToken,
             @Part MultipartBody.Part profile_image
+    );
+
+    // Customer profile endpoints
+    @GET("auth/profile")
+    Call<CustomerProfileResponse> getCustomerProfile(
+            @Header("Authorization") String token
+    );
+
+    @PUT("auth/profile")
+    Call<CustomerProfileResponse> updateCustomerProfile(
+            @Header("Authorization") String token,
+            @Body CustomerProfileRequest request
     );
 }

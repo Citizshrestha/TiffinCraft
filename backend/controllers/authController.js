@@ -382,3 +382,167 @@ export const resetPassword = async (req, res) => {
         return res.status(500).json({ message: "Server error.", error: error.message });
     }
 };
+
+// Get customer profile
+export const getCustomerProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const [users] = await db.promise().query(
+            `SELECT id, full_name, email, phone, address, profile_image, created_at, role
+             FROM users 
+             WHERE id = ? AND role = 'customer'`,
+            [userId]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Customer profile not found."
+            });
+        }
+
+        // Get order statistics
+        const [orderStats] = await db.promise().query(
+            `SELECT 
+                COUNT(*) as total_orders,
+                COALESCE(SUM(total_amount), 0) as total_spent
+             FROM orders 
+             WHERE customer_id = ?`,
+            [userId]
+        );
+
+        const profile = {
+            ...users[0],
+            total_orders: orderStats[0]?.total_orders || 0,
+            total_spent: orderStats[0]?.total_spent || 0
+        };
+
+        return res.status(200).json({
+            success: true,
+            profile: profile
+        });
+
+    } catch (error) {
+        console.error("getCustomerProfile error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};
+
+// Update customer profile
+export const updateCustomerProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { full_name, phone, address } = req.body;
+
+        // Verify user is a customer
+        const [users] = await db.promise().query(
+            "SELECT role FROM users WHERE id = ?",
+            [userId]
+        );
+
+        if (users.length === 0 || users[0].role !== 'customer') {
+            return res.status(403).json({
+                success: false,
+                message: "Access denied. Customer account required."
+            });
+        }
+
+        const updates = [];
+        const values = [];
+
+        if (full_name !== undefined) {
+            updates.push("full_name = ?");
+            values.push(full_name);
+        }
+        if (phone !== undefined) {
+            updates.push("phone = ?");
+            values.push(phone);
+        }
+        if (address !== undefined) {
+            updates.push("address = ?");
+            values.push(address);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No fields to update."
+            });
+        }
+
+        values.push(userId);
+
+        await db.promise().query(
+            `UPDATE users SET ${updates.join(", ")} WHERE id = ?`,
+            values
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile updated successfully."
+        });
+
+    } catch (error) {
+        console.error("updateCustomerProfile error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};
+
+// Upload customer profile image
+export const uploadCustomerProfileImage = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "No image file provided."
+            });
+        }
+
+        // Get current image to delete old one
+        const [users] = await db.promise().query(
+            "SELECT profile_image FROM users WHERE id = ?",
+            [userId]
+        );
+
+        // Delete old image if exists
+        if (users[0]?.profile_image) {
+            const { deleteFile } = await import("../utils/fileHelper.js");
+            deleteFile(users[0].profile_image);
+        }
+
+        // Build public URL
+        const { buildFileUrl } = await import("../utils/fileHelper.js");
+        const imageUrl = buildFileUrl(req, "profiles", req.file.filename);
+
+        // Update user profile image
+        await db.promise().query(
+            "UPDATE users SET profile_image = ? WHERE id = ?",
+            [imageUrl, userId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile image uploaded successfully.",
+            image_url: imageUrl
+        });
+
+    } catch (error) {
+        console.error("uploadCustomerProfileImage error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};
