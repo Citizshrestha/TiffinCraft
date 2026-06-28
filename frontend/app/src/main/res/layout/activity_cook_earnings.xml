@@ -53,15 +53,16 @@
                     android:tint="#111111" />
             </LinearLayout>
 
-            <!-- ============ MONTHLY SUMMARY CARD ============ -->
+            <!-- ============ TOTAL EARNINGS CARD ============ -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="20dp"
                 android:layout_marginEnd="20dp"
+                android:layout_marginBottom="10dp"
                 android:background="@drawable/overview_card_bg"
                 android:orientation="vertical"
-                android:padding="20dp">
+                android:padding="24dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -93,9 +94,10 @@
                         android:paddingBottom="7dp">
 
                         <TextView
+                            android:id="@+id/tvSelectedMonth"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="May 2026"
+                            android:text="June 2026"
                             android:textColor="#FFFFFF"
                             android:textSize="12sp"
                             android:textStyle="bold" />
@@ -111,131 +113,33 @@
                 </LinearLayout>
 
                 <TextView
-                    android:id="@+id/tvMonthlyEarnings"
+                    android:id="@+id/tvTotalEarnings"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
+                    android:layout_marginTop="16dp"
                     android:text="₹38,640"
                     android:textColor="#FFFFFF"
-                    android:textSize="30sp"
+                    android:textSize="36sp"
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/tvEarningsSubtitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="4dp"
                     android:text="Total Earnings · 212 orders"
                     android:textColor="#DCEDC8"
                     android:textSize="13sp" />
 
-                <ImageView
-                    android:layout_width="match_parent"
-                    android:layout_height="100dp"
-                    android:layout_marginTop="18dp"
-                    android:contentDescription="Monthly earnings chart"
-                    android:src="@drawable/chart_earnings_line" />
-            </LinearLayout>
-
-            <!-- ============ PAYOUT SUMMARY ROW ============ -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginTop="14dp"
-                android:layout_marginEnd="20dp"
-                android:orientation="horizontal">
-
-                <!-- Available Balance -->
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="0dp"
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="6dp"
-                    android:layout_weight="1"
-                    app:cardBackgroundColor="#FFFFFF"
-                    app:cardCornerRadius="16dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="#EFEFEF"
-                    app:strokeWidth="1dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="14dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Available Balance"
-                            android:textColor="#777777"
-                            android:textSize="11.5sp" />
-
-                        <TextView
-                            android:id="@+id/tvAvailableBalance"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:text="₹4,250"
-                            android:textColor="#111111"
-                            android:textSize="18sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-
-                <!-- Next Payout -->
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:layout_weight="1"
-                    app:cardBackgroundColor="#FFFFFF"
-                    app:cardCornerRadius="16dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="#EFEFEF"
-                    app:strokeWidth="1dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="14dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Next Payout"
-                            android:textColor="#777777"
-                            android:textSize="11.5sp" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:text="Jun 1, 2026"
-                            android:textColor="#111111"
-                            android:textSize="15sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
+                    android:layout_marginTop="12dp"
+                    android:text="Customers pay via eSewa/mobile banking QR"
+                    android:textColor="#C8E6C9"
+                    android:textSize="11.5sp"
+                    android:alpha="0.9" />
             </LinearLayout>
-
-            <!-- ============ WITHDRAW BUTTON ============ -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnWithdrawEarnings"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginStart="20dp"
-                android:layout_marginTop="14dp"
-                android:layout_marginEnd="20dp"
-                android:backgroundTint="#4CAF50"
-                android:text="Withdraw to Bank"
-                android:textAllCaps="false"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                app:cornerRadius="12dp"
-                app:icon="@drawable/ic_earnings"
-                app:iconTint="#FFFFFF" />
 
             <!-- ============ RECENT TRANSACTIONS HEADER ============ -->
             <LinearLayout
@@ -332,6 +236,7 @@
                 android:layout_marginStart="20dp"
                 android:layout_marginTop="16dp"
                 android:layout_marginEnd="20dp"
+                android:layout_marginBottom="24dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -382,64 +287,6 @@
                     android:textStyle="bold" />
             </LinearLayout>
 
-            <!-- ============ TRANSACTION ROW 3: PAYOUT (outgoing) ============ -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginTop="16dp"
-                android:layout_marginEnd="20dp"
-                android:layout_marginBottom="24dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <FrameLayout
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="@drawable/circle_icon_blue">
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:layout_gravity="center"
-                        android:contentDescription="Payout"
-                        android:src="@drawable/ic_arrow_up_right"
-                        android:tint="#1E88E5" />
-                </FrameLayout>
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Payout to bank ••4821"
-                        android:textColor="#111111"
-                        android:textSize="13.5sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="May 1, 2026"
-                        android:textColor="#999999"
-                        android:textSize="11sp" />
-                </LinearLayout>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="− ₹32,150"
-                    android:textColor="#185FA5"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
         </LinearLayout>
 
     </androidx.core.widget.NestedScrollView>
@@ -456,7 +303,7 @@
         app:itemTextColor="@color/bottom_nav_color"
         app:itemRippleColor="#1A4CAF50"
         app:itemActiveIndicatorStyle="@null"
-        app:labelVisibilityMode="selected"
+        app:labelVisibilityMode="labeled"
         app:menu="@menu/bottom_nav_cook" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

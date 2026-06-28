@@ -298,7 +298,7 @@
         app:itemTextColor="@color/bottom_nav_color"
         app:itemRippleColor="#1A4CAF50"
         app:itemActiveIndicatorStyle="@null"
-        app:labelVisibilityMode="selected"
+        app:labelVisibilityMode="labeled"
         app:menu="@menu/bottom_nav_cook" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -5,21 +5,29 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.engine.DiskCacheStrategy;
-import com.bumptech.glide.request.RequestOptions;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.android.material.button.MaterialButton;
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.api.ApiService;
+import com.tiffincraft.app.api.RetrofitClient;
+import com.tiffincraft.app.models.DashboardResponse;
+import com.tiffincraft.app.models.DashboardStats;
 import com.tiffincraft.app.session.SessionManager;
+
+import java.text.DecimalFormat;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class CookHomeActivity extends AppCompatActivity {
 
@@ -81,31 +89,149 @@ public class CookHomeActivity extends AppCompatActivity {
             tvWelcome.setText("Hello! 👋");
         }
 
-        // Load profile picture
+        // Load profile picture using same method as CookProfileActivity
         String profileImageUrl = sessionManager.getProfileImage();
         if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
-            String fullImageUrl = "http://192.168.100.115:5000" + profileImageUrl;
-            
-            RequestOptions options = new RequestOptions()
-                .centerCrop()
-                .circleCrop()
-                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .placeholder(R.drawable.ic_person)
-                .error(R.drawable.ic_person);
-            
+            Log.d(TAG, "Loading profile image: " + profileImageUrl);
+
             Glide.with(this)
-                .load(fullImageUrl)
-                .apply(options)
+                .load(profileImageUrl)
+                .placeholder(R.drawable.ic_default_avatar)
+                .error(R.drawable.ic_default_avatar)
+                .circleCrop()
                 .into(imgCookProfilePic);
         } else {
             // Default avatar
-            imgCookProfilePic.setImageResource(R.drawable.ic_person);
+            Glide.with(this)
+                .load(R.drawable.ic_default_avatar)
+                .circleCrop()
+                .into(imgCookProfilePic);
         }
 
-        tvTodayOrders.setText("18");
-        tvTodayEarnings.setText("₹4,250");
-        tvActiveSubscriptions.setText("32");
-        tvAvgRating.setText("4.8");
+        // Fetch real dashboard data from backend
+        fetchDashboardData();
+    }
+
+    /**
+     * Fetch real dashboard statistics from backend API
+     */
+    private void fetchDashboardData() {
+        String token = "Bearer " + sessionManager.getToken();
+
+        Log.d(TAG, "=== Fetching Dashboard Data ===");
+        Log.d(TAG, "Token exists: " + (sessionManager.getToken() != null));
+        Log.d(TAG, "User ID: " + sessionManager.getUserId());
+        Log.d(TAG, "User Role: " + sessionManager.getRole());
+
+        ApiService apiService = RetrofitClient.getInstance(this).getApiService();
+
+        apiService.getCookDashboard(token).enqueue(new Callback<DashboardResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<DashboardResponse> call,
+                                   @NonNull Response<DashboardResponse> response) {
+                Log.d(TAG, "=== Dashboard Response Received ===");
+                Log.d(TAG, "Response Code: " + response.code());
+                Log.d(TAG, "Response Success: " + response.isSuccessful());
+                
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().isSuccess()) {
+
+                    DashboardStats stats = response.body().getDashboard();
+                    Log.d(TAG, "✅ Dashboard data received");
+                    if (stats != null) {
+                        Log.d(TAG, "  - Today orders: " + (stats.getTodayOrders() != null ? stats.getTodayOrders().getCount() : "null"));
+                        Log.d(TAG, "  - Today earnings: ₹" + (stats.getTodayEarnings() != null ? stats.getTodayEarnings().getAmount() : "null"));
+                        Log.d(TAG, "  - Active orders: " + (stats.getActiveOrders() != null ? stats.getActiveOrders().getCount() : "null"));
+                        Log.d(TAG, "  - Average rating: " + (stats.getAverageRating() != null ? stats.getAverageRating().getRating() : "null"));
+                    }
+                    updateDashboardUI(stats);
+
+                } else {
+                    Log.e(TAG, "❌ Failed to fetch dashboard: " + response.code());
+                    if (response.errorBody() != null) {
+                        try {
+                            String errorBody = response.errorBody().string();
+                            Log.e(TAG, "Error body: " + errorBody);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Could not read error body", e);
+                        }
+                    }
+                    // Show default values on error
+                    setDefaultDashboardValues();
+                    Toast.makeText(CookHomeActivity.this,
+                            "Could not load dashboard: Code " + response.code(),
+                            Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<DashboardResponse> call, @NonNull Throwable t) {
+                Log.e(TAG, "❌ Dashboard API call failed", t);
+                Log.e(TAG, "Error message: " + t.getMessage());
+                Log.e(TAG, "Error class: " + t.getClass().getName());
+                Log.e(TAG, "Cause: " + (t.getCause() != null ? t.getCause().getMessage() : "null"));
+                
+                // Show default values on error
+                setDefaultDashboardValues();
+                
+                String errorMessage = "Could not load dashboard";
+                if (t.getMessage() != null && t.getMessage().contains("Unable to resolve host")) {
+                    errorMessage = "Cannot connect to server";
+                } else if (t.getMessage() != null && t.getMessage().contains("timeout")) {
+                    errorMessage = "Connection timeout";
+                }
+                
+                Toast.makeText(CookHomeActivity.this,
+                        errorMessage,
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    /**
+     * Update UI with real dashboard statistics
+     */
+    private void updateDashboardUI(DashboardStats stats) {
+        if (stats == null) {
+            setDefaultDashboardValues();
+            return;
+        }
+
+        // Update today's orders
+        if (stats.getTodayOrders() != null) {
+            tvTodayOrders.setText(String.valueOf(stats.getTodayOrders().getCount()));
+        }
+
+        // Update today's earnings
+        if (stats.getTodayEarnings() != null) {
+            DecimalFormat formatter = new DecimalFormat("#,##0");
+            String earnings = "₹" + formatter.format(stats.getTodayEarnings().getAmount());
+            tvTodayEarnings.setText(earnings);
+        }
+
+        // Update active subscriptions (using active orders count)
+        if (stats.getActiveOrders() != null) {
+            tvActiveSubscriptions.setText(String.valueOf(stats.getActiveOrders().getCount()));
+        }
+
+        // Update average rating
+        if (stats.getAverageRating() != null) {
+            DecimalFormat ratingFormatter = new DecimalFormat("0.0");
+            String rating = ratingFormatter.format(stats.getAverageRating().getRating());
+            tvAvgRating.setText(rating);
+        }
+
+        Log.d(TAG, "Dashboard UI updated with real data");
+    }
+
+    /**
+     * Set default dashboard values (fallback)
+     */
+    private void setDefaultDashboardValues() {
+        tvTodayOrders.setText("0");
+        tvTodayEarnings.setText("₹0");
+        tvActiveSubscriptions.setText("0");
+        tvAvgRating.setText("0.0");
     }
 
     private void setupListeners() {

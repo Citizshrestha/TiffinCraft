@@ -271,9 +271,18 @@ public class AddMenuActivity extends AppCompatActivity {
             return;
         }
         
-        // Create meal request
-        MealRequest mealRequest = new MealRequest(name, description, price, selectedCategory,
-                isAvailable, isVeg, isSpicy, isBestseller);
+        // Create meal request with all fields properly set
+        MealRequest mealRequest = new MealRequest();
+        mealRequest.setName(name);
+        mealRequest.setDescription(description);
+        mealRequest.setPrice(price);
+        mealRequest.setCategory(selectedCategory);
+        mealRequest.setCuisineType("Indian"); // Set default cuisine type
+        mealRequest.setAvailable(isAvailable);
+        mealRequest.setVegetarian(isVeg);
+        mealRequest.setVegan(false); // Default to false
+        mealRequest.setSpiceLevel(isSpicy ? "hot" : "mild");
+        mealRequest.setPreparationTime(30); // Default 30 minutes
         
         // Show progress
         binding.btnSaveMeal.setEnabled(false);
@@ -320,40 +329,84 @@ public class AddMenuActivity extends AppCompatActivity {
     }
     
     private void uploadMealImage(int mealId) {
+        Log.d(TAG, "=== uploadMealImage called ===");
+        Log.d(TAG, "Meal ID: " + mealId);
+        Log.d(TAG, "Selected Image URI: " + selectedImageUri);
+        
         try {
             // Get file from URI
             File file = getFileFromUri(selectedImageUri);
             if (file == null || !file.exists()) {
-                Log.e(TAG, "File not found");
+                Log.e(TAG, "❌ File not found or null");
+                Toast.makeText(this, "Image file not found", Toast.LENGTH_SHORT).show();
                 showSuccessAndFinish();
                 return;
             }
             
-            RequestBody requestFile = RequestBody.create(MediaType.parse("image/*"), file);
+            Log.d(TAG, "File details:");
+            Log.d(TAG, "  - Path: " + file.getAbsolutePath());
+            Log.d(TAG, "  - Name: " + file.getName());
+            Log.d(TAG, "  - Size: " + file.length() + " bytes");
+            Log.d(TAG, "  - Exists: " + file.exists());
+            Log.d(TAG, "  - Can read: " + file.canRead());
+            
+            // Detect the correct MIME type from the file extension
+            String mimeType;
+            String fileName = file.getName().toLowerCase();
+            if (fileName.endsWith(".png")) {
+                mimeType = "image/png";
+            } else if (fileName.endsWith(".webp")) {
+                mimeType = "image/webp";
+            } else {
+                mimeType = "image/jpeg"; // default for .jpg / .jpeg / camera captures
+            }
+
+            RequestBody requestFile = RequestBody.create(MediaType.parse(mimeType), file);
             MultipartBody.Part body = MultipartBody.Part.createFormData("meal_image", file.getName(), requestFile);
             
             String token = "Bearer " + sessionManager.getToken();
             
+            Log.d(TAG, "Uploading to API...");
             apiService.uploadMealImage(token, mealId, body).enqueue(new Callback<MealResponse>() {
                 @Override
                 public void onResponse(@NonNull Call<MealResponse> call, @NonNull Response<MealResponse> response) {
+                    Log.d(TAG, "=== Upload Response ===");
+                    Log.d(TAG, "Response Code: " + response.code());
+                    Log.d(TAG, "Response Success: " + response.isSuccessful());
+                    
                     if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                        Log.d(TAG, "Image uploaded successfully");
+                        Log.d(TAG, "✅ Image uploaded successfully");
+                        Log.d(TAG, "Image URL: " + response.body().getImageUrl());
+                        Toast.makeText(AddMenuActivity.this, "Meal with image saved!", Toast.LENGTH_SHORT).show();
                     } else {
-                        Log.e(TAG, "Image upload failed but meal created");
+                        Log.e(TAG, "❌ Image upload failed");
+                        if (response.body() != null) {
+                            Log.e(TAG, "Message: " + response.body().getMessage());
+                        }
+                        if (response.errorBody() != null) {
+                            try {
+                                Log.e(TAG, "Error: " + response.errorBody().string());
+                            } catch (Exception e) {
+                                Log.e(TAG, "Could not read error", e);
+                            }
+                        }
+                        Toast.makeText(AddMenuActivity.this, "Meal saved but image upload failed", Toast.LENGTH_SHORT).show();
                     }
                     showSuccessAndFinish();
                 }
                 
                 @Override
                 public void onFailure(@NonNull Call<MealResponse> call, @NonNull Throwable t) {
-                    Log.e(TAG, "Error uploading image", t);
+                    Log.e(TAG, "❌ Upload network failure", t);
+                    Log.e(TAG, "Error: " + t.getMessage());
+                    Toast.makeText(AddMenuActivity.this, "Meal saved but image upload failed", Toast.LENGTH_SHORT).show();
                     // Still show success since meal was created
                     showSuccessAndFinish();
                 }
             });
         } catch (Exception e) {
-            Log.e(TAG, "Error preparing image upload", e);
+            Log.e(TAG, "❌ Exception preparing upload", e);
+            Toast.makeText(AddMenuActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             showSuccessAndFinish();
         }
     }
@@ -396,6 +449,9 @@ public class AddMenuActivity extends AppCompatActivity {
     
     private void showSuccessAndFinish() {
         Toast.makeText(this, "Meal Saved Successfully!", Toast.LENGTH_SHORT).show();
+        
+        // Set result to indicate success
+        setResult(RESULT_OK);
         finish();
     }
     

@@ -21,19 +21,25 @@ public class CookEarningsActivity extends AppCompatActivity {
     }
 
     private void setupClickListeners() {
-        // Setup withdraw earnings button if it exists
-        if (binding.btnWithdrawEarnings != null) {
-            binding.btnWithdrawEarnings.setOnClickListener(v -> {
-                // TODO: Implement withdrawal flow
-                Toast.makeText(this, "Withdrawal feature coming soon", Toast.LENGTH_SHORT).show();
-            });
-        }
-
         // Setup view all transactions if it exists
         if (binding.tvViewAllTransactions != null) {
             binding.tvViewAllTransactions.setOnClickListener(v -> {
                 // TODO: Show all transactions
-                Toast.makeText(this, "Transaction history coming soon", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Full transaction history coming soon", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        // Setup download statement button if it exists
+        if (binding.btnDownloadStatement != null) {
+            binding.btnDownloadStatement.setOnClickListener(v -> {
+                Toast.makeText(this, "Download statement coming soon", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        // Setup month selector if it exists
+        if (binding.btnSelectMonth != null) {
+            binding.btnSelectMonth.setOnClickListener(v -> {
+                Toast.makeText(this, "Month selector coming soon", Toast.LENGTH_SHORT).show();
             });
         }
     }
@@ -54,7 +60,7 @@ public class CookEarningsActivity extends AppCompatActivity {
                     finish();
                     return true;
                 } else if (itemId == R.id.nav_orders) {
-                    Toast.makeText(this, "Orders screen coming soon", Toast.LENGTH_SHORT).show();
+                    startActivity(new Intent(this, ManageOrdersActivity.class));
                     return true;
                 } else if (itemId == R.id.nav_earnings) {
                     return true; // Already on this screen

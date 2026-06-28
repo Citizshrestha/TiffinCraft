@@ -55,8 +55,8 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
     protected void onResume() {
         super.onResume();
         // Refresh meals when returning from Add Meal screen
-        // Add a small delay to let backend finish processing
-        binding.getRoot().postDelayed(this::loadMyMeals, 500);
+        Log.d(TAG, "=== onResume called - refreshing meals ===");
+        loadMyMeals();
     }
     
     private void setupRecyclerView() {
@@ -129,7 +129,10 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
         String token = "Bearer " + sessionManager.getToken();
         
         Log.d(TAG, "=== Loading Meals ===");
-        Log.d(TAG, "Token: " + (token != null ? "Present (length: " + token.length() + ")" : "NULL"));
+        Log.d(TAG, "Token exists: " + (sessionManager.getToken() != null));
+        Log.d(TAG, "Token length: " + (sessionManager.getToken() != null ? sessionManager.getToken().length() : 0));
+        Log.d(TAG, "User ID: " + sessionManager.getUserId());
+        Log.d(TAG, "User Role: " + sessionManager.getRole());
         Log.d(TAG, "API URL: http://192.168.100.115:5000/api/meals/my");
         
         // Show loading state
@@ -140,19 +143,26 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
         apiService.getMyMeals(token).enqueue(new Callback<MealResponse>() {
             @Override
             public void onResponse(@NonNull Call<MealResponse> call, @NonNull Response<MealResponse> response) {
+                Log.d(TAG, "=== API Response Received ===");
                 Log.d(TAG, "Response Code: " + response.code());
                 Log.d(TAG, "Response Success: " + response.isSuccessful());
+                Log.d(TAG, "Response Message: " + response.message());
                 
                 try {
                     if (response.isSuccessful() && response.body() != null) {
                         MealResponse mealResponse = response.body();
                         Log.d(TAG, "Response Body Success: " + mealResponse.isSuccess());
+                        Log.d(TAG, "Response Body Message: " + mealResponse.getMessage());
                         
                         if (mealResponse.isSuccess()) {
                             mealsList = mealResponse.getMeals();
                             
                             if (mealsList != null && !mealsList.isEmpty()) {
                                 Log.d(TAG, "✅ Loaded " + mealsList.size() + " meals");
+                                for (int i = 0; i < Math.min(3, mealsList.size()); i++) {
+                                    Meal meal = mealsList.get(i);
+                                    Log.d(TAG, "  Meal " + (i+1) + ": " + meal.getName() + " (ID: " + meal.getId() + ")");
+                                }
                                 updateUIWithMeals();
                             } else {
                                 Log.d(TAG, "⚠️ Meals list is empty or null");
@@ -162,6 +172,7 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
                             Log.e(TAG, "❌ Response success=false: " + mealResponse.getMessage());
                             Toast.makeText(CookMealActivity.this, 
                                 mealResponse.getMessage(), Toast.LENGTH_LONG).show();
+                            showNoMealsMessage();
                         }
                     } else {
                         Log.e(TAG, "❌ Response not successful or body is null");
@@ -207,6 +218,7 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
                 Log.e(TAG, "❌ Network failure", t);
                 Log.e(TAG, "Error message: " + t.getMessage());
                 Log.e(TAG, "Error class: " + t.getClass().getName());
+                Log.e(TAG, "Cause: " + (t.getCause() != null ? t.getCause().getMessage() : "null"));
                 
                 String errorMessage;
                 if (t.getMessage() != null && t.getMessage().contains("Unable to resolve host")) {
@@ -229,19 +241,25 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
     }
     
     private void updateUIWithMeals() {
+        Log.d(TAG, "=== updateUIWithMeals called ===");
+        Log.d(TAG, "Meals list size: " + (mealsList != null ? mealsList.size() : "null"));
+        
         // Update stats
         if (binding.tvTotalMeals != null) {
-            binding.tvTotalMeals.setText(String.valueOf(mealsList.size()));
+            binding.tvTotalMeals.setText(String.valueOf(mealsList != null ? mealsList.size() : 0));
         }
         
         // Count active meals
         int activeMeals = 0;
         int soldOutMeals = 0;
-        for (Meal meal : mealsList) {
-            if (meal.isAvailable()) {
-                activeMeals++;
-            } else {
-                soldOutMeals++;
+        
+        if (mealsList != null) {
+            for (Meal meal : mealsList) {
+                if (meal.isAvailable()) {
+                    activeMeals++;
+                } else {
+                    soldOutMeals++;
+                }
             }
         }
         
@@ -254,17 +272,20 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
         }
         
         // Update RecyclerView
-        if (mealsList.isEmpty()) {
+        if (mealsList == null || mealsList.isEmpty()) {
+            Log.d(TAG, "No meals to display - showing empty state");
             recyclerViewMeals.setVisibility(View.GONE);
             emptyStateLayout.setVisibility(View.VISIBLE);
         } else {
+            Log.d(TAG, "Displaying " + mealsList.size() + " meals");
             recyclerViewMeals.setVisibility(View.VISIBLE);
             emptyStateLayout.setVisibility(View.GONE);
             mealAdapter.updateMeals(mealsList);
+            Log.d(TAG, "Adapter updated with meals");
         }
         
         Toast.makeText(this, 
-            "Loaded " + mealsList.size() + " meals", 
+            "Loaded " + (mealsList != null ? mealsList.size() : 0) + " meals", 
             Toast.LENGTH_SHORT).show();
     }
     

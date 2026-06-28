@@ -274,9 +274,20 @@ public class CookProfileActivity extends AppCompatActivity {
                                     sessionManager.saveProfileImage(newImageUrl);
 
                                     // Show success message
+                                    if (binding.tvUploadSuccess != null) {
+                                        binding.tvUploadSuccess.setVisibility(View.VISIBLE);
+                                    }
+
                                     Toast.makeText(CookProfileActivity.this,
                                             "Profile photo updated!",
                                             Toast.LENGTH_SHORT).show();
+
+                                    // Hide success message after 3 seconds
+                                    new Handler().postDelayed(() -> {
+                                        if (binding.tvUploadSuccess != null) {
+                                            binding.tvUploadSuccess.setVisibility(View.GONE);
+                                        }
+                                    }, 3000);
 
                                 } else {
                                     Log.e(TAG, "Upload failed: " + response.code());
@@ -313,12 +324,14 @@ public class CookProfileActivity extends AppCompatActivity {
 
     /**
      * Show/hide upload progress
-     * You can add ProgressBar views to your layout and control them here
      */
     private void showUploadProgress(boolean show) {
-        // If you have progress views in layout, show/hide them here
-        // Example:
-        // binding.uploadProgress.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (binding.uploadProgress != null) {
+            binding.uploadProgress.setVisibility(show ? View.VISIBLE : View.GONE);
+        }
+        if (binding.tvUploadSuccess != null) {
+            binding.tvUploadSuccess.setVisibility(View.GONE);
+        }
     }
     
     private void setupBottomNavigation() {
