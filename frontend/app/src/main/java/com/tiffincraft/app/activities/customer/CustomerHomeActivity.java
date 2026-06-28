@@ -7,7 +7,9 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
@@ -18,11 +20,16 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.tiffincraft.app.R;
-import com.tiffincraft.app.models.PopularCook;
+import com.tiffincraft.app.api.ApiService;
+import com.tiffincraft.app.api.RetrofitClient;
+import com.tiffincraft.app.models.CustomerDashboardResponse;
 import com.tiffincraft.app.session.SessionManager;
 
-import java.util.ArrayList;
 import java.util.List;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class CustomerHomeActivity extends AppCompatActivity {
     
@@ -35,6 +42,8 @@ public class CustomerHomeActivity extends AppCompatActivity {
     private FloatingActionButton fabCart;
     private BottomNavigationView bottomNavigation;
     private SessionManager sessionManager;
+    private LinearLayout popularCooksContainer;
+    private ApiService apiService;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,6 +57,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
             getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
 
             sessionManager = new SessionManager(this);
+            apiService = RetrofitClient.getClient().create(ApiService.class);
 
             initViews();
             loadUserData();
@@ -55,6 +65,9 @@ public class CustomerHomeActivity extends AppCompatActivity {
             setupBottomNavigation();
             applyEntranceAnimations();
             setupBackPressHandler();
+            
+            // Load dashboard data from backend
+            loadDashboardData();
             
             Log.d(TAG, "CustomerHomeActivity onCreate completed successfully");
         } catch (Exception e) {
@@ -75,6 +88,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
             fabCart = findViewById(R.id.fabCart);
             cartBadge = findViewById(R.id.cartBadge);
             bottomNavigation = findViewById(R.id.bottomNavigation);
+            popularCooksContainer = findViewById(R.id.popularCooksContainer);
             
             // Apply circular clipping to banner image container
             View bannerImageContainer = findViewById(R.id.bannerImageContainer);
@@ -107,42 +121,163 @@ public class CustomerHomeActivity extends AppCompatActivity {
             tvGreeting.setText("Hello, User 👋");
         }
 
-        // Set cart badge visibility and count
-        cartBadge.setText("0");
-        cartBadge.setVisibility(View.GONE); // Hide when cart is empty
+        // Cart badge will be updated from dashboard data
+        cartBadge.setVisibility(View.GONE);
+    }
+
+    private void loadDashboardData() {
+        String token = "Bearer " + sessionManager.getToken();
+        
+        Call<CustomerDashboardResponse> call = apiService.getCustomerDashboard(token);
+        call.enqueue(new Callback<CustomerDashboardResponse>() {
+            @Override
+            public void onResponse(Call<CustomerDashboardResponse> call, Response<CustomerDashboardResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    CustomerDashboardResponse.DashboardData data = response.body().getData();
+                    populateDashboard(data);
+                } else {
+                    Log.e(TAG, "Failed to load dashboard data: " + response.code());
+                    Toast.makeText(CustomerHomeActivity.this, "Failed to load dashboard data", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<CustomerDashboardResponse> call, Throwable t) {
+                Log.e(TAG, "Error loading dashboard data", t);
+                Toast.makeText(CustomerHomeActivity.this, "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void populateDashboard(CustomerDashboardResponse.DashboardData data) {
+        try {
+            // Update cart badge
+            int cartCount = data.getStats().getCartItemsCount();
+            if (cartCount > 0) {
+                cartBadge.setText(String.valueOf(cartCount));
+                cartBadge.setVisibility(View.VISIBLE);
+            } else {
+                cartBadge.setVisibility(View.GONE);
+            }
+
+            // Update notification dot
+            int unreadCount = data.getUnreadNotificationsCount();
+            if (unreadCount > 0) {
+                notificationDot.setVisibility(View.VISIBLE);
+            } else {
+                notificationDot.setVisibility(View.GONE);
+            }
+
+            // Update greeting with user's name
+            String fullName = data.getUser().getFullName();
+            if (fullName != null && !fullName.isEmpty()) {
+                String firstName = fullName.split(" ")[0];
+                tvGreeting.setText("Hello, " + firstName + " 👋");
+            }
+
+            // Populate popular cooks
+            List<CustomerDashboardResponse.PopularCook> popularCooks = data.getPopularCooks();
+            if (popularCooks != null && !popularCooks.isEmpty() && popularCooksContainer != null) {
+                popularCooksContainer.removeAllViews();
+                for (CustomerDashboardResponse.PopularCook cook : popularCooks) {
+                    View cookCard = createPopularCookCard(cook);
+                    popularCooksContainer.addView(cookCard);
+                }
+            }
+
+            Log.d(TAG, "Dashboard populated successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Error populating dashboard", e);
+        }
+    }
+
+    private View createPopularCookCard(CustomerDashboardResponse.PopularCook cook) {
+        View card = getLayoutInflater().inflate(R.layout.item_popular_cook, null);
+        
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            (int) (140 * getResources().getDisplayMetrics().density),
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.setMarginEnd((int) (12 * getResources().getDisplayMetrics().density));
+        card.setLayoutParams(params);
+
+        ImageView imgCook = card.findViewById(R.id.imgCook);
+        TextView tvCookName = card.findViewById(R.id.tvCookName);
+        TextView tvRating = card.findViewById(R.id.tvRating);
+        TextView tvDeliveryTime = card.findViewById(R.id.tvDeliveryTime);
+
+        // Set cook name
+        tvCookName.setText(cook.getKitchenName() != null ? cook.getKitchenName() : cook.getCookName());
+
+        // Set rating
+        String ratingText = "⭐ " + String.format("%.1f", cook.getRating()) + " (" + cook.getReviewCount() + ")";
+        tvRating.setText(ratingText);
+
+        // Set delivery time
+        tvDeliveryTime.setText(cook.getAvgDeliveryTime() + " mins");
+
+        // Load image
+        if (cook.getProfileImage() != null && !cook.getProfileImage().isEmpty()) {
+            String imageUrl = RetrofitClient.BASE_URL.replace("/api/", "/") + cook.getProfileImage();
+            Glide.with(this)
+                .load(imageUrl)
+                .placeholder(R.drawable.avatar_cook)
+                .error(R.drawable.avatar_cook)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .into(imgCook);
+        } else {
+            imgCook.setImageResource(R.drawable.avatar_cook);
+        }
+
+        // Click listener
+        card.setOnClickListener(v -> {
+            // Navigate to cook details
+            // Intent intent = new Intent(this, CookDetailsActivity.class);
+            // intent.putExtra("cookId", cook.getCookId());
+            // startActivity(intent);
+            Toast.makeText(this, "Cook: " + cook.getCookName(), Toast.LENGTH_SHORT).show();
+        });
+
+        return card;
     }
 
     private void setupListeners() {
         // Search bar tapped → open search activity
         searchBar.setOnClickListener(v -> {
             // startActivity(new Intent(this, SearchActivity.class));
+            Toast.makeText(this, "Search coming soon", Toast.LENGTH_SHORT).show();
         });
 
-        // Notification bell tapped
+        // Notification bell tapped → open notifications activity
         notificationButton.setOnClickListener(v -> {
-            // startActivity(new Intent(this, NotificationsActivity.class));
+            Intent intent = new Intent(this, NotificationsActivity.class);
+            startActivity(intent);
         });
 
         // Filter button tapped
         if (findViewById(R.id.filterButton) != null) {
             findViewById(R.id.filterButton).setOnClickListener(v -> {
                 // Show filter dialog or open filter activity
+                Toast.makeText(this, "Filter coming soon", Toast.LENGTH_SHORT).show();
             });
         }
 
         // Hero banner tapped
         heroBanner.setOnClickListener(v -> {
             // Show promo details or navigate to featured section
+            Toast.makeText(this, "Promo details coming soon", Toast.LENGTH_SHORT).show();
         });
 
         // View All tapped
         tvViewAll.setOnClickListener(v -> {
             // startActivity(new Intent(this, AllCooksActivity.class));
+            Toast.makeText(this, "All cooks coming soon", Toast.LENGTH_SHORT).show();
         });
 
         // Floating cart button tapped
         fabCart.setOnClickListener(v -> {
             // startActivity(new Intent(this, CartActivity.class));
+            Toast.makeText(this, "Cart coming soon", Toast.LENGTH_SHORT).show();
         });
     }
 

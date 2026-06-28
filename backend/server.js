@@ -12,6 +12,7 @@ import mealRoutes from "./routes/mealRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import customerDashboardRoutes from "./routes/customerDashboardRoutes.js";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
@@ -145,6 +146,7 @@ app.use("/api/meals", mealRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/customer", customerDashboardRoutes);
 
 app.use((_req, res) => {
     res.status(404).json({ message: "Route not found." });

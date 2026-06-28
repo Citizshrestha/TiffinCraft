@@ -161,4 +161,26 @@ public interface ApiService {
             @Header("Authorization") String token,
             @Body CustomerProfileRequest request
     );
+
+    // Customer dashboard endpoints
+    @GET("customer/dashboard")
+    Call<com.tiffincraft.app.models.CustomerDashboardResponse> getCustomerDashboard(
+            @Header("Authorization") String token
+    );
+
+    @GET("customer/notifications")
+    Call<com.tiffincraft.app.models.NotificationResponse> getNotifications(
+            @Header("Authorization") String token
+    );
+
+    @PUT("customer/notifications/{id}/read")
+    Call<RegisterResponse> markNotificationAsRead(
+            @Header("Authorization") String token,
+            @Path("id") int notificationId
+    );
+
+    @PUT("customer/notifications/read-all")
+    Call<RegisterResponse> markAllNotificationsAsRead(
+            @Header("Authorization") String token
+    );
 }
