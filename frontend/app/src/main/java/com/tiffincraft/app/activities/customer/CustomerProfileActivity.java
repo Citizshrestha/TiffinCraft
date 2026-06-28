@@ -74,6 +74,9 @@ public class CustomerProfileActivity extends AppCompatActivity {
             binding.btnEditAvatar.setOnClickListener(v -> checkPermissionAndOpenPicker());
         }
 
+        // Setup bottom navigation
+        setupBottomNavigation();
+
         // Settings button
         if (binding.btnSettings != null) {
             binding.btnSettings.setOnClickListener(v ->
@@ -145,6 +148,37 @@ public class CustomerProfileActivity extends AppCompatActivity {
                     })
                     .setNegativeButton("Cancel", null)
                     .show();
+            });
+        }
+    }
+
+    /**
+     * Setup bottom navigation
+     */
+    private void setupBottomNavigation() {
+        if (binding.bottomNavigation != null) {
+            binding.bottomNavigation.setSelectedItemId(R.id.nav_profile);
+
+            binding.bottomNavigation.setOnItemSelectedListener(item -> {
+                int itemId = item.getItemId();
+
+                if (itemId == R.id.nav_home) {
+                    startActivity(new Intent(this, CustomerHomeActivity.class));
+                    finish();
+                    return true;
+                } else if (itemId == R.id.nav_orders) {
+                    startActivity(new Intent(this, OrderHistoryActivity.class));
+                    finish();
+                    return true;
+                } else if (itemId == R.id.nav_favorites) {
+                    startActivity(new Intent(this, FavoritesActivity.class));
+                    finish();
+                    return true;
+                } else if (itemId == R.id.nav_profile) {
+                    return true;
+                }
+
+                return false;
             });
         }
     }

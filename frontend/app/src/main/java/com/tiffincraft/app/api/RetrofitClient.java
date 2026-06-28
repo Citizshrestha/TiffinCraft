@@ -32,7 +32,7 @@ public class RetrofitClient {
         this.context = context.getApplicationContext();
 
         HttpLoggingInterceptor loggingInterceptor = new HttpLoggingInterceptor();
-        loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.HEADERS);
+        loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BODY); // Changed from HEADERS to BODY
 
         Interceptor authInterceptor = new Interceptor() {
             @Override

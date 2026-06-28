@@ -39,6 +39,11 @@ public class MealRequest {
     @SerializedName("image_url")
     private String imageUrl;
 
+    // No-argument constructor
+    public MealRequest() {
+        // Default constructor for creating empty instance
+    }
+
     public MealRequest(String name, String description, double price, String category,
                        boolean isAvailable, boolean isVegetarian, boolean isSpicy, boolean isBestseller) {
         this.name = name;

@@ -4,6 +4,7 @@ import com.tiffincraft.app.models.CookProfileRequest;
 import com.tiffincraft.app.models.CookProfileResponse;
 import com.tiffincraft.app.models.CustomerProfileRequest;
 import com.tiffincraft.app.models.CustomerProfileResponse;
+import com.tiffincraft.app.models.DashboardResponse;
 import com.tiffincraft.app.models.ForgotPasswordRequest;
 import com.tiffincraft.app.models.GoogleLoginRequest;
 import com.tiffincraft.app.models.LoginRequest;
@@ -182,5 +183,11 @@ public interface ApiService {
     @PUT("customer/notifications/read-all")
     Call<RegisterResponse> markAllNotificationsAsRead(
             @Header("Authorization") String token
+    );
+
+    // Get cook dashboard statistics
+    @GET("cook/dashboard")
+    Call<DashboardResponse> getCookDashboard(
+            @Header("Authorization") String authToken
     );
 }

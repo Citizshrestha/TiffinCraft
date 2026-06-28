@@ -349,7 +349,7 @@
                         android:layout_width="22dp"
                         android:layout_height="22dp"
                         android:contentDescription="Order history"
-                        android:src="@drawable/ic_order"
+                        android:src="@drawable/ic_orders"
                         android:tint="#4CAF50" />
 
                     <TextView
@@ -412,7 +412,7 @@
                         android:layout_width="22dp"
                         android:layout_height="22dp"
                         android:contentDescription="Refer and earn"
-                        android:src="@drawable/ic_offer"
+                        android:src="@drawable/ic_offers"
                         android:tint="#4CAF50" />
 
                     <TextView

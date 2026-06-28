@@ -53,18 +53,39 @@ public class MealAdapter extends RecyclerView.Adapter<MealAdapter.MealViewHolder
         holder.tvMealDescription.setText(meal.getDescription());
         holder.tvMealPrice.setText("₹" + meal.getPrice());
         
-        // Load meal image
+        // Load meal image with category-based placeholders
+        int placeholderImage = R.drawable.meal_veg_thali; // Default
+        
+        // Choose placeholder based on category
+        if (meal.getCategory() != null) {
+            String category = meal.getCategory().toLowerCase();
+            if (category.contains("dinner")) {
+                placeholderImage = R.drawable.meal_special_thali;
+            } else if (category.contains("snacks") || category.contains("dessert")) {
+                placeholderImage = R.drawable.meal_paneer_thali;
+            }
+        }
+        
         if (meal.getImageUrl() != null && !meal.getImageUrl().isEmpty()) {
-            String imageUrl = "http://192.168.100.115:5000" + meal.getImageUrl();
+            String imageUrl;
+            // Handle both full URLs and relative paths
+            if (meal.getImageUrl().startsWith("http")) {
+                imageUrl = meal.getImageUrl();
+            } else {
+                imageUrl = "http://192.168.100.115:5000" + meal.getImageUrl();
+            }
+            
             Glide.with(context)
                 .load(imageUrl)
-                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .placeholder(R.drawable.meal_veg_thali)
-                .error(R.drawable.meal_veg_thali)
+                .diskCacheStrategy(DiskCacheStrategy.NONE) // Don't cache to see updates immediately
+                .skipMemoryCache(true) // Skip memory cache
+                .placeholder(placeholderImage)
+                .error(placeholderImage)
                 .centerCrop()
                 .into(holder.imgMeal);
         } else {
-            holder.imgMeal.setImageResource(R.drawable.meal_veg_thali);
+            // No image - show placeholder
+            holder.imgMeal.setImageResource(placeholderImage);
         }
         
         // Set availability switch

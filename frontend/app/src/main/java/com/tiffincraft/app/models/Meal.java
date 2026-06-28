@@ -25,7 +25,9 @@ public class Meal {
     private String cuisineType;
 
     @SerializedName("is_available")
-    private boolean isAvailable;
+    private int isAvailableInt; // Backend sends 0 or 1
+    
+    private transient boolean isAvailable; // Computed field
 
     @SerializedName("preparation_time")
     private Integer preparationTime;
@@ -34,10 +36,14 @@ public class Meal {
     private String spiceLevel;
 
     @SerializedName("is_vegetarian")
-    private boolean isVegetarian;
+    private int isVegetarianInt; // Backend sends 0 or 1
+    
+    private transient boolean isVegetarian; // Computed field
 
     @SerializedName("is_vegan")
-    private boolean isVegan;
+    private int isVeganInt; // Backend sends 0 or 1
+    
+    private transient boolean isVegan; // Computed field
 
     @SerializedName("allergens")
     private String allergens;
@@ -119,11 +125,16 @@ public class Meal {
     }
 
     public boolean isAvailable() {
-        return isAvailable;
+        return isAvailableInt == 1;
     }
 
     public void setAvailable(boolean available) {
-        isAvailable = available;
+        this.isAvailable = available;
+        this.isAvailableInt = available ? 1 : 0;
+    }
+    
+    public void setAvailableInt(int isAvailableInt) {
+        this.isAvailableInt = isAvailableInt;
     }
 
     public Integer getPreparationTime() {
@@ -143,19 +154,29 @@ public class Meal {
     }
 
     public boolean isVegetarian() {
-        return isVegetarian;
+        return isVegetarianInt == 1;
     }
 
     public void setVegetarian(boolean vegetarian) {
-        isVegetarian = vegetarian;
+        this.isVegetarian = vegetarian;
+        this.isVegetarianInt = vegetarian ? 1 : 0;
+    }
+    
+    public void setVegetarianInt(int isVegetarianInt) {
+        this.isVegetarianInt = isVegetarianInt;
     }
 
     public boolean isVegan() {
-        return isVegan;
+        return isVeganInt == 1;
     }
 
     public void setVegan(boolean vegan) {
-        isVegan = vegan;
+        this.isVegan = vegan;
+        this.isVeganInt = vegan ? 1 : 0;
+    }
+    
+    public void setVeganInt(int isVeganInt) {
+        this.isVeganInt = isVeganInt;
     }
 
     public String getAllergens() {
