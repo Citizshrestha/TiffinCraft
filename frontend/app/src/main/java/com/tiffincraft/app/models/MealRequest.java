@@ -3,31 +3,55 @@ package com.tiffincraft.app.models;
 import com.google.gson.annotations.SerializedName;
 
 public class MealRequest {
+    @SerializedName("name")
     private String name;
+
+    @SerializedName("description")
     private String description;
+
+    @SerializedName("price")
     private double price;
+
+    @SerializedName("category")
     private String category;
+
     @SerializedName("cuisine_type")
     private String cuisineType;
+
     @SerializedName("is_available")
-    private Boolean isAvailable;
+    private boolean isAvailable;
+
     @SerializedName("preparation_time")
     private Integer preparationTime;
+
     @SerializedName("spice_level")
     private String spiceLevel;
+
     @SerializedName("is_vegetarian")
-    private Boolean isVegetarian;
+    private boolean isVegetarian;
+
     @SerializedName("is_vegan")
-    private Boolean isVegan;
+    private boolean isVegan;
+
+    @SerializedName("allergens")
     private String allergens;
+
     @SerializedName("image_url")
     private String imageUrl;
 
-    public MealRequest(String name, double price) {
+    public MealRequest(String name, String description, double price, String category,
+                       boolean isAvailable, boolean isVegetarian, boolean isSpicy, boolean isBestseller) {
         this.name = name;
+        this.description = description;
         this.price = price;
+        this.category = category;
+        this.isAvailable = isAvailable;
+        this.isVegetarian = isVegetarian;
+        this.spiceLevel = isSpicy ? "hot" : "mild";
+        // Note: bestseller would be tracked via orders/reviews, not a direct field
     }
 
+    // Getters and setters
     public String getName() {
         return name;
     }
@@ -68,12 +92,12 @@ public class MealRequest {
         this.cuisineType = cuisineType;
     }
 
-    public Boolean getIsAvailable() {
+    public boolean isAvailable() {
         return isAvailable;
     }
 
-    public void setIsAvailable(Boolean isAvailable) {
-        this.isAvailable = isAvailable;
+    public void setAvailable(boolean available) {
+        isAvailable = available;
     }
 
     public Integer getPreparationTime() {
@@ -92,20 +116,20 @@ public class MealRequest {
         this.spiceLevel = spiceLevel;
     }
 
-    public Boolean getIsVegetarian() {
+    public boolean isVegetarian() {
         return isVegetarian;
     }
 
-    public void setIsVegetarian(Boolean isVegetarian) {
-        this.isVegetarian = isVegetarian;
+    public void setVegetarian(boolean vegetarian) {
+        isVegetarian = vegetarian;
     }
 
-    public Boolean getIsVegan() {
+    public boolean isVegan() {
         return isVegan;
     }
 
-    public void setIsVegan(Boolean isVegan) {
-        this.isVegan = isVegan;
+    public void setVegan(boolean vegan) {
+        isVegan = vegan;
     }
 
     public String getAllergens() {

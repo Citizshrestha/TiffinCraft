@@ -1,0 +1,17 @@
+# Linguist overrides for GitHub language statistics
+*.md linguist-documentation
+*.html linguist-documentation
+*.sql linguist-detectable=false
+*.sh linguist-detectable=false
+*.bat linguist-detectable=false
+*.ps1 linguist-detectable=false
+
+# Exclude certain paths from contributor statistics
+.claude/** linguist-generated
+.sixth/** linguist-generated
+.qodo/** linguist-generated
+.vscode/** linguist-generated
+.idea/** linguist-generated
+
+# Mark AI-generated or template files
+docs/** linguist-documentation

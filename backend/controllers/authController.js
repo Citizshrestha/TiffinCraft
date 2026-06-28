@@ -113,7 +113,9 @@ export const verifyOTP = async (req, res) => {
                 id: user.id,
                 full_name: user.full_name,
                 email: user.email,
-                role: user.role
+                phone: user.phone,
+                role: user.role,
+                profile_image: user.profile_image
             }
         });
 
@@ -218,7 +220,8 @@ export const loginUser = async (req, res) => {
                 full_name: user.full_name,
                 email: user.email,
                 phone: user.phone,
-                role: user.role
+                role: user.role,
+                profile_image: user.profile_image
             }
         });
 
@@ -230,7 +233,7 @@ export const loginUser = async (req, res) => {
 export const getCurrentUser = async (req, res) => {
     try {
         const [users] = await db.promise().query(
-            "SELECT id, full_name, email, phone, role, created_at FROM users WHERE id = ?",
+            "SELECT id, full_name, email, phone, role, profile_image, created_at FROM users WHERE id = ?",
             [req.user.id]
         );
 
@@ -238,7 +241,10 @@ export const getCurrentUser = async (req, res) => {
             return res.status(404).json({ message: "User not found." });
         }
 
-        return res.status(200).json({ user: users[0] });
+        return res.status(200).json({ 
+            success: true,
+            user: users[0] 
+        });
 
     } catch (error) {
         return res.status(500).json({ message: "Server error.", error: error.message });

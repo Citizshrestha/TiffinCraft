@@ -139,6 +139,11 @@ public class OtpActivity extends AppCompatActivity {
                             loginResponse.getUser().getId(),
                             loginResponse.getUser().getFullName()
                     );
+                    
+                    // Save profile image if present
+                    if (loginResponse.getUser().getProfileImage() != null) {
+                        sessionManager.saveProfileImage(loginResponse.getUser().getProfileImage());
+                    }
 
                     Toast.makeText(OtpActivity.this,
                             R.string.otp_verified_success, Toast.LENGTH_SHORT).show();

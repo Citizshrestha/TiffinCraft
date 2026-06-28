@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 public class RetrofitClient {
 
-    private static final String BASE_URL = "http://192.168.1.4:5000/api/";
+    private static final String BASE_URL = "http://192.168.100.115:5000/api/";
 
     private static RetrofitClient instance;
     private final Retrofit retrofit;
@@ -32,7 +32,7 @@ public class RetrofitClient {
         this.context = context.getApplicationContext();
 
         HttpLoggingInterceptor loggingInterceptor = new HttpLoggingInterceptor();
-        loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
+        loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.HEADERS);
 
         Interceptor authInterceptor = new Interceptor() {
             @Override
@@ -84,6 +84,7 @@ public class RetrofitClient {
                 .connectTimeout(60, TimeUnit.SECONDS)
                 .readTimeout(60, TimeUnit.SECONDS)
                 .writeTimeout(60, TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true)
                 .cookieJar(cookieJar)
                 .addInterceptor(authInterceptor)
                 .addInterceptor(loggingInterceptor)
@@ -92,7 +93,11 @@ public class RetrofitClient {
         retrofit = new Retrofit.Builder()
                 .baseUrl(BASE_URL)
                 .client(okHttpClient)
-                .addConverterFactory(GsonConverterFactory.create())
+                .addConverterFactory(GsonConverterFactory.create(
+                    new com.google.gson.GsonBuilder()
+                        .setLenient()
+                        .create()
+                ))
                 .build();
     }
 

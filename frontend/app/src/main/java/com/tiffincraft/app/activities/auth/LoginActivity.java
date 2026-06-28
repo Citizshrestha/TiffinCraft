@@ -21,12 +21,6 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
-import com.facebook.AccessToken;
-import com.facebook.CallbackManager;
-import com.facebook.FacebookCallback;
-import com.facebook.FacebookException;
-import com.facebook.login.LoginManager;
-import com.facebook.login.LoginResult;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
@@ -37,15 +31,12 @@ import com.tiffincraft.app.R;
 import com.tiffincraft.app.activities.cook.CookHomeActivity;
 import com.tiffincraft.app.activities.customer.CustomerHomeActivity;
 import com.tiffincraft.app.api.RetrofitClient;
-import com.tiffincraft.app.models.FacebookLoginRequest;
 import com.tiffincraft.app.models.GoogleLoginRequest;
 import com.tiffincraft.app.models.LoginRequest;
 import com.tiffincraft.app.models.LoginResponse;
 import com.tiffincraft.app.session.SessionManager;
 
 import org.json.JSONObject;
-
-import java.util.Arrays;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -70,9 +61,6 @@ public class LoginActivity extends AppCompatActivity {
     private GoogleSignInClient googleSignInClient;
     private ActivityResultLauncher<Intent> googleSignInLauncher;
 
-    // Facebook Login
-    private CallbackManager facebookCallbackManager;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -90,7 +78,6 @@ public class LoginActivity extends AppCompatActivity {
         sessionManager = new SessionManager(this);
 
         initGoogleSignIn();
-        initFacebookLogin();
         initViews();
         setupListeners();
     }
@@ -116,31 +103,6 @@ public class LoginActivity extends AppCompatActivity {
                     }
                 }
         );
-    }
-
-    private void initFacebookLogin() {
-        facebookCallbackManager = CallbackManager.Factory.create();
-
-        LoginManager.getInstance().registerCallback(facebookCallbackManager,
-                new FacebookCallback<LoginResult>() {
-                    @Override
-                    public void onSuccess(LoginResult loginResult) {
-                        Log.d(TAG, "Facebook login success");
-                        handleFacebookAccessToken(loginResult.getAccessToken());
-                    }
-
-                    @Override
-                    public void onCancel() {
-                        Log.d(TAG, "Facebook login cancelled");
-                        Toast.makeText(LoginActivity.this, R.string.oauth_cancelled, Toast.LENGTH_SHORT).show();
-                    }
-
-                    @Override
-                    public void onError(@NonNull FacebookException error) {
-                        Log.e(TAG, "Facebook login error", error);
-                        Toast.makeText(LoginActivity.this, R.string.oauth_login_failed, Toast.LENGTH_SHORT).show();
-                    }
-                });
     }
 
     private void initViews() {
@@ -284,7 +246,9 @@ public class LoginActivity extends AppCompatActivity {
 
         btnGoogleSignIn.setOnClickListener(v -> signInWithGoogle());
 
-        btnFacebookSignIn.setOnClickListener(v -> signInWithFacebook());
+        btnFacebookSignIn.setOnClickListener(v -> {
+            Toast.makeText(this, "Facebook login will be available soon!", Toast.LENGTH_SHORT).show();
+        });
 
         tvSignUp.setOnClickListener(v -> {
             Intent intent = new Intent(LoginActivity.this, RegisterActivity.class);
@@ -351,6 +315,11 @@ public class LoginActivity extends AppCompatActivity {
                                         String.valueOf(loginResponse.getUser().getId()),
                                         loginResponse.getUser().getFullName()
                                 );
+                                
+                                // Save profile image if present
+                                if (loginResponse.getUser().getProfileImage() != null) {
+                                    sessionManager.saveProfileImage(loginResponse.getUser().getProfileImage());
+                                }
 
                                 Toast.makeText(LoginActivity.this, "Welcome!", Toast.LENGTH_SHORT).show();
                                 navigateToHome(loginResponse.getUser().getRole());
@@ -368,61 +337,6 @@ public class LoginActivity extends AppCompatActivity {
                     public void onFailure(@NonNull Call<LoginResponse> call, @NonNull Throwable t) {
                         isLoading = false;
                         Log.e(TAG, "Google verification failed", t);
-                        Toast.makeText(LoginActivity.this, R.string.oauth_network_error, Toast.LENGTH_SHORT).show();
-                    }
-                });
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // FACEBOOK SIGN-IN
-    // ═══════════════════════════════════════════════════════════
-
-    private void signInWithFacebook() {
-        if (isLoading) return;
-
-        Toast.makeText(this, R.string.facebook_signin_loading, Toast.LENGTH_SHORT).show();
-        LoginManager.getInstance().logInWithReadPermissions(this, Arrays.asList("email", "public_profile"));
-    }
-
-    private void handleFacebookAccessToken(AccessToken accessToken) {
-        isLoading = true;
-
-        FacebookLoginRequest request = new FacebookLoginRequest(accessToken.getToken(), role);
-
-        RetrofitClient.getInstance(this).getApiService()
-                .facebookLogin(request)
-                .enqueue(new Callback<LoginResponse>() {
-                    @Override
-                    public void onResponse(@NonNull Call<LoginResponse> call, @NonNull Response<LoginResponse> response) {
-                        isLoading = false;
-
-                        if (response.isSuccessful() && response.body() != null) {
-                            LoginResponse loginResponse = response.body();
-
-                            if (loginResponse.isSuccess() && loginResponse.getUser() != null) {
-                                sessionManager.createSession(
-                                        loginResponse.getUser().getRole(),
-                                        loginResponse.getToken(),
-                                        String.valueOf(loginResponse.getUser().getId()),
-                                        loginResponse.getUser().getFullName()
-                                );
-
-                                Toast.makeText(LoginActivity.this, "Welcome!", Toast.LENGTH_SHORT).show();
-                                navigateToHome(loginResponse.getUser().getRole());
-                            } else {
-                                Toast.makeText(LoginActivity.this,
-                                        loginResponse.getMessage() != null ? loginResponse.getMessage() : getString(R.string.oauth_login_failed),
-                                        Toast.LENGTH_SHORT).show();
-                            }
-                        } else {
-                            handleErrorResponse(response);
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(@NonNull Call<LoginResponse> call, @NonNull Throwable t) {
-                        isLoading = false;
-                        Log.e(TAG, "Facebook verification failed", t);
                         Toast.makeText(LoginActivity.this, R.string.oauth_network_error, Toast.LENGTH_SHORT).show();
                     }
                 });
@@ -501,6 +415,11 @@ public class LoginActivity extends AppCompatActivity {
                                         String.valueOf(loginResponse.getUser().getId()),
                                         loginResponse.getUser().getFullName()
                                 );
+                                
+                                // Save profile image if present
+                                if (loginResponse.getUser().getProfileImage() != null) {
+                                    sessionManager.saveProfileImage(loginResponse.getUser().getProfileImage());
+                                }
 
                                 Toast.makeText(LoginActivity.this, "Welcome back!", Toast.LENGTH_SHORT).show();
                                 navigateToHome(loginResponse.getUser().getRole());
@@ -570,12 +489,5 @@ public class LoginActivity extends AppCompatActivity {
         } else {
             return "Network error: " + (t.getMessage() != null ? t.getMessage() : "Unknown error");
         }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        // Facebook callback
-        facebookCallbackManager.onActivityResult(requestCode, resultCode, data);
     }
 }

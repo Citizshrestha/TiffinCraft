@@ -34,7 +34,7 @@
                 android:paddingEnd="20dp"
                 android:paddingBottom="14dp">
 
-                <!-- Location selector -->
+                <!-- Profile and Name -->
                 <LinearLayout
                     android:id="@+id/btnLocationSelector"
                     android:layout_width="0dp"
@@ -46,29 +46,22 @@
                     android:orientation="horizontal">
 
                     <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:contentDescription="Location"
-                        android:src="@drawable/ic_location"
-                        android:tint="#4CAF50" />
+                        android:id="@+id/imgCookProfilePic"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:contentDescription="Profile Picture"
+                        android:src="@drawable/ic_person"
+                        android:scaleType="centerCrop" />
 
                     <TextView
                         android:id="@+id/tvKitchenName"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
+                        android:layout_marginStart="10dp"
                         android:text="Anita's Kitchen"
                         android:textColor="#111111"
                         android:textSize="16sp"
                         android:textStyle="bold" />
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:layout_marginStart="4dp"
-                        android:contentDescription="Expand"
-                        android:src="@drawable/ic_chevron_down"
-                        android:tint="#111111" />
                 </LinearLayout>
 
                 <!-- Notification Bell with badge -->

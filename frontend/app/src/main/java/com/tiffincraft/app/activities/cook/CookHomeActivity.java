@@ -6,12 +6,16 @@ import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.request.RequestOptions;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
 import com.tiffincraft.app.R;
@@ -21,6 +25,7 @@ public class CookHomeActivity extends AppCompatActivity {
 
     private static final String TAG = "CookHomeActivity";
 
+    private ImageView imgCookProfilePic;
     private TextView tvKitchenName, tvWelcome;
     private TextView tvTodayOrders, tvTodayEarnings, tvActiveSubscriptions, tvAvgRating;
     private View btnAddMeal;
@@ -55,6 +60,7 @@ public class CookHomeActivity extends AppCompatActivity {
     }
 
     private void initViews() {
+        imgCookProfilePic = findViewById(R.id.imgCookProfilePic);
         tvKitchenName = findViewById(R.id.tvKitchenName);
         tvWelcome = findViewById(R.id.tvWelcome);
         tvTodayOrders = findViewById(R.id.tvTodayOrders);
@@ -68,9 +74,32 @@ public class CookHomeActivity extends AppCompatActivity {
     private void loadUserData() {
         String fullName = sessionManager.getFullName();
         if (fullName != null && !fullName.isEmpty()) {
-            tvKitchenName.setText(fullName + "'s Kitchen");
+            tvKitchenName.setText(fullName);
+            tvWelcome.setText("Hello, " + fullName.split(" ")[0] + "! 👋");
         } else {
-            tvKitchenName.setText("Home Cook Kitchen");
+            tvKitchenName.setText("Home Cook");
+            tvWelcome.setText("Hello! 👋");
+        }
+
+        // Load profile picture
+        String profileImageUrl = sessionManager.getProfileImage();
+        if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+            String fullImageUrl = "http://192.168.100.115:5000" + profileImageUrl;
+            
+            RequestOptions options = new RequestOptions()
+                .centerCrop()
+                .circleCrop()
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .placeholder(R.drawable.ic_person)
+                .error(R.drawable.ic_person);
+            
+            Glide.with(this)
+                .load(fullImageUrl)
+                .apply(options)
+                .into(imgCookProfilePic);
+        } else {
+            // Default avatar
+            imgCookProfilePic.setImageResource(R.drawable.ic_person);
         }
 
         tvTodayOrders.setText("18");
@@ -123,13 +152,19 @@ public class CookHomeActivity extends AppCompatActivity {
             if (itemId == R.id.nav_home) {
                 return true;
             } else if (itemId == R.id.nav_meals) {
-                startActivity(new Intent(CookHomeActivity.this, AddMenuActivity.class));
+                startActivity(new Intent(CookHomeActivity.this, CookMealActivity.class));
+                finish();
                 return true;
             } else if (itemId == R.id.nav_orders) {
                 startActivity(new Intent(CookHomeActivity.this, ManageOrdersActivity.class));
                 return true;
+            } else if (itemId == R.id.nav_earnings) {
+                startActivity(new Intent(CookHomeActivity.this, CookEarningsActivity.class));
+                finish();
+                return true;
             } else if (itemId == R.id.nav_profile) {
                 startActivity(new Intent(CookHomeActivity.this, CookProfileActivity.class));
+                finish();
                 return true;
             }
 

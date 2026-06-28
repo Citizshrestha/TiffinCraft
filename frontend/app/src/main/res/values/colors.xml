@@ -26,10 +26,13 @@
 
     <!-- Text colors -->
     <color name="text_title">#1A1A1A</color>
+    <color name="text_primary">#111111</color>
     <color name="text_subtitle">#666666</color>
     <color name="text_hint">#757575</color>
     <color name="text_desc">#666666</color>
     <color name="text_on_light">#424242</color>
+    <color name="text_disabled">#999999</color>
+    <color name="dark_green">#27500A</color>
 
     <!-- UI colors -->
     <color name="error_red">#D32F2F</color>

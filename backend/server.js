@@ -4,7 +4,6 @@ import dotenv from "dotenv";
 import http from "http";
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
-import passport from "./config/passport.js";
 import { transporter } from "./utils/emailService.js";
 import db from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -105,7 +104,6 @@ app.use(cors({
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-app.use(passport.initialize());
 app.use("/uploads", express.static(join(__dirname, "uploads")));
 
 app.use((req, _res, next) => {

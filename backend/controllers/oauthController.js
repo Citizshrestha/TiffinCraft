@@ -2,40 +2,6 @@ import jwt from 'jsonwebtoken';
 import db from '../config/db.js';
 import https from 'https';
 
-export const oauthSuccess = (req, res) => {
-    try {
-        const user = req.user;
-
-        if (!user) {
-            return res.redirect(`${process.env.CLIENT_URL}/auth-error`);
-        }
-
-        const token = jwt.sign(
-            { id: user.id, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: '7d' }
-        );
-
-        res.cookie('auth_token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 7 * 24 * 60 * 60 * 1000
-        });
-
-        const redirectUrl = `${process.env.CLIENT_URL}/auth/callback?success=true&role=${user.role}&name=${encodeURIComponent(user.full_name)}&userId=${user.id}`;
-
-        return res.redirect(redirectUrl);
-
-    } catch (error) {
-        return res.redirect(`${process.env.CLIENT_URL}/auth-error`);
-    }
-};
-
-export const oauthFailure = (_req, res) => {
-    return res.status(401).json({ message: "OAuth authentication failed." });
-};
-
 export const verifyGoogleToken = async (req, res) => {
     try {
         const { idToken, role } = req.body;
@@ -87,7 +53,8 @@ export const verifyGoogleToken = async (req, res) => {
                     full_name: user.full_name,
                     email: user.email,
                     phone: user.phone,
-                    role: user.role
+                    role: user.role,
+                    profile_image: user.profile_image
                 }
             });
         }
@@ -123,7 +90,8 @@ export const verifyGoogleToken = async (req, res) => {
                     full_name: user.full_name,
                     email: user.email,
                     phone: user.phone,
-                    role: user.role
+                    role: user.role,
+                    profile_image: user.profile_image
                 }
             });
         }
@@ -157,7 +125,8 @@ export const verifyGoogleToken = async (req, res) => {
                 full_name: user.full_name,
                 email: user.email,
                 phone: user.phone,
-                role: user.role
+                role: user.role,
+                profile_image: user.profile_image
             }
         });
 

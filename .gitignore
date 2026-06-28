@@ -3,6 +3,7 @@
 .qodo/
 .sixth/
 .idea/
+.vscode/
 
 # Node
 node_modules/
@@ -29,6 +30,23 @@ Thumbs.db
 frontend/app/build/
 frontend/.gradle/
 frontend/build/
+
+# Documentation (keep only README files)
+*_GUIDE.md
+*_DOCUMENTATION.md
+*_IMPLEMENTATION.md
+*_REFERENCE.md
+*_SUMMARY.md
+*_STEPS.md
+*_COMPLETE.md
+*_FIX.md
+*_DEBUG.md
+CONNECT_*.md
+INSTALL_*.md
+INTEGRATION_*.md
+QUICK_*.md
+START_*.md
+VS_CODE_*.md
 
 # Lock files (optional – keep package-lock for reproducibility)
 # package-lock.json

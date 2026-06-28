@@ -2,7 +2,6 @@ package com.tiffincraft.app.api;
 
 import com.tiffincraft.app.models.CookProfileRequest;
 import com.tiffincraft.app.models.CookProfileResponse;
-import com.tiffincraft.app.models.FacebookLoginRequest;
 import com.tiffincraft.app.models.ForgotPasswordRequest;
 import com.tiffincraft.app.models.GoogleLoginRequest;
 import com.tiffincraft.app.models.LoginRequest;
@@ -14,14 +13,18 @@ import com.tiffincraft.app.models.RegisterRequest;
 import com.tiffincraft.app.models.RegisterResponse;
 import com.tiffincraft.app.models.ResendOtpRequest;
 import com.tiffincraft.app.models.ResetPasswordRequest;
+import com.tiffincraft.app.models.UploadResponse;
 
+import okhttp3.MultipartBody;
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.DELETE;
 import retrofit2.http.GET;
 import retrofit2.http.Header;
+import retrofit2.http.Multipart;
 import retrofit2.http.POST;
 import retrofit2.http.PUT;
+import retrofit2.http.Part;
 import retrofit2.http.Path;
 import retrofit2.http.Query;
 
@@ -47,9 +50,6 @@ public interface ApiService {
 
     @POST("auth/google/verify")
     Call<LoginResponse> googleLogin(@Body GoogleLoginRequest request);
-
-    @POST("auth/facebook/verify")
-    Call<LoginResponse> facebookLogin(@Body FacebookLoginRequest request);
 
     @POST("auth/logout")
     Call<RegisterResponse> logout(@Header("Authorization") String token);
@@ -106,7 +106,7 @@ public interface ApiService {
             @Body MealRequest request
     );
 
-    @GET("meals/my/list")
+    @GET("meals/my")
     Call<MealResponse> getMyMeals(
             @Header("Authorization") String token
     );
@@ -122,5 +122,29 @@ public interface ApiService {
     Call<MealResponse> deleteMeal(
             @Header("Authorization") String token,
             @Path("mealId") int mealId
+    );
+
+    @Multipart
+    @POST("meals/{mealId}/image")
+    Call<MealResponse> uploadMealImage(
+            @Header("Authorization") String token,
+            @Path("mealId") int mealId,
+            @Part MultipartBody.Part mealImage
+    );
+
+    // Upload cook profile image
+    @Multipart
+    @POST("cook/profile/image")
+    Call<UploadResponse> uploadCookProfileImage(
+            @Header("Authorization") String authToken,
+            @Part MultipartBody.Part profile_image
+    );
+
+    // Upload customer profile image
+    @Multipart
+    @POST("auth/profile/image")
+    Call<UploadResponse> uploadCustomerProfileImage(
+            @Header("Authorization") String authToken,
+            @Part MultipartBody.Part profile_image
     );
 }

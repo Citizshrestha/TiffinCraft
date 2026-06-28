@@ -11,6 +11,7 @@ public class SessionManager {
     private static final String KEY_TOKEN = "token";
     private static final String KEY_USER_ID = "userId";
     private static final String KEY_FULL_NAME = "fullName";
+    private static final String KEY_PROFILE_IMAGE = "profileImage";
 
     private final SharedPreferences prefs;
     private final SharedPreferences.Editor editor;
@@ -51,6 +52,28 @@ public class SessionManager {
 
     public String getFullName() {
         return prefs.getString(KEY_FULL_NAME, "");
+    }
+
+    // Save profile image URL
+    public void saveProfileImage(String imageUrl) {
+        editor.putString(KEY_PROFILE_IMAGE, imageUrl);
+        editor.apply();
+    }
+
+    // Get profile image URL
+    public String getProfileImage() {
+        return prefs.getString(KEY_PROFILE_IMAGE, null);
+    }
+
+    // Save session with profile image
+    public void saveSessionWithImage(String token, String role, int userId, String fullName, String profileImage) {
+        editor.putBoolean(KEY_IS_LOGGED_IN, true);
+        editor.putString(KEY_ROLE, role);
+        editor.putString(KEY_TOKEN, token);
+        editor.putString(KEY_USER_ID, String.valueOf(userId));
+        editor.putString(KEY_FULL_NAME, fullName);
+        editor.putString(KEY_PROFILE_IMAGE, profileImage);
+        editor.apply();
     }
 
     public void logout() {

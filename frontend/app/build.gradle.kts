@@ -64,6 +64,6 @@ dependencies {
     // Google Sign-In
     implementation("com.google.android.gms:play-services-auth:21.0.0")
 
-    // Facebook Login
-    implementation("com.facebook.android:facebook-login:16.3.0")
+    // Facebook Login (for future integration)
+    // implementation("com.facebook.android:facebook-login:16.3.0")
 }

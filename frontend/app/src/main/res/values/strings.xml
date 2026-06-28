@@ -90,14 +90,10 @@
     <string name="rp_code_expired">Reset code has expired. Please request a new one.</string>
 
     <!-- OAuth Configuration -->
-    <string name="facebook_app_id">1063144349730142</string>
-    <string name="facebook_client_token">34c7ce79b4a544e3f4a17e93eeaa94e4</string>
-    <string name="fb_login_protocol_scheme">fb1063144349730142</string>
     <string name="google_web_client_id">471206575268-mh2n97rdqr3n9s16ee66tfb7u190o6rv.apps.googleusercontent.com</string>
 
     <!-- OAuth Messages -->
     <string name="google_signin_loading">Signing in with Google…</string>
-    <string name="facebook_signin_loading">Signing in with Facebook…</string>
     <string name="oauth_login_failed">Authentication failed. Please try again.</string>
     <string name="oauth_cancelled">Sign-in cancelled</string>
     <string name="oauth_network_error">Network error during sign-in</string>

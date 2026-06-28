@@ -3,43 +3,65 @@ package com.tiffincraft.app.models;
 import com.google.gson.annotations.SerializedName;
 
 public class Meal {
+    @SerializedName("id")
     private int id;
+
     @SerializedName("cook_id")
     private int cookId;
+
+    @SerializedName("name")
     private String name;
+
+    @SerializedName("description")
     private String description;
+
+    @SerializedName("price")
     private double price;
+
+    @SerializedName("category")
     private String category;
+
     @SerializedName("cuisine_type")
     private String cuisineType;
+
     @SerializedName("is_available")
     private boolean isAvailable;
+
     @SerializedName("preparation_time")
     private Integer preparationTime;
+
     @SerializedName("spice_level")
     private String spiceLevel;
+
     @SerializedName("is_vegetarian")
     private boolean isVegetarian;
+
     @SerializedName("is_vegan")
     private boolean isVegan;
+
+    @SerializedName("allergens")
     private String allergens;
+
     @SerializedName("image_url")
     private String imageUrl;
+
     @SerializedName("created_at")
     private String createdAt;
+
     @SerializedName("updated_at")
     private String updatedAt;
 
-    // Additional fields from JOIN queries
+    // Cook info (for customer view)
     @SerializedName("cook_name")
     private String cookName;
+
     @SerializedName("cook_image")
     private String cookImage;
+
     @SerializedName("cook_rating")
     private Double cookRating;
-    @SerializedName("cook_total_orders")
-    private Integer cookTotalOrders;
 
+    // Getters and setters
     public int getId() {
         return id;
     }
@@ -190,13 +212,5 @@ public class Meal {
 
     public void setCookRating(Double cookRating) {
         this.cookRating = cookRating;
-    }
-
-    public Integer getCookTotalOrders() {
-        return cookTotalOrders;
-    }
-
-    public void setCookTotalOrders(Integer cookTotalOrders) {
-        this.cookTotalOrders = cookTotalOrders;
     }
 }

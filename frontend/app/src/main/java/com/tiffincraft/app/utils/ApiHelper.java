@@ -134,10 +134,7 @@ public class ApiHelper {
             return;
         }
 
-        MealRequest request = new MealRequest(name, price);
-        request.setDescription(description);
-        request.setCategory(category);
-        request.setIsAvailable(true);
+        MealRequest request = new MealRequest(name, description, price, category, true, true, false, false);
 
         apiService.addMeal(token, request).enqueue(new Callback<MealResponse>() {
             @Override
