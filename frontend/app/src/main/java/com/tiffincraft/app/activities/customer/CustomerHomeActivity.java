@@ -308,7 +308,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
                 // startActivity(new Intent(this, OrderHistoryActivity.class));
                 return true;
             } else if (itemId == R.id.nav_favorites) {
-                // startActivity(new Intent(this, FavoritesActivity.class));
+                startActivity(new Intent(this, FavoritesActivity.class));
                 return true;
             } else if (itemId == R.id.nav_profile) {
                 startActivity(new Intent(this, CustomerProfileActivity.class));

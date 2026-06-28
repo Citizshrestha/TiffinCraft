@@ -14,6 +14,7 @@ import reviewRoutes from "./routes/reviewRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import customerDashboardRoutes from "./routes/customerDashboardRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import favoritesRoutes from "./routes/favoritesRoutes.js";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
@@ -142,6 +143,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/customer", customerDashboardRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/favorites", favoritesRoutes);
 
 app.use((_req, res) => {
     res.status(404).json({ message: "Route not found." });
