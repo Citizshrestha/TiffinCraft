@@ -66,6 +66,12 @@ public class CustomerProfileActivity extends AppCompatActivity {
             binding.tvCustomerName.setText((fullName != null && !fullName.isEmpty()) ? fullName : "Customer");
         }
 
+        // Show cached profile image immediately while API loads
+        String cachedImage = sessionManager.getProfileImage();
+        if (cachedImage != null && !cachedImage.isEmpty()) {
+            loadProfileImage(cachedImage);
+        }
+
         // Load profile data from backend
         loadProfileData();
 
@@ -204,6 +210,12 @@ public class CustomerProfileActivity extends AppCompatActivity {
                     currentProfile = response.body().getProfile();
                     populateProfileData(currentProfile);
 
+                    // Update session cache with latest image URL from backend
+                    if (currentProfile != null && currentProfile.getProfileImage() != null
+                            && !currentProfile.getProfileImage().isEmpty()) {
+                        sessionManager.saveProfileImage(currentProfile.getProfileImage());
+                    }
+
                 } else {
                     Log.e(TAG, "Failed to load profile: " + response.code());
                     Toast.makeText(CustomerProfileActivity.this,
@@ -302,14 +314,28 @@ public class CustomerProfileActivity extends AppCompatActivity {
     }
 
     /**
+     * Build full URL from relative path returned by backend
+     * Backend returns: /uploads/profiles/abc.jpg
+     * App needs: http://192.168.100.115:5000/uploads/profiles/abc.jpg
+     */
+    private String getFullImageUrl(String imageUrl) {
+        if (imageUrl == null || imageUrl.isEmpty()) return null;
+        // Already a full URL (http:// or https://)
+        if (imageUrl.startsWith("http")) return imageUrl;
+        // Relative path — prepend server base
+        return RetrofitClient.SERVER_URL + imageUrl;
+    }
+
+    /**
      * Load profile image using Glide
      */
     private void loadProfileImage(String imageUrl) {
-        if (imageUrl != null && !imageUrl.isEmpty()) {
-            Log.d(TAG, "Loading profile image: " + imageUrl);
+        String fullUrl = getFullImageUrl(imageUrl);
+        if (fullUrl != null) {
+            Log.d(TAG, "Loading profile image: " + fullUrl);
 
             Glide.with(this)
-                .load(imageUrl)
+                .load(fullUrl)
                 .placeholder(R.drawable.avatar_customer)
                 .error(R.drawable.avatar_customer)
                 .circleCrop()
