@@ -62,13 +62,26 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
             holder.unreadDot.setVisibility(View.GONE);
         }
 
-        // Set icon based on type
-        if ("promo".equalsIgnoreCase(notification.getType())) {
-            holder.ivIcon.setImageResource(R.drawable.ic_offers);
-        } else if ("order_status".equalsIgnoreCase(notification.getType())) {
-            holder.ivIcon.setImageResource(R.drawable.ic_home);
-        } else {
-            holder.ivIcon.setImageResource(R.drawable.ic_notifications);
+        // Set icon and background based on type
+        String type = notification.getType() != null ? notification.getType().toLowerCase() : "system";
+        switch (type) {
+            case "order":
+                holder.ivIcon.setImageResource(R.drawable.ic_cart);
+                holder.iconContainer.setBackgroundResource(R.drawable.circle_bg_orange_light);
+                break;
+            case "promo":
+                holder.ivIcon.setImageResource(R.drawable.ic_discount);
+                holder.iconContainer.setBackgroundResource(R.drawable.circle_bg_red_light);
+                break;
+            case "cook":
+                holder.ivIcon.setImageResource(R.drawable.ic_chef);
+                holder.iconContainer.setBackgroundResource(R.drawable.circle_bg_green_light);
+                break;
+            case "system":
+            default:
+                holder.ivIcon.setImageResource(R.drawable.ic_notifications);
+                holder.iconContainer.setBackgroundResource(R.drawable.circle_bg_blue_light);
+                break;
         }
 
         holder.itemView.setOnClickListener(v -> {
@@ -93,16 +106,25 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
     private String formatDate(String dateString) {
         if (dateString == null) return "Just now";
         try {
+            // Handle ISO 8601 format from API: "2026-06-28T08:34:27.000Z"
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault());
+            sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
             Date date = sdf.parse(dateString);
-            if (date == null) return dateString;
-            
+            if (date == null) return "Just now";
+
             long diff = System.currentTimeMillis() - date.getTime();
-            long hours = diff / (60 * 60 * 1000);
-            
-            if (hours < 1) return "Just now";
-            if (hours < 24) return hours + " hours ago";
-            return (hours / 24) + " days ago";
+            long seconds = diff / 1000;
+            long minutes = seconds / 60;
+            long hours = minutes / 60;
+            long days = hours / 24;
+
+            if (seconds < 60) return "Just now";
+            if (minutes < 60) return minutes + " min ago";
+            if (hours < 24) return hours + " hour" + (hours > 1 ? "s" : "") + " ago";
+            if (days < 7) return days + " day" + (days > 1 ? "s" : "") + " ago";
+
+            SimpleDateFormat displayFormat = new SimpleDateFormat("MMM dd", Locale.getDefault());
+            return displayFormat.format(date);
         } catch (ParseException e) {
             return dateString.split("T")[0];
         }
@@ -111,7 +133,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
     public static class ViewHolder extends RecyclerView.ViewHolder {
         TextView tvTitle, tvMessage, tvTime;
         ImageView ivIcon;
-        View unreadDot, layoutContainer;
+        View unreadDot, layoutContainer, iconContainer;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -121,6 +143,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
             ivIcon = itemView.findViewById(R.id.ivNotificationIcon);
             unreadDot = itemView.findViewById(R.id.unreadDot);
             layoutContainer = itemView.findViewById(R.id.layoutNotificationContainer);
+            iconContainer = itemView.findViewById(R.id.iconContainer);
         }
     }
 }

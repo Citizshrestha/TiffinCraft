@@ -65,6 +65,12 @@ public class SessionManager {
         return prefs.getString(KEY_PROFILE_IMAGE, null);
     }
 
+    // Save full name
+    public void saveFullName(String fullName) {
+        editor.putString(KEY_FULL_NAME, fullName);
+        editor.apply();
+    }
+
     // Save session with profile image
     public void saveSessionWithImage(String token, String role, int userId, String fullName, String profileImage) {
         editor.putBoolean(KEY_IS_LOGGED_IN, true);

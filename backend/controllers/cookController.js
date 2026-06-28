@@ -415,3 +415,134 @@ export const getCookDashboard = async (req, res) => {
         });
     }
 };
+
+// Update cook's complete profile (user data + cook profile data)
+export const updateCookCompleteProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const {
+            full_name,
+            phone,
+            address,
+            latitude,
+            longitude,
+            kitchen_name,
+            food_type,
+            description,
+            capacity_per_day,
+            bio,
+            specialties
+        } = req.body;
+
+        // Update user table fields
+        const userUpdates = [];
+        const userValues = [];
+
+        if (full_name !== undefined) {
+            userUpdates.push("full_name = ?");
+            userValues.push(full_name);
+        }
+        if (phone !== undefined) {
+            // Check if phone is already used by another user
+            const [existingPhone] = await db.promise().query(
+                "SELECT id FROM users WHERE phone = ? AND id != ?",
+                [phone, userId]
+            );
+            if (existingPhone.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Phone number already in use"
+                });
+            }
+            userUpdates.push("phone = ?");
+            userValues.push(phone);
+        }
+        if (address !== undefined) {
+            userUpdates.push("address = ?");
+            userValues.push(address);
+        }
+        if (latitude !== undefined) {
+            userUpdates.push("latitude = ?");
+            userValues.push(latitude);
+        }
+        if (longitude !== undefined) {
+            userUpdates.push("longitude = ?");
+            userValues.push(longitude);
+        }
+
+        if (userUpdates.length > 0) {
+            userValues.push(userId);
+            await db.promise().query(
+                `UPDATE users SET ${userUpdates.join(", ")} WHERE id = ?`,
+                userValues
+            );
+        }
+
+        // Update cook_profiles table fields
+        const cookUpdates = [];
+        const cookValues = [];
+
+        if (kitchen_name !== undefined) {
+            cookUpdates.push("kitchen_name = ?");
+            cookValues.push(kitchen_name);
+        }
+        if (food_type !== undefined) {
+            cookUpdates.push("food_type = ?");
+            cookValues.push(food_type);
+        }
+        if (description !== undefined) {
+            cookUpdates.push("description = ?");
+            cookValues.push(description);
+        }
+        if (capacity_per_day !== undefined) {
+            cookUpdates.push("capacity_per_day = ?");
+            cookValues.push(capacity_per_day);
+        }
+        if (bio !== undefined) {
+            cookUpdates.push("bio = ?");
+            cookValues.push(bio);
+        }
+        if (specialties !== undefined) {
+            cookUpdates.push("specialties = ?");
+            cookValues.push(specialties);
+        }
+
+        if (cookUpdates.length > 0) {
+            cookValues.push(userId);
+            await db.promise().query(
+                `UPDATE cook_profiles SET ${cookUpdates.join(", ")} WHERE user_id = ?`,
+                cookValues
+            );
+        }
+
+        if (userUpdates.length === 0 && cookUpdates.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No fields to update"
+            });
+        }
+
+        // Get updated profile data
+        const [profiles] = await db.promise().query(
+            `SELECT cp.*, u.full_name, u.email, u.phone, u.profile_image, u.address, u.latitude, u.longitude
+             FROM cook_profiles cp
+             JOIN users u ON cp.user_id = u.id
+             WHERE cp.user_id = ?`,
+            [userId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile updated successfully",
+            profile: profiles[0]
+        });
+
+    } catch (error) {
+        console.error("updateCookCompleteProfile error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message
+        });
+    }
+};

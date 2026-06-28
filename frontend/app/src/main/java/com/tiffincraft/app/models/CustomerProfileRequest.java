@@ -5,15 +5,18 @@ import com.google.gson.annotations.SerializedName;
 public class CustomerProfileRequest {
     @SerializedName("full_name")
     private String fullName;
-    
+
+    @SerializedName("phone")
     private String phone;
+
+    @SerializedName("address")
     private String address;
 
-    public CustomerProfileRequest(String fullName, String phone, String address) {
-        this.fullName = fullName;
-        this.phone = phone;
-        this.address = address;
-    }
+    @SerializedName("latitude")
+    private Double latitude;
+
+    @SerializedName("longitude")
+    private Double longitude;
 
     public String getFullName() {
         return fullName;
@@ -37,5 +40,21 @@ public class CustomerProfileRequest {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
     }
 }

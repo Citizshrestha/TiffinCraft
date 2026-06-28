@@ -22,7 +22,6 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.activities.common.NotificationActivity;
-import com.tiffincraft.app.activities.customer.NotificationsActivity;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.CustomerDashboardResponse;
@@ -64,7 +63,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
             getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
 
             sessionManager = new SessionManager(this);
-            apiService = RetrofitClient.getClient().create(ApiService.class);
+            apiService = RetrofitClient.getInstance(this).getApiService();
 
             initViews();
             loadUserData();

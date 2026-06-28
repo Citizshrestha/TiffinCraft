@@ -174,12 +174,12 @@ public interface ApiService {
     );
 
     @GET("customer/notifications")
-    Call<com.tiffincraft.app.models.NotificationResponse> getNotifications(
+    Call<com.tiffincraft.app.models.NotificationResponse> getCustomerNotifications(
             @Header("Authorization") String token
     );
 
     @PUT("customer/notifications/{id}/read")
-    Call<RegisterResponse> markNotificationAsRead(
+    Call<RegisterResponse> markCustomerNotificationAsRead(
             @Header("Authorization") String token,
             @Path("id") int notificationId
     );

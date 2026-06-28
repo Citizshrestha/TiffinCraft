@@ -22,8 +22,8 @@ import java.util.concurrent.TimeUnit;
 
 public class RetrofitClient {
 
-    public static final String BASE_URL = "https://honest-teeth-post.loca.lt/api/";
-    public static final String SERVER_URL = "https://honest-teeth-post.loca.lt";
+    public static final String BASE_URL = "https://proud-sloths-film.loca.lt/api/";
+    public static final String SERVER_URL = "https://proud-sloths-film.loca.lt";
 
     private static RetrofitClient instance;
     private final Retrofit retrofit;

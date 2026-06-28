@@ -105,9 +105,10 @@ public class CustomerProfileActivity extends AppCompatActivity {
         }
 
         if (binding.menuEditProfile != null) {
-            binding.menuEditProfile.setOnClickListener(v ->
-                Toast.makeText(this, "Edit Profile — coming soon", Toast.LENGTH_SHORT).show()
-            );
+            binding.menuEditProfile.setOnClickListener(v -> {
+                Intent intent = new Intent(this, EditCustomerProfileActivity.class);
+                startActivityForResult(intent, 1001);
+            });
         }
 
         if (binding.menuSavedAddresses != null) {
@@ -406,6 +407,9 @@ public class CustomerProfileActivity extends AppCompatActivity {
                 // Start upload
                 uploadProfileImage(selectedImageUri);
             }
+        } else if (requestCode == 1001 && resultCode == RESULT_OK) {
+            // Profile was updated, reload data
+            loadProfileData();
         }
     }
 

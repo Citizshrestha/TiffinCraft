@@ -39,4 +39,13 @@
     <color name="input_border">#E0E0E0</color>
     <color name="divider_text">#999999</color>
     <color name="card_subtitle">#999999</color>
+
+    <!-- Notification icon colors -->
+    <color name="orange">#FF9800</color>
+    <color name="red">#F44336</color>
+    <color name="green">#4CAF50</color>
+    <color name="blue">#2196F3</color>
+    <color name="green_light">#E8F5E9</color>
+    <color name="red_light">#FFEBEE</color>
+    <color name="blue_light">#E3F2FD</color>
 </resources>

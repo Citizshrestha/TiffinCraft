@@ -8,7 +8,8 @@ import {
     uploadCookProfileImage,
     getAllCooks,
     getCookById,
-    getCookDashboard
+    getCookDashboard,
+    updateCookCompleteProfile
 } from "../controllers/cookController.js";
 
 const router = Router();

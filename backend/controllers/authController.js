@@ -468,10 +468,25 @@ export const updateCustomerProfile = async (req, res) => {
             updates.push("full_name = ?");
             values.push(full_name);
         }
+        
         if (phone !== undefined) {
+            // Check if phone is already used by another user
+            const [existingPhone] = await db.promise().query(
+                "SELECT id FROM users WHERE phone = ? AND id != ?",
+                [phone, userId]
+            );
+
+            if (existingPhone.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Phone number already in use by another account"
+                });
+            }
+
             updates.push("phone = ?");
             values.push(phone);
         }
+        
         if (address !== undefined) {
             updates.push("address = ?");
             values.push(address);
@@ -551,6 +566,183 @@ export const uploadCustomerProfileImage = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Server error.",
+            error: error.message
+        });
+    }
+};
+
+// Get user profile
+export const getUserProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const [users] = await db.promise().query(
+            `SELECT id, full_name, email, phone, role, profile_image, address, latitude, longitude, is_active
+             FROM users 
+             WHERE id = ?`,
+            [userId]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
+
+        const user = users[0];
+
+        return res.status(200).json({
+            success: true,
+            user: {
+                id: user.id,
+                fullName: user.full_name,
+                email: user.email,
+                phone: user.phone,
+                role: user.role,
+                profileImage: user.profile_image,
+                address: user.address,
+                latitude: user.latitude,
+                longitude: user.longitude,
+                isActive: user.is_active
+            }
+        });
+    } catch (error) {
+        console.error("getUserProfile error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message
+        });
+    }
+};
+
+// Update user profile
+export const updateUserProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { full_name, phone, address, latitude, longitude } = req.body;
+
+        // Build dynamic update query
+        const updates = [];
+        const values = [];
+
+        if (full_name !== undefined) {
+            updates.push("full_name = ?");
+            values.push(full_name);
+        }
+
+        if (phone !== undefined) {
+            // Check if phone is already used by another user
+            const [existingPhone] = await db.promise().query(
+                "SELECT id FROM users WHERE phone = ? AND id != ?",
+                [phone, userId]
+            );
+
+            if (existingPhone.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Phone number already in use"
+                });
+            }
+
+            updates.push("phone = ?");
+            values.push(phone);
+        }
+
+        if (address !== undefined) {
+            updates.push("address = ?");
+            values.push(address);
+        }
+
+        if (latitude !== undefined) {
+            updates.push("latitude = ?");
+            values.push(latitude);
+        }
+
+        if (longitude !== undefined) {
+            updates.push("longitude = ?");
+            values.push(longitude);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No fields to update"
+            });
+        }
+
+        values.push(userId);
+
+        await db.promise().query(
+            `UPDATE users SET ${updates.join(", ")} WHERE id = ?`,
+            values
+        );
+
+        // Get updated user data
+        const [updatedUsers] = await db.promise().query(
+            `SELECT id, full_name, email, phone, role, profile_image, address, latitude, longitude
+             FROM users 
+             WHERE id = ?`,
+            [userId]
+        );
+
+        const user = updatedUsers[0];
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile updated successfully",
+            user: {
+                id: user.id,
+                fullName: user.full_name,
+                email: user.email,
+                phone: user.phone,
+                role: user.role,
+                profileImage: user.profile_image,
+                address: user.address,
+                latitude: user.latitude,
+                longitude: user.longitude
+            }
+        });
+    } catch (error) {
+        console.error("updateUserProfile error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message
+        });
+    }
+};
+
+// Update profile image
+export const updateProfileImage = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "No image file provided"
+            });
+        }
+
+        const profileImagePath = req.file.path.replace(/\\/g, "/").replace("backend/", "");
+
+        await db.promise().query(
+            "UPDATE users SET profile_image = ? WHERE id = ?",
+            [profileImagePath, userId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile image updated successfully",
+            profileImage: profileImagePath
+        });
+    } catch (error) {
+        console.error("updateProfileImage error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
             error: error.message
         });
     }
