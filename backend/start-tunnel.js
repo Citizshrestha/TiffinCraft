@@ -1,69 +1,78 @@
-import { spawn } from "child_process";
+import localtunnel from "localtunnel";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
-// Path to RetrofitClient.java
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Path to RetrofitClient.java (relative to backend folder)
 const retrofitClientPath = path.join(
-    process.cwd(), 
+    __dirname,
     "../frontend/app/src/main/java/com/tiffincraft/app/api/RetrofitClient.java"
 );
 
-console.log("🚀 Starting LocalTunnel on port 5000...");
+const PORT = 5000;
 
-// Run localtunnel using npx
-const tunnel = spawn("npx", ["localtunnel", "--port", "5000"], { shell: true });
+console.log(`🚀 Opening tunnel on port ${PORT}...`);
 
-tunnel.stdout.on("data", (data) => {
-    const output = data.toString();
-    console.log(`[LocalTunnel] ${output.trim()}`);
-
-    // Check if the output contains the URL
-    if (output.includes("your url is:")) {
-        const urlMatch = output.match(/https:\/\/[^\s]+/);
-        if (urlMatch) {
-            const publicUrl = urlMatch[0];
-            console.log(`✅ Tunnel active! URL: ${publicUrl}`);
-            
-            // Automatically update RetrofitClient.java
-            updateRetrofitClient(publicUrl);
-        }
+async function startTunnel() {
+    let tunnel;
+    try {
+        tunnel = await localtunnel({ port: PORT });
+    } catch (err) {
+        console.error("❌ Failed to create tunnel:", err.message);
+        process.exit(1);
     }
-});
 
-tunnel.stderr.on("data", (data) => {
-    console.error(`[LocalTunnel Error] ${data.toString().trim()}`);
-});
+    const publicUrl = tunnel.url;
+    console.log(`✅ Tunnel active! URL: ${publicUrl}`);
 
-tunnel.on("close", (code) => {
-    console.log(`❌ LocalTunnel closed with code ${code}`);
-});
+    updateRetrofitClient(publicUrl);
+
+    // Keep-alive: log when tunnel sends errors
+    tunnel.on("error", (err) => {
+        console.error("⚠️  Tunnel error:", err.message);
+    });
+
+    tunnel.on("close", () => {
+        console.warn("⚠️  Tunnel closed. Reconnecting in 3 seconds...");
+        setTimeout(startTunnel, 3000);
+    });
+
+    // Prevent the node process from exiting
+    console.log("⚠️  Do NOT close this terminal — keep it open during your showcase!\n");
+}
 
 function updateRetrofitClient(newUrl) {
     if (!fs.existsSync(retrofitClientPath)) {
-        console.error(`❌ Could not find RetrofitClient.java at ${retrofitClientPath}`);
+        console.error(`❌ Cannot find RetrofitClient.java at:\n   ${retrofitClientPath}`);
         return;
     }
 
     try {
         let content = fs.readFileSync(retrofitClientPath, "utf-8");
-        
+
         // Update SERVER_URL
         content = content.replace(
-            /public static final String SERVER_URL = ".*";/,
+            /public static final String SERVER_URL = ".*?";/,
             `public static final String SERVER_URL = "${newUrl}";`
         );
-        
+
         // Update BASE_URL
         content = content.replace(
-            /public static final String BASE_URL = ".*\/api\/";/,
+            /public static final String BASE_URL = ".*?";/,
             `public static final String BASE_URL = "${newUrl}/api/";`
         );
 
         fs.writeFileSync(retrofitClientPath, content, "utf-8");
-        console.log(`🎉 SUCCESS: Automatically updated RetrofitClient.java with the new URL!`);
-        console.log(`📱 You can now build and run your Android app to connect via mobile data.`);
-        console.log(`⚠️  Do not close this terminal window until your showcase is over.\n`);
+
+        console.log(`🎉 RetrofitClient.java updated!`);
+        console.log(`📱 Now REBUILD the app in Android Studio (green Run button).`);
+        console.log(`   Server URL: ${newUrl}`);
+        console.log(`   API URL:    ${newUrl}/api/\n`);
     } catch (err) {
-        console.error("❌ Failed to update RetrofitClient.java:", err);
+        console.error("❌ Failed to update RetrofitClient.java:", err.message);
     }
 }
+
+startTunnel();

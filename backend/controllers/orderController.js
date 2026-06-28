@@ -41,22 +41,20 @@ export const placeOrder = async (req, res) => {
         const [result] = await connection.query(
             `INSERT INTO orders
              (customer_id, cook_id, total_amount, delivery_address,
-              subscription_type, payment_method, order_status, payment_status)
-             VALUES (?, ?, ?, ?, ?, ?, 'placed', 'pending')`,
+              status)
+             VALUES (?, ?, ?, ?, 'pending')`,
             [
                 customerId,
                 cook_id,
                 total_amount,
-                delivery_address,
-                subscription_type || null,
-                payment_method || "cod"
+                delivery_address
             ]
         );
 
         const orderId = result.insertId;
 
         await connection.query(
-            `INSERT INTO order_items (order_id, meal_id, quantity, price)
+            `INSERT INTO order_items (order_id, meal_id, quantity, price_at_time)
              VALUES (?, ?, ?, ?)`,
             [orderId, meal_id, quantity, meal.price]
         );
@@ -205,7 +203,7 @@ export const getCookOrders = async (req, res) => {
                    u.phone as customer_phone,
                    m.name as meal_name,
                    oi.quantity,
-                   oi.price as meal_price
+                   oi.price_at_time as meal_price
             FROM orders o
             JOIN users u ON o.customer_id = u.id
             JOIN order_items oi ON o.id = oi.order_id
@@ -215,7 +213,7 @@ export const getCookOrders = async (req, res) => {
         const params = [cookId];
 
         if (status) {
-            query += ` AND o.order_status = ?`;
+            query += ` AND o.status = ?`;
             params.push(status);
         }
 
@@ -247,9 +245,10 @@ export const updateOrderStatus = async (req, res) => {
         const { status } = req.body;
 
         const validStatuses = [
-            "accepted",
+            "pending",
+            "confirmed",
             "preparing",
-            "out_for_delivery",
+            "ready",
             "delivered",
             "cancelled"
         ];
@@ -275,7 +274,7 @@ export const updateOrderStatus = async (req, res) => {
         }
 
         await db.promise().query(
-            "UPDATE orders SET order_status = ?, updated_at = NOW() WHERE id = ?",
+            "UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?",
             [status, orderId]
         );
 
@@ -325,16 +324,16 @@ export const cancelOrder = async (req, res) => {
 
         const order = orders[0];
 
-        // Can only cancel if placed or accepted
-        if (!["placed", "accepted"].includes(order.order_status)) {
+        // Can only cancel if pending or confirmed
+        if (!["pending", "confirmed"].includes(order.status)) {
             return res.status(400).json({
                 success: false,
-                message: `Cannot cancel order with status "${order.order_status}".`
+                message: `Cannot cancel order with status "${order.status}".`
             });
         }
 
         await db.promise().query(
-            "UPDATE orders SET order_status = 'cancelled', updated_at = NOW() WHERE id = ?",
+            "UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = ?",
             [orderId]
         );
 
@@ -371,14 +370,14 @@ export const getCookEarnings = async (req, res) => {
         const [summary] = await db.promise().query(
             `SELECT 
                 COUNT(*) as total_orders,
-                SUM(CASE WHEN order_status = 'delivered' 
+                SUM(CASE WHEN status = 'delivered' 
                     THEN total_amount ELSE 0 END) as total_earned,
                 SUM(CASE WHEN DATE(created_at) = CURDATE() 
                     THEN total_amount ELSE 0 END) as today_earned,
-                SUM(CASE WHEN order_status = 'delivered' 
+                SUM(CASE WHEN status = 'delivered' 
                     AND MONTH(created_at) = MONTH(NOW())
                     THEN total_amount ELSE 0 END) as this_month_earned,
-                COUNT(CASE WHEN order_status = 'placed' 
+                COUNT(CASE WHEN status = 'pending' 
                     THEN 1 END) as pending_orders
              FROM orders
              WHERE cook_id = ?`,
