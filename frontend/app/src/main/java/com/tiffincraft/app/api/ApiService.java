@@ -26,6 +26,13 @@ import com.tiffincraft.app.models.AddToCartRequest;
 import com.tiffincraft.app.models.UpdateCartItemRequest;
 import com.tiffincraft.app.models.CheckoutRequest;
 import com.tiffincraft.app.models.CheckoutResponse;
+import com.tiffincraft.app.models.ChatConversationsResponse;
+import com.tiffincraft.app.models.ChatMessagesResponse;
+import com.tiffincraft.app.models.ChatContactsResponse;
+import com.tiffincraft.app.models.CreateConversationRequest;
+import com.tiffincraft.app.models.CreateConversationResponse;
+import com.tiffincraft.app.models.SendChatMessageRequest;
+import com.tiffincraft.app.models.SendChatMessageResponse;
 
 import okhttp3.MultipartBody;
 import retrofit2.Call;
@@ -360,4 +367,39 @@ Call<CartResponse> clearCart(@Header("Authorization") String token);
 
 @POST("cart/checkout")
 Call<CheckoutResponse> checkoutCart(@Header("Authorization") String token, @Body CheckoutRequest request);
+
+    // ==================== Chat endpoints ====================
+
+    @GET("chat/conversations")
+    Call<ChatConversationsResponse> getChatConversations(@Header("Authorization") String token);
+
+    @POST("chat/conversations")
+    Call<CreateConversationResponse> createChatConversation(
+            @Header("Authorization") String token,
+            @Body CreateConversationRequest request
+    );
+
+    @GET("chat/conversations/{conversationId}/messages")
+    Call<ChatMessagesResponse> getChatMessages(
+            @Header("Authorization") String token,
+            @Path("conversationId") int conversationId,
+            @Query("before_id") Integer beforeId,
+            @Query("limit") Integer limit
+    );
+
+    @POST("chat/conversations/{conversationId}/messages")
+    Call<SendChatMessageResponse> sendChatMessage(
+            @Header("Authorization") String token,
+            @Path("conversationId") int conversationId,
+            @Body SendChatMessageRequest request
+    );
+
+    @PUT("chat/conversations/{conversationId}/read")
+    Call<RegisterResponse> markChatConversationRead(
+            @Header("Authorization") String token,
+            @Path("conversationId") int conversationId
+    );
+
+    @GET("chat/contacts")
+    Call<ChatContactsResponse> getChatContacts(@Header("Authorization") String token);
 }

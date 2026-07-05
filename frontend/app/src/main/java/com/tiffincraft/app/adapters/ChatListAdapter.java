@@ -1,6 +1,7 @@
 package com.tiffincraft.app.adapters;
 
 import android.content.Context;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,6 +11,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.models.ChatContact;
 
@@ -43,15 +45,30 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.ViewHo
         ChatContact contact = contacts.get(position);
 
         holder.tvName.setText(contact.getName());
-        holder.tvLastMessage.setText(contact.getLastMessage());
+
+        // Unread messages take precedence in the preview line
+        if (contact.getUnreadCount() > 0) {
+            holder.tvLastMessage.setText(contact.getUnreadCount() + " new message"
+                    + (contact.getUnreadCount() > 1 ? "s" : ""));
+            holder.tvLastMessage.setTextColor(context.getResources().getColor(R.color.purple_primary, null));
+        } else {
+            holder.tvLastMessage.setText(contact.getLastMessage());
+            holder.tvLastMessage.setTextColor(context.getResources().getColor(R.color.text_hint, null));
+        }
+
         holder.tvTimestamp.setText(contact.getTimestamp());
 
         // Online indicator
         holder.viewOnlineDot.setVisibility(contact.isOnline() ? View.VISIBLE : View.GONE);
 
-        // Avatar: use provided drawable or keep circle placeholder
-        if (contact.getAvatarResId() != 0) {
-            holder.ivAvatar.setImageResource(contact.getAvatarResId());
+        // Avatar: Cloudinary URL via Glide, fallback to circle placeholder
+        if (!TextUtils.isEmpty(contact.getAvatarUrl())) {
+            Glide.with(context)
+                    .load(contact.getAvatarUrl())
+                    .placeholder(R.drawable.bg_avatar_circle)
+                    .error(R.drawable.bg_avatar_circle)
+                    .circleCrop()
+                    .into(holder.ivAvatar);
         } else {
             holder.ivAvatar.setImageResource(R.drawable.bg_avatar_circle);
         }

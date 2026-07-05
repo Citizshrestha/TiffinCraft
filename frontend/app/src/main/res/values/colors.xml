@@ -40,6 +40,10 @@
     <color name="divider_text">#999999</color>
     <color name="card_subtitle">#999999</color>
 
+    <!-- Chat colors -->
+    <color name="purple_primary">#7C6CF6</color>
+    <color name="purple_primary_dark">#6A5AE0</color>
+
     <!-- Notification icon colors -->
     <color name="orange">#FF9800</color>
     <color name="red">#F44336</color>
