@@ -53,7 +53,8 @@
         <!-- Content Area -->
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="0dp"
+            android:layout_weight="1">
 
             <!-- RecyclerView for Favorites -->
             <androidx.recyclerview.widget.RecyclerView
@@ -62,6 +63,7 @@
                 android:layout_height="match_parent"
                 android:clipToPadding="false"
                 android:padding="16dp"
+                android:paddingBottom="80dp"
                 tools:listitem="@layout/item_favorite_cook" />
 
             <!-- Empty State -->
@@ -115,5 +117,20 @@
         </FrameLayout>
 
     </LinearLayout>
+
+    <!-- Bottom Navigation -->
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNavigation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="#FFFFFF"
+        app:menu="@menu/bottom_nav_customer"
+        app:itemIconTint="@color/bottom_nav_color"
+        app:itemTextColor="@color/bottom_nav_color"
+        app:itemRippleColor="#1A4CAF50"
+        app:itemActiveIndicatorStyle="@null"
+        app:labelVisibilityMode="labeled"
+        app:elevation="8dp" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

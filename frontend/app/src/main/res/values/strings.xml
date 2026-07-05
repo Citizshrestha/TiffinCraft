@@ -133,4 +133,15 @@
     <string name="clear_all">Clear All</string>
     <string name="apply_filters">Apply Filters</string>
 
+    <!-- Cart Strings -->
+    <string name="meal_image">Meal Image</string>
+    <string name="decrease_quantity">Decrease Quantity</string>
+    <string name="increase_quantity">Increase Quantity</string>
+    <string name="remove_item">Remove Item</string>
+    <string name="cart_empty_title">Your cart is empty</string>
+    <string name="cart_empty_message">Add meals from a cook to see them here.</string>
+    <string name="cart_loading">Loading your cart...</string>
+    <string name="cart_summary">Order Summary</string>
+    <string name="cart_item_count">%1$d item(s)</string>
+
 </resources>

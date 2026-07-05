@@ -178,7 +178,10 @@
                             android:text="45"
                             android:textColor="#111111"
                             android:textSize="18sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:maxLines="1"
+                            android:singleLine="true"
+                            android:ellipsize="none" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -216,7 +219,10 @@
                             android:text="₹8,940"
                             android:textColor="#111111"
                             android:textSize="18sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:maxLines="1"
+                            android:singleLine="true"
+                            android:ellipsize="none" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -253,7 +259,10 @@
                             android:text="Mar 2025"
                             android:textColor="#111111"
                             android:textSize="15sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:maxLines="1"
+                            android:singleLine="true"
+                            android:ellipsize="none" />
 
                         <TextView
                             android:layout_width="wrap_content"

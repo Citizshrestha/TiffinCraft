@@ -20,138 +20,66 @@
         android:paddingEnd="16dp"
         android:paddingBottom="0dp">
 
-        <!-- Top bar: back + title + refresh -->
-        <LinearLayout
-            android:layout_width="match_parent"
+        <!-- Title -->
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:text="Orders"
+            android:textColor="#1A1A1A"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
 
-            <ImageButton
-                android:id="@+id/btnBack"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Back"
-                android:src="@drawable/ic_arrow_back"
-                app:tint="#1A1A1A" />
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
-                android:layout_weight="1"
-                android:text="Manage Orders"
-                android:textColor="#1A1A1A"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-
-            <ImageButton
-                android:id="@+id/btnRefresh"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Refresh"
-                android:src="@drawable/ic_refresh"
-                app:tint="#4CAF50" />
-        </LinearLayout>
-
-        <!-- Stats Row -->
-        <LinearLayout
-            android:layout_width="match_parent"
+        <!-- Real-time info text -->
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:layout_marginBottom="12dp"
-            android:orientation="horizontal">
+            android:text="Real-time view of orders and table statuses."
+            android:textColor="#666666"
+            android:textSize="13sp"
+            android:layout_marginBottom="16dp" />
 
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="5dp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_stat_chip_orange"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:paddingTop="10dp"
-                android:paddingBottom="10dp">
+        <!-- Green Refresh Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnRefresh"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:backgroundTint="#4CAF50"
+            android:text="Refresh Orders"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            app:cornerRadius="12dp"
+            app:icon="@drawable/ic_refresh"
+            app:iconGravity="textStart"
+            app:iconPadding="8dp"
+            app:iconTint="#FFFFFF" />
 
-                <TextView
-                    android:id="@+id/tvCountNew"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textColor="#E65100"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
+        <!-- Hidden stats for tracking (not displayed in UI) -->
+        <TextView
+            android:id="@+id/tvCountNew"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="New"
-                    android:textColor="#E65100"
-                    android:textSize="11sp" />
-            </LinearLayout>
+        <TextView
+            android:id="@+id/tvCountActive"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
 
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="5dp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_stat_chip_blue"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:paddingTop="10dp"
-                android:paddingBottom="10dp">
-
-                <TextView
-                    android:id="@+id/tvCountActive"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textColor="#1565C0"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Active"
-                    android:textColor="#1565C0"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="@drawable/bg_stat_chip_green"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:paddingTop="10dp"
-                android:paddingBottom="10dp">
-
-                <TextView
-                    android:id="@+id/tvCountDone"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textColor="#2E7D32"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Done"
-                    android:textColor="#2E7D32"
-                    android:textSize="11sp" />
-            </LinearLayout>
-        </LinearLayout>
+        <TextView
+            android:id="@+id/tvCountDone"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
 
         <!-- Filter Tab Row -->
         <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
             android:scrollbars="none">
 
             <LinearLayout
@@ -161,83 +89,65 @@
                 android:orientation="horizontal"
                 android:paddingBottom="12dp">
 
-                <TextView
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/tabAll"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="36dp"
+                    android:layout_height="40dp"
                     android:layout_marginEnd="8dp"
-                    android:background="@drawable/bg_tab_selected"
-                    android:gravity="center"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
                     android:text="All"
-                    android:textColor="#FFFFFF"
+                    android:textAllCaps="false"
                     android:textSize="13sp"
-                    android:textStyle="bold" />
+                    app:cornerRadius="20dp"
+                    app:icon="@drawable/ic_list"
+                    app:iconGravity="textStart"
+                    app:iconSize="16dp"
+                    app:iconPadding="4dp" />
 
-                <TextView
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/tabNew"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="36dp"
+                    android:layout_height="40dp"
                     android:layout_marginEnd="8dp"
-                    android:background="@drawable/bg_tab_unselected"
-                    android:gravity="center"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
                     android:text="New"
-                    android:textColor="#555555"
-                    android:textSize="13sp" />
+                    android:textAllCaps="false"
+                    android:textSize="13sp"
+                    app:cornerRadius="20dp"
+                    app:icon="@drawable/ic_clock"
+                    app:iconGravity="textStart"
+                    app:iconSize="16dp"
+                    app:iconPadding="4dp" />
 
-                <TextView
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/tabAccepted"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="36dp"
+                    android:layout_height="40dp"
                     android:layout_marginEnd="8dp"
-                    android:background="@drawable/bg_tab_unselected"
-                    android:gravity="center"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:text="Confirmed"
-                    android:textColor="#555555"
-                    android:textSize="13sp" />
-
-                <TextView
-                    android:id="@+id/tabPreparing"
-                    android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:layout_marginEnd="8dp"
-                    android:background="@drawable/bg_tab_unselected"
-                    android:gravity="center"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
                     android:text="Preparing"
-                    android:textColor="#555555"
-                    android:textSize="13sp" />
+                    android:textAllCaps="false"
+                    android:textSize="13sp"
+                    app:cornerRadius="20dp"
+                    app:iconGravity="textStart"
+                    app:iconSize="16dp"
+                    app:iconPadding="4dp" />
 
-                <TextView
-                    android:id="@+id/tabDelivery"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/tabPreparing"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="36dp"
+                    android:layout_height="40dp"
                     android:layout_marginEnd="8dp"
-                    android:background="@drawable/bg_tab_unselected"
-                    android:gravity="center"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:text="Ready"
-                    android:textColor="#555555"
-                    android:textSize="13sp" />
+                    android:text="Ready for Pickup"
+                    android:textAllCaps="false"
+                    android:textSize="13sp"
+                    app:cornerRadius="20dp"
+                    app:icon="@drawable/ic_check_circle"
+                    app:iconGravity="textStart"
+                    app:iconSize="16dp"
+                    app:iconPadding="4dp" />
 
-                <TextView
-                    android:id="@+id/tabDone"
-                    android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:background="@drawable/bg_tab_unselected"
-                    android:gravity="center"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:text="Done"
-                    android:textColor="#555555"
-                    android:textSize="13sp" />
             </LinearLayout>
         </HorizontalScrollView>
     </LinearLayout>

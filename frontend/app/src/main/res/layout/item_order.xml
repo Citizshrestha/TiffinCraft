@@ -6,172 +6,280 @@
     android:layout_height="wrap_content"
     android:layout_marginStart="16dp"
     android:layout_marginEnd="16dp"
-    android:layout_marginBottom="12dp"
+    android:layout_marginBottom="16dp"
     app:cardBackgroundColor="#FFFFFF"
-    app:cardCornerRadius="18dp"
-    app:cardElevation="0dp"
-    app:strokeColor="#EFEFEF"
-    app:strokeWidth="1dp">
+    app:cardCornerRadius="16dp"
+    app:cardElevation="2dp"
+    app:strokeColor="#E0E0E0"
+    app:strokeWidth="0dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:orientation="vertical">
 
-        <!-- Header: avatar + customer + status -->
+        <!-- Items count header -->
+        <TextView
+            android:id="@+id/tvItemsCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="16dp"
+            android:text="4 items in order"
+            android:textColor="#666666"
+            android:textSize="13sp"
+            android:textStyle="normal" />
+
+        <!-- Image Carousel Container -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="240dp"
+            android:layout_marginTop="12dp">
+
+            <!-- Main Image ViewPager -->
+            <androidx.viewpager2.widget.ViewPager2
+                android:id="@+id/viewPagerImages"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <!-- Default placeholder when no images -->
+            <ImageView
+                android:id="@+id/imgMealPlaceholder"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#F5F5F5"
+                android:contentDescription="Meal image"
+                android:padding="60dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_meal"
+                app:tint="#CCCCCC" />
+
+            <!-- Left arrow -->
+            <ImageButton
+                android:id="@+id/btnPrevImage"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center_vertical|start"
+                android:layout_marginStart="12dp"
+                android:background="@drawable/bg_carousel_arrow"
+                android:contentDescription="Previous"
+                android:padding="8dp"
+                android:src="@drawable/ic_chevron_left"
+                android:visibility="gone"
+                app:tint="#333333" />
+
+            <!-- Right arrow -->
+            <ImageButton
+                android:id="@+id/btnNextImage"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center_vertical|end"
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/bg_carousel_arrow"
+                android:contentDescription="Next"
+                android:padding="8dp"
+                android:src="@drawable/ic_chevron_right"
+                android:visibility="gone"
+                app:tint="#333333" />
+
+            <!-- Page indicators -->
+            <LinearLayout
+                android:id="@+id/layoutIndicators"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|center_horizontal"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/bg_indicator_container"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingTop="4dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="4dp"
+                android:visibility="gone" />
+
+        </FrameLayout>
+
+        <!-- Item chips (horizontal scroll) -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/layoutItemChips"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <!-- Item chips will be added dynamically -->
+                <!-- Example: 1× Chocolate Cake, 2× Mango Lassi -->
+
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- Content section -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="16dp">
 
-            <androidx.cardview.widget.CardView
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="0dp">
+            <!-- Status badge + Order number row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tvStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:drawablePadding="4dp"
+                    android:paddingStart="10dp"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="6dp"
+                    android:text="Ready for Pickup"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    app:drawableStartCompat="@drawable/ic_check_circle" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:id="@+id/tvOrderDate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Takeaway · 9 May, 2026"
+                    android:textColor="#999999"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- Order ID -->
+            <TextView
+                android:id="@+id/tvOrderId"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Order #48"
+                android:textColor="#1A1A1A"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <!-- Customer name with icon -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
                 <ImageView
-                    android:id="@+id/imgCustomerAvatar"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="#E8F5E9"
-                    android:contentDescription="Customer"
-                    android:padding="8dp"
-                    android:scaleType="centerInside"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
                     android:src="@drawable/ic_person"
                     app:tint="#4CAF50" />
-            </androidx.cardview.widget.CardView>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
 
                 <TextView
                     android:id="@+id/tvCustomerName"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Customer Name"
-                    android:textColor="#111111"
+                    android:layout_marginStart="6dp"
+                    android:text="Marshal Chaudhary"
+                    android:textColor="#1A1A1A"
                     android:textSize="14sp"
                     android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvOrderId"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="1dp"
-                    android:text="Order #0001 · 10:30 AM"
-                    android:textColor="#999999"
-                    android:textSize="11sp" />
             </LinearLayout>
 
+            <!-- Order summary text -->
             <TextView
-                android:id="@+id/tvStatus"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:paddingStart="10dp"
-                android:paddingTop="5dp"
-                android:paddingEnd="10dp"
-                android:paddingBottom="5dp"
-                android:text="New"
-                android:textSize="10sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="12dp"
-            android:background="#F0F0F0" />
-
-        <!-- Meal -->
-        <TextView
-            android:id="@+id/tvMealInfo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Paneer Thali × 2"
-            android:textColor="#444444"
-            android:textSize="13sp" />
-
-        <!-- Address -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <ImageView
-                android:layout_width="14dp"
-                android:layout_height="14dp"
-                android:src="@drawable/ic_location"
-                app:tint="#BBBBBB" />
-
-            <TextView
-                android:id="@+id/tvAddress"
+                android:id="@+id/tvOrderSummary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="5dp"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:text="Baneshwor, Kathmandu"
-                android:textColor="#888888"
-                android:textSize="11.5sp" />
-        </LinearLayout>
+                android:layout_marginTop="8dp"
+                android:text="1× Chocolate Cake, 2× Mango Lassi, 3× Dal Bhat, 1× Butter Chicken"
+                android:textColor="#555555"
+                android:textSize="13sp" />
 
-        <!-- Total row -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
+            <!-- Special instructions section -->
+            <LinearLayout
+                android:id="@+id/layoutSpecialInstructions"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Total"
-                android:textColor="#999999"
-                android:textSize="12sp" />
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_special_instructions"
+                android:orientation="vertical"
+                android:padding="12dp"
+                android:visibility="gone">
 
-            <TextView
-                android:id="@+id/tvAmount"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="₹240"
-                android:textColor="#111111"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:src="@drawable/ic_info"
+                        app:tint="#E65100" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:text="SPECIAL INSTRUCTIONS"
+                        android:textColor="#E65100"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvSpecialInstructions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Chocolate Cake: dark chocolate\nMango Lassi: extra mango"
+                    android:textColor="#555555"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="+2 more in details"
+                    android:textColor="#999999"
+                    android:textSize="11sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- Action button (hidden by default, shown when needed) -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnNextAction"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="16dp"
+                android:backgroundTint="#4CAF50"
+                android:text="Confirm Order"
+                android:textAllCaps="false"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                app:cornerRadius="12dp" />
+
         </LinearLayout>
-
-        <!-- Hidden time field used by adapter -->
-        <TextView
-            android:id="@+id/tvTime"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:visibility="gone" />
-
-        <!-- Action button -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnNextAction"
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginTop="14dp"
-            android:backgroundTint="#4CAF50"
-            android:text="Accept Order"
-            android:textAllCaps="false"
-            android:textColor="#FFFFFF"
-            android:textSize="13.5sp"
-            android:textStyle="bold"
-            app:cornerRadius="12dp"
-            android:visibility="gone" />
 
     </LinearLayout>
 
