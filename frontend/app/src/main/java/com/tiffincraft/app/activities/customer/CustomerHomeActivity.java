@@ -29,6 +29,7 @@ import com.tiffincraft.app.models.CustomerDashboardResponse;
 import com.tiffincraft.app.models.NotificationResponse;
 import com.tiffincraft.app.models.PopularCook;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.ChatPanelManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -72,6 +73,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
             setupBottomNavigation();
             applyEntranceAnimations();
             setupBackPressHandler();
+            ChatPanelManager.attach(this);
 
             Log.d(TAG, "CustomerHomeActivity onCreate completed successfully");
         } catch (Exception e) {

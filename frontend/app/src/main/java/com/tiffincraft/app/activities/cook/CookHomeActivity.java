@@ -26,6 +26,7 @@ import com.tiffincraft.app.models.DashboardResponse;
 import com.tiffincraft.app.models.DashboardStats;
 import com.tiffincraft.app.models.NotificationResponse;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.ChatPanelManager;
 import com.tiffincraft.app.utils.SocketManager;
 
 import org.json.JSONObject;
@@ -71,7 +72,8 @@ public class CookHomeActivity extends AppCompatActivity {
             setupSocketListeners();
             applyEntranceAnimations();
             setupBackPressHandler();
-            
+            ChatPanelManager.attach(this);
+
             // Click on notification bell
             findViewById(R.id.btnNotifications).setOnClickListener(v -> {
                 Intent intent = new Intent(this, NotificationActivity.class);

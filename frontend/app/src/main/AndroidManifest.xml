@@ -204,6 +204,12 @@
             android:name=".activities.cook.CookSettingsActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
+        <!-- Chat -->
+        <activity
+            android:name=".activities.common.ChatActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"
+            android:windowSoftInputMode="adjustResize"/>
+
     </application>
 
 </manifest>
