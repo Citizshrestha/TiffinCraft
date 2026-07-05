@@ -161,4 +161,9 @@ public class RetrofitClient {
         SharedPreferences prefs = context.getSharedPreferences("TiffinCraftSession", Context.MODE_PRIVATE);
         prefs.edit().remove("token").apply();
     }
+
+    /** Get the current server URL for Socket.IO connections */
+    public static String getServerUrl(Context context) {
+        return ServerConfig.getCachedServerUrl(context);
+    }
 }

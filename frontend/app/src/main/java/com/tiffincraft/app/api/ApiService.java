@@ -263,11 +263,6 @@ public interface ApiService {
             @Path("id") int notificationId
     );
 
-    @PUT("notifications/read-all")
-    Call<RegisterResponse> markAllNotificationsAsRead(
-            @Header("Authorization") String token
-    );
-
     // Cook profile management endpoints
     @PUT("cook/profile/holiday-mode")
     Call<CookProfileResponse> updateHolidayMode(
@@ -317,6 +312,21 @@ public interface ApiService {
             @Header("Authorization") String token,
             @Path("orderId") int orderId,
             @Body UpdateOrderStatusRequest request
+    );
+
+    // Payment verification endpoints
+    @POST("orders/{orderId}/payment-screenshot")
+    Call<OrderResponse> uploadPaymentScreenshot(
+            @Header("Authorization") String token,
+            @Path("orderId") int orderId,
+            @Body com.google.gson.JsonObject requestBody
+    );
+
+    @PUT("orders/{orderId}/verify-payment")
+    Call<OrderResponse> verifyPayment(
+            @Header("Authorization") String token,
+            @Path("orderId") int orderId,
+            @Body com.google.gson.JsonObject requestBody
     );
 
     // Favorites endpoints

@@ -50,6 +50,18 @@ public class Order {
     @SerializedName("special_instructions")
     private String specialInstructions;
 
+    @SerializedName("payment_method")
+    private String paymentMethod;
+
+    @SerializedName("payment_status")
+    private String paymentStatus;
+
+    @SerializedName("payment_screenshot_url")
+    private String paymentScreenshotUrl;
+
+    @SerializedName("payment_verified_at")
+    private String paymentVerifiedAt;
+
     // Getters
     public int getId() { return id; }
     public int getCustomerId() { return customerId; }
@@ -66,8 +78,14 @@ public class Order {
     public double getMealPrice() { return mealPrice; }
     public String getMealImage() { return mealImage; }
     public String getSpecialInstructions() { return specialInstructions; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public String getPaymentStatus() { return paymentStatus; }
+    public String getPaymentScreenshotUrl() { return paymentScreenshotUrl; }
+    public String getPaymentVerifiedAt() { return paymentVerifiedAt; }
 
     // Setters
     public void setId(int id) { this.id = id; }
     public void setStatus(String status) { this.status = status; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
+    public void setPaymentScreenshotUrl(String paymentScreenshotUrl) { this.paymentScreenshotUrl = paymentScreenshotUrl; }
 }

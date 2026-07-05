@@ -22,21 +22,23 @@
 
         <!-- Title -->
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Orders"
             android:textColor="#1A1A1A"
             android:textSize="24sp"
             android:textStyle="bold"
+            android:gravity="center"
             android:layout_marginBottom="4dp" />
 
         <!-- Real-time info text -->
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Real-time view of orders and table statuses."
             android:textColor="#666666"
             android:textSize="13sp"
+            android:gravity="center"
             android:layout_marginBottom="16dp" />
 
         <!-- Green Refresh Button -->
@@ -97,11 +99,13 @@
                     android:layout_marginEnd="8dp"
                     android:text="All"
                     android:textAllCaps="false"
+                    android:textColor="#111111"
                     android:textSize="13sp"
                     app:cornerRadius="20dp"
                     app:icon="@drawable/ic_list"
                     app:iconGravity="textStart"
                     app:iconSize="16dp"
+                    app:iconTint="#111111"
                     app:iconPadding="4dp" />
 
                 <com.google.android.material.button.MaterialButton
@@ -112,11 +116,13 @@
                     android:layout_marginEnd="8dp"
                     android:text="New"
                     android:textAllCaps="false"
+                    android:textColor="#111111"
                     android:textSize="13sp"
                     app:cornerRadius="20dp"
                     app:icon="@drawable/ic_clock"
                     app:iconGravity="textStart"
                     app:iconSize="16dp"
+                    app:iconTint="#111111"
                     app:iconPadding="4dp" />
 
                 <com.google.android.material.button.MaterialButton
@@ -127,10 +133,12 @@
                     android:layout_marginEnd="8dp"
                     android:text="Preparing"
                     android:textAllCaps="false"
+                    android:textColor="#111111"
                     android:textSize="13sp"
                     app:cornerRadius="20dp"
                     app:iconGravity="textStart"
                     app:iconSize="16dp"
+                    app:iconTint="#111111"
                     app:iconPadding="4dp" />
 
                 <com.google.android.material.button.MaterialButton
@@ -141,11 +149,29 @@
                     android:layout_marginEnd="8dp"
                     android:text="Ready for Pickup"
                     android:textAllCaps="false"
+                    android:textColor="#111111"
                     android:textSize="13sp"
                     app:cornerRadius="20dp"
                     app:icon="@drawable/ic_check_circle"
                     app:iconGravity="textStart"
                     app:iconSize="16dp"
+                    app:iconTint="#111111"
+                    app:iconPadding="4dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/tabCompleted"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:text="Completed"
+                    android:textAllCaps="false"
+                    android:textColor="#111111"
+                    android:textSize="13sp"
+                    app:cornerRadius="20dp"
+                    app:icon="@drawable/ic_check"
+                    app:iconGravity="textStart"
+                    app:iconSize="16dp"
+                    app:iconTint="#111111"
                     app:iconPadding="4dp" />
 
             </LinearLayout>

@@ -63,8 +63,8 @@ public class CookSettingsActivity extends AppCompatActivity {
 
         // Bank Details
         binding.layoutBankDetails.setOnClickListener(v -> {
-            Toast.makeText(this, "Bank details management - Coming in next update", Toast.LENGTH_SHORT).show();
-            // TODO: Open BankDetailsActivity
+            Intent intent = new Intent(this, BankDetailsActivity.class);
+            startActivity(intent);
         });
 
         // Change Password
@@ -174,10 +174,10 @@ public class CookSettingsActivity extends AppCompatActivity {
     private void updateHolidayModeStatus(boolean enabled) {
         if (enabled) {
             binding.tvHolidayModeStatus.setText("You are not accepting new orders");
-            binding.tvHolidayModeStatus.setTextColor(getColor(R.color.error));
+            binding.tvHolidayModeStatus.setTextColor(getColor(R.color.error_red));
         } else {
             binding.tvHolidayModeStatus.setText("You are accepting orders");
-            binding.tvHolidayModeStatus.setTextColor(getColor(R.color.success));
+            binding.tvHolidayModeStatus.setTextColor(getColor(R.color.green_primary));
         }
     }
 

@@ -12,13 +12,24 @@ export const placeOrder = async (req, res) => {
             quantity,
             delivery_address,
             subscription_type,
-            payment_method
+            payment_method,
+            special_instructions
         } = req.body;
 
         if (!cook_id || !meal_id || !quantity || !delivery_address) {
             return res.status(400).json({
                 success: false,
                 message: "cook_id, meal_id, quantity and delivery_address are required."
+            });
+        }
+
+        // Validate payment_method
+        const validPaymentMethods = ['cod', 'online'];
+        const selectedPaymentMethod = payment_method || 'cod';
+        if (!validPaymentMethods.includes(selectedPaymentMethod)) {
+            return res.status(400).json({
+                success: false,
+                message: "payment_method must be 'cod' or 'online'"
             });
         }
 
@@ -39,16 +50,22 @@ export const placeOrder = async (req, res) => {
 
         await connection.beginTransaction();
 
+        // Set initial payment_status based on payment_method
+        const initialPaymentStatus = selectedPaymentMethod === 'cod' ? 'pending' : 'pending';
+
         const [result] = await connection.query(
             `INSERT INTO orders
              (customer_id, cook_id, total_amount, delivery_address,
-              status)
-             VALUES (?, ?, ?, ?, 'pending')`,
+              status, payment_method, payment_status, special_instructions)
+             VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)`,
             [
                 customerId,
                 cook_id,
                 total_amount,
-                delivery_address
+                delivery_address,
+                selectedPaymentMethod,
+                initialPaymentStatus,
+                special_instructions || null
             ]
         );
 
@@ -80,14 +97,16 @@ export const placeOrder = async (req, res) => {
                 mealName: meal.name,
                 quantity,
                 total_amount,
-                delivery_address
+                delivery_address,
+                payment_method: selectedPaymentMethod
             });
         }
 
         return res.status(201).json({
             success: true,
             message: "Order placed successfully.",
-            orderId
+            orderId,
+            payment_method: selectedPaymentMethod
         });
 
     } catch (error) {
@@ -422,6 +441,205 @@ export const getCookEarnings = async (req, res) => {
 
     } catch (error) {
         console.error("getCookEarnings error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};
+
+// POST /api/orders/:orderId/payment-screenshot
+// Customer uploads payment screenshot for online payment
+export const uploadPaymentScreenshot = async (req, res) => {
+    try {
+        const customerId = req.user.id;
+        const { orderId } = req.params;
+        const { payment_screenshot_url } = req.body;
+
+        if (!payment_screenshot_url) {
+            return res.status(400).json({
+                success: false,
+                message: "payment_screenshot_url is required"
+            });
+        }
+
+        // Check order belongs to this customer
+        const [orders] = await db.promise().query(
+            "SELECT * FROM orders WHERE id = ? AND customer_id = ?",
+            [orderId, customerId]
+        );
+
+        if (orders.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Order not found."
+            });
+        }
+
+        const order = orders[0];
+
+        if (order.payment_method !== 'online') {
+            return res.status(400).json({
+                success: false,
+                message: "This order is not using online payment method"
+            });
+        }
+
+        // Update payment screenshot and mark as paid (waiting for verification)
+        await db.promise().query(
+            `UPDATE orders 
+             SET payment_screenshot_url = ?, 
+                 payment_status = 'paid',
+                 updated_at = NOW() 
+             WHERE id = ?`,
+            [payment_screenshot_url, orderId]
+        );
+
+        // Notify cook about payment submission
+        const [customer] = await db.promise().query(
+            'SELECT full_name FROM users WHERE id = ?',
+            [customerId]
+        );
+
+        await db.promise().query(
+            `INSERT INTO notifications (user_id, title, message, type, reference_id, reference_type)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+                order.cook_id,
+                'Payment Submitted',
+                `${customer[0].full_name} submitted payment proof for Order #${orderId}. Please verify.`,
+                'payment_verification',
+                orderId,
+                'order'
+            ]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Payment screenshot uploaded. Waiting for cook verification."
+        });
+
+    } catch (error) {
+        console.error("uploadPaymentScreenshot error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};
+
+// PUT /api/orders/:orderId/verify-payment
+// Cook verifies customer's payment screenshot
+export const verifyPayment = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+        const { orderId } = req.params;
+        const { verified } = req.body; // true or false
+
+        if (verified === undefined) {
+            return res.status(400).json({
+                success: false,
+                message: "verified field is required (true/false)"
+            });
+        }
+
+        // Check order belongs to this cook
+        const [orders] = await db.promise().query(
+            "SELECT * FROM orders WHERE id = ? AND cook_id = ?",
+            [orderId, cookId]
+        );
+
+        if (orders.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Order not found."
+            });
+        }
+
+        const order = orders[0];
+
+        if (order.payment_method !== 'online') {
+            return res.status(400).json({
+                success: false,
+                message: "This order is not using online payment method"
+            });
+        }
+
+        if (verified) {
+            // Payment verified - update status and confirm order
+            await db.promise().query(
+                `UPDATE orders 
+                 SET payment_status = 'verified',
+                     payment_verified_at = NOW(),
+                     status = CASE WHEN status = 'pending' THEN 'confirmed' ELSE status END,
+                     updated_at = NOW()
+                 WHERE id = ?`,
+                [orderId]
+            );
+
+            // Notify customer about verified payment
+            const [cook] = await db.promise().query(
+                'SELECT full_name FROM users WHERE id = ?',
+                [cookId]
+            );
+
+            await db.promise().query(
+                `INSERT INTO notifications (user_id, title, message, type, reference_id, reference_type)
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                    order.customer_id,
+                    'Payment Verified',
+                    `${cook[0].full_name} verified your payment for Order #${orderId}. Your order is confirmed!`,
+                    'payment_verified',
+                    orderId,
+                    'order'
+                ]
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: "Payment verified successfully. Order confirmed."
+            });
+        } else {
+            // Payment rejected - notify customer to resubmit
+            await db.promise().query(
+                `UPDATE orders 
+                 SET payment_status = 'pending',
+                     payment_screenshot_url = NULL,
+                     updated_at = NOW()
+                 WHERE id = ?`,
+                [orderId]
+            );
+
+            // Notify customer about rejected payment
+            const [cook] = await db.promise().query(
+                'SELECT full_name FROM users WHERE id = ?',
+                [cookId]
+            );
+
+            await db.promise().query(
+                `INSERT INTO notifications (user_id, title, message, type, reference_id, reference_type)
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                    order.customer_id,
+                    'Payment Verification Failed',
+                    `${cook[0].full_name} could not verify your payment for Order #${orderId}. Please resubmit payment proof.`,
+                    'payment_rejected',
+                    orderId,
+                    'order'
+                ]
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: "Payment rejected. Customer notified to resubmit."
+            });
+        }
+
+    } catch (error) {
+        console.error("verifyPayment error:", error);
         return res.status(500).json({
             success: false,
             message: "Server error.",

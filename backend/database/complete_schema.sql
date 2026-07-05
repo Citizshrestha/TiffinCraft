@@ -92,13 +92,15 @@ CREATE TABLE IF NOT EXISTS orders (
     customer_id INT NOT NULL,
     cook_id INT NOT NULL,
     total_amount DECIMAL(10,2) NOT NULL,
-    status ENUM('pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled') DEFAULT 'pending',
+    status ENUM('pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled', 'completed') DEFAULT 'pending',
     delivery_address TEXT,
     delivery_latitude DECIMAL(10, 8),
     delivery_longitude DECIMAL(11, 8),
     special_instructions TEXT,
-    payment_status ENUM('pending', 'paid', 'refunded') DEFAULT 'pending',
-    payment_method VARCHAR(50),
+    payment_method ENUM('cod', 'online') DEFAULT 'cod',
+    payment_status ENUM('pending', 'paid', 'verified', 'refunded') DEFAULT 'pending',
+    payment_screenshot_url VARCHAR(500) COMMENT 'Customer uploads payment screenshot for online payment',
+    payment_verified_at TIMESTAMP NULL COMMENT 'When cook verified the payment',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -106,6 +108,7 @@ CREATE TABLE IF NOT EXISTS orders (
     INDEX idx_customer (customer_id),
     INDEX idx_cook (cook_id),
     INDEX idx_status (status),
+    INDEX idx_payment_status (payment_status),
     INDEX idx_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

@@ -204,6 +204,10 @@
             android:name=".activities.cook.CookSettingsActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
+        <activity
+            android:name=".activities.cook.BankDetailsActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
     </application>
 
 </manifest>

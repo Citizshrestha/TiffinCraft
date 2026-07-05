@@ -7,7 +7,9 @@ import {
     getCookOrders,
     updateOrderStatus,
     cancelOrder,
-    getCookEarnings
+    getCookEarnings,
+    uploadPaymentScreenshot,
+    verifyPayment
 } from "../controllers/orderController.js";
 
 const router = Router();
@@ -15,10 +17,12 @@ const router = Router();
 router.post("/", protect, roleOnly("customer"), placeOrder);
 router.get("/customer/my", protect, roleOnly("customer"), getCustomerOrders);
 router.put("/:orderId/cancel", protect, roleOnly("customer"), cancelOrder);
+router.post("/:orderId/payment-screenshot", protect, roleOnly("customer"), uploadPaymentScreenshot);
 
 router.get("/cook/my", protect, roleOnly("cook"), getCookOrders);
 router.get("/cook/earnings", protect, roleOnly("cook"), getCookEarnings);
 router.put("/:orderId/status", protect, roleOnly("cook"), updateOrderStatus);
+router.put("/:orderId/verify-payment", protect, roleOnly("cook"), verifyPayment);
 
 router.get("/:orderId", protect, getOrderById);
 

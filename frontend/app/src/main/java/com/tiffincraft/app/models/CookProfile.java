@@ -22,6 +22,8 @@ public class CookProfile {
     private boolean isVerified;
     @SerializedName("is_approved")
     private boolean isApproved;
+    @SerializedName("bank_details")
+    private String bankDetails;
 
     // User info (from JOIN)
     @SerializedName("full_name")
@@ -166,5 +168,13 @@ public class CookProfile {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public String getBankDetails() {
+        return bankDetails;
+    }
+
+    public void setBankDetails(String bankDetails) {
+        this.bankDetails = bankDetails;
     }
 }

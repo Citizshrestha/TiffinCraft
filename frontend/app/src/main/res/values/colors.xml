@@ -36,9 +36,16 @@
 
     <!-- UI colors -->
     <color name="error_red">#D32F2F</color>
+    <color name="error">#D32F2F</color>
+    <color name="success">#4CAF50</color>
+    <color name="primary">#4CAF50</color>
     <color name="input_border">#E0E0E0</color>
+    <color name="divider">#E0E0E0</color>
     <color name="divider_text">#999999</color>
     <color name="card_subtitle">#999999</color>
+    <color name="background_light">#FAFAFA</color>
+    <color name="text_secondary">#757575</color>
+    <color name="rating_star">#FFB300</color>
 
     <!-- Notification icon colors -->
     <color name="orange">#FF9800</color>

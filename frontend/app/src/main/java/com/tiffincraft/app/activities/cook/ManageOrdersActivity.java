@@ -110,9 +110,9 @@ public class ManageOrdersActivity extends AppCompatActivity
 
     private void setupFilterTabs() {
         MaterialButton[] tabs = {
-                binding.tabAll, binding.tabNew, binding.tabAccepted, binding.tabPreparing
+                binding.tabAll, binding.tabNew, binding.tabAccepted, binding.tabPreparing, binding.tabCompleted
         };
-        String[] filters = { null, "pending", "preparing", "ready" };
+        String[] filters = { null, "pending", "preparing", "ready", "completed" };
 
         for (int i = 0; i < tabs.length; i++) {
             final int index = i;
@@ -135,8 +135,8 @@ public class ManageOrdersActivity extends AppCompatActivity
             tab.setStrokeWidth(0);
         } else {
             tab.setBackgroundColor(0xFFFFFFFF);
-            tab.setTextColor(0xFF666666);
-            tab.setIconTint(android.content.res.ColorStateList.valueOf(0xFF666666));
+            tab.setTextColor(0xFF111111);
+            tab.setIconTint(android.content.res.ColorStateList.valueOf(0xFF111111));
             tab.setStrokeWidth(dpToPx(1));
             tab.setStrokeColor(android.content.res.ColorStateList.valueOf(0xFFE0E0E0));
         }
@@ -330,10 +330,15 @@ public class ManageOrdersActivity extends AppCompatActivity
             socketManager.connect();
 
             // Join cook room
-            int cookId = sessionManager.getUserId();
-            if (cookId > 0) {
-                socketManager.joinCookRoom(cookId);
-                Log.d(TAG, "Joined cook room for real-time order updates: " + cookId);
+            String userIdStr = sessionManager.getUserId();
+            if (userIdStr != null && !userIdStr.isEmpty()) {
+                try {
+                    int cookId = Integer.parseInt(userIdStr);
+                    socketManager.joinCookRoom(cookId);
+                    Log.d(TAG, "Joined cook room for real-time order updates: " + cookId);
+                } catch (NumberFormatException e) {
+                    Log.e(TAG, "Invalid user ID format: " + userIdStr);
+                }
             }
         }
     }

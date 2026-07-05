@@ -668,7 +668,7 @@ export const updateOperatingHours = async (req, res) => {
 };
 
 // PUT /api/cook/profile/bank-details
-// Update cook's bank details for payouts
+// Update cook's bank details with payment QR codes (eSewa, Khalti, Bank)
 export const updateBankDetails = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -681,25 +681,39 @@ export const updateBankDetails = async (req, res) => {
             });
         }
 
-        // Validate required fields
-        const requiredFields = ['accountHolder', 'accountNumber', 'ifsc', 'bankName'];
-        const missingFields = requiredFields.filter(field => !bank_details[field]);
-
-        if (missingFields.length > 0) {
-            return res.status(400).json({
-                success: false,
-                message: `Missing required fields: ${missingFields.join(', ')}`
-            });
-        }
+        // No validation - allow partial updates (QR codes can be optional)
+        // bank_details can contain: esewa_qr_url, khalti_qr_url, bank_qr_url
 
         await db.promise().query(
             'UPDATE cook_profiles SET bank_details = ? WHERE user_id = ?',
             [JSON.stringify(bank_details), userId]
         );
 
+        // Get updated profile
+        const [profiles] = await db.promise().query(
+            `SELECT cp.*, u.full_name, u.email, u.phone, u.profile_image, u.address
+             FROM cook_profiles cp
+             JOIN users u ON cp.user_id = u.id
+             WHERE cp.user_id = ?`,
+            [userId]
+        );
+
+        if (profiles.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Cook profile not found"
+            });
+        }
+
+        const formattedProfile = {
+            ...profiles[0],
+            rating: parseFloat(profiles[0].rating)
+        };
+
         return res.status(200).json({
             success: true,
-            message: "Bank details updated successfully"
+            message: "Bank details updated successfully",
+            profile: formattedProfile
         });
 
     } catch (error) {

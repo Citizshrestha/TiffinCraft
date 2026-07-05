@@ -409,10 +409,15 @@ public class CookHomeActivity extends AppCompatActivity {
             socketManager.connect();
 
             // Join cook room
-            int cookId = sessionManager.getUserId();
-            if (cookId > 0) {
-                socketManager.joinCookRoom(cookId);
-                Log.d(TAG, "Joined cook room: " + cookId);
+            String userIdStr = sessionManager.getUserId();
+            if (userIdStr != null && !userIdStr.isEmpty()) {
+                try {
+                    int cookId = Integer.parseInt(userIdStr);
+                    socketManager.joinCookRoom(cookId);
+                    Log.d(TAG, "Joined cook room: " + cookId);
+                } catch (NumberFormatException e) {
+                    Log.e(TAG, "Invalid user ID format: " + userIdStr);
+                }
             }
         }
     }
