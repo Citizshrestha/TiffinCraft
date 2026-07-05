@@ -1,182 +1,162 @@
-import { uploadToCloudinary, deleteFromCloudinary, extractPublicId } from '../services/uploadService.js';
+import { uploadToCloudinary, deleteFromCloudinary, extractPublicId, sanitizeFolderName } from '../services/uploadService.js';
+import db from '../config/db.js';
 
 /**
- * Upload meal image
+ * POST /api/upload/meal-image
+ * Generic meal image upload — uses the authenticated user's ID as the cook folder.
+ * For the meal-specific route (PUT /api/meals/:mealId/image) use mealController instead.
  */
 export const uploadMealImage = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No image file provided'
-      });
+      return res.status(400).json({ success: false, message: 'No image file provided.' });
     }
 
-    // Upload to Cloudinary
-    const result = await uploadToCloudinary(
-      req.file.buffer,
-      'tiffincraft/meals',
-      {
-        transformation: [
-          { width: 800, height: 600, crop: 'fill', gravity: 'auto' },
-          { quality: 'auto:good' },
-          { fetch_format: 'auto' }
-        ]
-      }
-    );
+    const cookId = req.user.id;
+    const folder = `tiffincraft/meals/${cookId}`;
 
-    res.status(200).json({
+    const result = await uploadToCloudinary(req.file.buffer, folder, {
+      transformation: [
+        { width: 800, height: 600, crop: 'fill', gravity: 'auto' },
+        { quality: 'auto:good' },
+        { fetch_format: 'auto' },
+      ],
+    });
+
+    return res.status(200).json({
       success: true,
-      message: 'Image uploaded successfully',
+      message: 'Image uploaded successfully.',
       data: {
         url: result.secure_url,
         publicId: result.public_id,
         width: result.width,
         height: result.height,
-        format: result.format
-      }
+        format: result.format,
+      },
     });
   } catch (error) {
-    console.error('Upload meal image error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to upload image',
-      error: error.message
-    });
+    console.error('uploadMealImage (uploadController) error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to upload image.', error: error.message });
   }
 };
 
 /**
- * Upload profile image (cook or customer)
+ * POST /api/upload/profile-image
+ * Generic profile image upload — scoped to tiffincraft/profiles/<username>/
  */
 export const uploadProfileImage = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No image file provided'
-      });
+      return res.status(400).json({ success: false, message: 'No image file provided.' });
     }
 
-    // Upload to Cloudinary with circular crop for profile
-    const result = await uploadToCloudinary(
-      req.file.buffer,
-      'tiffincraft/profiles',
-      {
-        transformation: [
-          { width: 400, height: 400, crop: 'fill', gravity: 'face' },
-          { quality: 'auto:good' },
-          { fetch_format: 'auto' }
-        ]
-      }
+    const userId = req.user.id;
+
+    // Fetch user to build folder name and delete old image
+    const [users] = await db.promise().query(
+      'SELECT profile_image, full_name, email FROM users WHERE id = ?',
+      [userId]
     );
 
-    res.status(200).json({
+    // Delete old Cloudinary image if it exists
+    if (users[0]?.profile_image) {
+      const oldPublicId = extractPublicId(users[0].profile_image);
+      if (oldPublicId) {
+        await deleteFromCloudinary(oldPublicId).catch(() => {});
+      }
+    }
+
+    const username = sanitizeFolderName(users[0]?.full_name || users[0]?.email || String(userId));
+    const folder = `tiffincraft/profiles/${username}`;
+
+    const result = await uploadToCloudinary(req.file.buffer, folder, {
+      transformation: [
+        { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+        { quality: 'auto:good' },
+        { fetch_format: 'auto' },
+      ],
+    });
+
+    const imageUrl = result.secure_url;
+
+    // Persist new image URL
+    await db.promise().query('UPDATE users SET profile_image = ? WHERE id = ?', [imageUrl, userId]);
+
+    return res.status(200).json({
       success: true,
-      message: 'Profile image uploaded successfully',
+      message: 'Profile image uploaded successfully.',
       data: {
-        url: result.secure_url,
+        url: imageUrl,
         publicId: result.public_id,
         width: result.width,
         height: result.height,
-        format: result.format
-      }
+        format: result.format,
+      },
     });
   } catch (error) {
-    console.error('Upload profile image error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to upload profile image',
-      error: error.message
-    });
+    console.error('uploadProfileImage (uploadController) error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to upload profile image.', error: error.message });
   }
 };
 
 /**
- * Upload cook certificate/document
+ * POST /api/upload/document
+ * Upload a cook certificate / document.
+ * Stored under tiffincraft/documents/<userId>/
  */
 export const uploadDocument = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No document provided'
-      });
+      return res.status(400).json({ success: false, message: 'No document provided.' });
     }
 
-    // Upload to Cloudinary
-    const result = await uploadToCloudinary(
-      req.file.buffer,
-      'tiffincraft/documents',
-      {
-        resource_type: 'auto' // Allows PDFs and other documents
-      }
-    );
+    const userId = req.user.id;
+    const folder = `tiffincraft/documents/${userId}`;
 
-    res.status(200).json({
+    const result = await uploadToCloudinary(req.file.buffer, folder, {
+      resource_type: 'auto',
+      transformation: undefined, // no image transformation for documents
+    });
+
+    return res.status(200).json({
       success: true,
-      message: 'Document uploaded successfully',
+      message: 'Document uploaded successfully.',
       data: {
         url: result.secure_url,
         publicId: result.public_id,
-        format: result.format
-      }
+        format: result.format,
+      },
     });
   } catch (error) {
-    console.error('Upload document error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to upload document',
-      error: error.message
-    });
+    console.error('uploadDocument error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to upload document.', error: error.message });
   }
 };
 
 /**
- * Delete image from Cloudinary
+ * DELETE /api/upload/image
+ * Delete an image from Cloudinary by its URL.
  */
 export const deleteImage = async (req, res) => {
   try {
     const { imageUrl } = req.body;
 
     if (!imageUrl) {
-      return res.status(400).json({
-        success: false,
-        message: 'Image URL is required'
-      });
+      return res.status(400).json({ success: false, message: 'imageUrl is required.' });
     }
 
-    // Extract public ID from URL
     const publicId = extractPublicId(imageUrl);
-    
     if (!publicId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid image URL'
-      });
+      return res.status(400).json({ success: false, message: 'Invalid Cloudinary image URL.' });
     }
 
-    // Delete from Cloudinary
     const result = await deleteFromCloudinary(publicId);
 
-    res.status(200).json({
-      success: true,
-      message: 'Image deleted successfully',
-      data: result
-    });
+    return res.status(200).json({ success: true, message: 'Image deleted successfully.', data: result });
   } catch (error) {
-    console.error('Delete image error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete image',
-      error: error.message
-    });
+    console.error('deleteImage error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete image.', error: error.message });
   }
 };
 
-export default {
-  uploadMealImage,
-  uploadProfileImage,
-  uploadDocument,
-  deleteImage
-};
+export default { uploadMealImage, uploadProfileImage, uploadDocument, deleteImage };

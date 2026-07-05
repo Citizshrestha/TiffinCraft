@@ -1,5 +1,5 @@
 import db from "../config/db.js";
-import { deleteFile, buildFileUrl } from "../utils/fileHelper.js";
+import { uploadToCloudinary, deleteFromCloudinary, extractPublicId, sanitizeFolderName } from "../services/uploadService.js";
 
 
 export const setupCookProfile = async (req, res) => {
@@ -59,19 +59,34 @@ export const uploadCookProfileImage = async (req, res) => {
             });
         }
 
-        // Get current image to delete old one
+        // Fetch current user to get username and existing image
         const [users] = await db.promise().query(
-            "SELECT profile_image FROM users WHERE id = ?",
+            "SELECT profile_image, full_name, email FROM users WHERE id = ?",
             [userId]
         );
 
-        // Delete old image if exists
+        // Delete old Cloudinary image if it exists
         if (users[0]?.profile_image) {
-            deleteFile(users[0].profile_image);
+            const oldPublicId = extractPublicId(users[0].profile_image);
+            if (oldPublicId) {
+                await deleteFromCloudinary(oldPublicId).catch(() => {});
+            }
         }
 
-        // Build public URL
-        const imageUrl = buildFileUrl(req, "profiles", req.file.filename);
+        // Build folder: tiffincraft/profiles/<username>/
+        const username = sanitizeFolderName(users[0]?.full_name || users[0]?.email || String(userId));
+        const folder = `tiffincraft/profiles/${username}`;
+
+        // Upload to Cloudinary
+        const result = await uploadToCloudinary(req.file.buffer, folder, {
+            transformation: [
+                { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+                { quality: 'auto:good' },
+                { fetch_format: 'auto' },
+            ],
+        });
+
+        const imageUrl = result.secure_url;
 
         // Update user profile image
         await db.promise().query(

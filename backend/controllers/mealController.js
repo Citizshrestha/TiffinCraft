@@ -1,5 +1,5 @@
 import db from "../config/db.js";
-import { deleteFile, buildFileUrl } from "../utils/fileHelper.js";
+import { uploadToCloudinary, deleteFromCloudinary, extractPublicId } from "../services/uploadService.js";
 
 export const addMeal = async (req, res) => {
     try {
@@ -156,20 +156,6 @@ export const uploadMealImage = async (req, res) => {
         const cookId = req.user.id;
         const { mealId } = req.params;
 
-        console.log("=== uploadMealImage called ===");
-        console.log("Cook ID:", cookId);
-        console.log("Meal ID:", mealId);
-        console.log("File:", req.file ? "Present" : "Missing");
-        if (req.file) {
-            console.log("File details:", {
-                originalname: req.file.originalname,
-                filename: req.file.filename,
-                path: req.file.path,
-                size: req.file.size,
-                mimetype: req.file.mimetype
-            });
-        }
-
         if (!req.file) {
             return res.status(400).json({
                 success: false,
@@ -184,30 +170,39 @@ export const uploadMealImage = async (req, res) => {
         );
 
         if (meals.length === 0) {
-            console.log("❌ Meal not found or access denied");
             return res.status(403).json({
                 success: false,
                 message: "Meal not found or access denied."
             });
         }
 
-        // Delete old image if exists
+        // Delete old Cloudinary image if it exists
         if (meals[0].image_url) {
-            deleteFile(meals[0].image_url);
-            console.log("Deleted old image:", meals[0].image_url);
+            const oldPublicId = extractPublicId(meals[0].image_url);
+            if (oldPublicId) {
+                await deleteFromCloudinary(oldPublicId).catch(() => {});
+            }
         }
 
-        // Build public URL
-        const imageUrl = buildFileUrl(req, "meals", req.file.filename);
-        console.log("New image URL:", imageUrl);
+        // Build folder: tiffincraft/meals/<cookId>/
+        const folder = `tiffincraft/meals/${cookId}`;
+
+        // Upload to Cloudinary
+        const result = await uploadToCloudinary(req.file.buffer, folder, {
+            transformation: [
+                { width: 800, height: 600, crop: 'fill', gravity: 'auto' },
+                { quality: 'auto:good' },
+                { fetch_format: 'auto' },
+            ],
+        });
+
+        const imageUrl = result.secure_url;
 
         // Update meal image_url
         await db.promise().query(
             "UPDATE meals SET image_url = ? WHERE id = ?",
             [imageUrl, mealId]
         );
-
-        console.log("✅ Meal image uploaded successfully");
 
         return res.status(200).json({
             success: true,
@@ -216,7 +211,7 @@ export const uploadMealImage = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("❌ uploadMealImage error:", error);
+        console.error("uploadMealImage error:", error);
         return res.status(500).json({
             success: false,
             message: "Server error.",

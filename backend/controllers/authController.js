@@ -2,6 +2,7 @@ import db from "../config/db.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { generateOTP, getOTPExpiry, sendOTPEmail } from "../utils/otpService.js";
+import { uploadToCloudinary, deleteFromCloudinary, extractPublicId, sanitizeFolderName } from "../services/uploadService.js";
 
 export const registerUser = async (req, res) => {
     try {
@@ -533,21 +534,34 @@ export const uploadCustomerProfileImage = async (req, res) => {
             });
         }
 
-        // Get current image to delete old one
+        // Fetch current user to get name and existing image
         const [users] = await db.promise().query(
-            "SELECT profile_image FROM users WHERE id = ?",
+            "SELECT profile_image, full_name, email FROM users WHERE id = ?",
             [userId]
         );
 
-        // Delete old image if exists
+        // Delete old Cloudinary image if it exists
         if (users[0]?.profile_image) {
-            const { deleteFile } = await import("../utils/fileHelper.js");
-            deleteFile(users[0].profile_image);
+            const oldPublicId = extractPublicId(users[0].profile_image);
+            if (oldPublicId) {
+                await deleteFromCloudinary(oldPublicId).catch(() => {});
+            }
         }
 
-        // Build public URL
-        const { buildFileUrl } = await import("../utils/fileHelper.js");
-        const imageUrl = buildFileUrl(req, "profiles", req.file.filename);
+        // Build folder: tiffincraft/profiles/<username>/
+        const username = sanitizeFolderName(users[0]?.full_name || users[0]?.email || String(userId));
+        const folder = `tiffincraft/profiles/${username}`;
+
+        // Upload to Cloudinary
+        const result = await uploadToCloudinary(req.file.buffer, folder, {
+            transformation: [
+                { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+                { quality: 'auto:good' },
+                { fetch_format: 'auto' },
+            ],
+        });
+
+        const imageUrl = result.secure_url;
 
         // Update user profile image
         await db.promise().query(
@@ -726,17 +740,45 @@ export const updateProfileImage = async (req, res) => {
             });
         }
 
-        const profileImagePath = req.file.path.replace(/\\/g, "/").replace("backend/", "");
+        // Fetch current user to get name and existing image
+        const [users] = await db.promise().query(
+            "SELECT profile_image, full_name, email FROM users WHERE id = ?",
+            [userId]
+        );
+
+        // Delete old Cloudinary image if it exists
+        if (users[0]?.profile_image) {
+            const oldPublicId = extractPublicId(users[0].profile_image);
+            if (oldPublicId) {
+                await deleteFromCloudinary(oldPublicId).catch(() => {});
+            }
+        }
+
+        // Build folder: tiffincraft/profiles/<username>/
+        const username = sanitizeFolderName(users[0]?.full_name || users[0]?.email || String(userId));
+        const folder = `tiffincraft/profiles/${username}`;
+
+        // Upload to Cloudinary
+        const result = await uploadToCloudinary(req.file.buffer, folder, {
+            transformation: [
+                { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+                { quality: 'auto:good' },
+                { fetch_format: 'auto' },
+            ],
+        });
+
+        const imageUrl = result.secure_url;
 
         await db.promise().query(
             "UPDATE users SET profile_image = ? WHERE id = ?",
-            [profileImagePath, userId]
+            [imageUrl, userId]
         );
 
         return res.status(200).json({
             success: true,
             message: "Profile image updated successfully",
-            profileImage: profileImagePath
+            profileImage: imageUrl,
+            image_url: imageUrl
         });
     } catch (error) {
         console.error("updateProfileImage error:", error);

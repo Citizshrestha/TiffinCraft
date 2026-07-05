@@ -3,94 +3,89 @@ import { Readable } from 'stream';
 
 /**
  * Upload image buffer to Cloudinary
- * @param {Buffer} fileBuffer - Image file buffer from multer
- * @param {string} folder - Cloudinary folder name (e.g., 'tiffincraft/meals')
- * @param {Object} options - Additional Cloudinary upload options
+ * @param {Buffer} fileBuffer - Image file buffer from multer memoryStorage
+ * @param {string} folder     - Cloudinary folder path (e.g. 'tiffincraft/profiles/john_doe')
+ * @param {Object} options    - Extra Cloudinary upload options
  * @returns {Promise<Object>} Cloudinary upload result
  */
 export const uploadToCloudinary = (fileBuffer, folder, options = {}) => {
   return new Promise((resolve, reject) => {
+    const { transformation, ...restOptions } = options;
+
     const uploadStream = cloudinary.uploader.upload_stream(
       {
-        folder: folder,
-        resource_type: 'auto',
-        transformation: options.transformation || [
+        folder,
+        resource_type: 'image',
+        transformation: transformation || [
           { width: 1200, height: 1200, crop: 'limit' },
           { quality: 'auto:good' },
-          { fetch_format: 'auto' }
+          { fetch_format: 'auto' },
         ],
-        ...options
+        ...restOptions,
       },
       (error, result) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(result);
-        }
+        if (error) reject(error);
+        else resolve(result);
       }
     );
 
-    // Convert buffer to stream and pipe to Cloudinary
-    const bufferStream = Readable.from(fileBuffer);
-    bufferStream.pipe(uploadStream);
+    Readable.from(fileBuffer).pipe(uploadStream);
   });
 };
 
 /**
- * Delete image from Cloudinary
- * @param {string} publicId - Cloudinary public ID of the image
- * @returns {Promise<Object>} Deletion result
+ * Delete an image from Cloudinary by its public_id
+ * @param {string} publicId - Cloudinary public_id
  */
 export const deleteFromCloudinary = async (publicId) => {
   try {
-    const result = await cloudinary.uploader.destroy(publicId);
-    return result;
+    return await cloudinary.uploader.destroy(publicId);
   } catch (error) {
-    throw new Error(`Failed to delete image: ${error.message}`);
+    throw new Error(`Failed to delete image from Cloudinary: ${error.message}`);
   }
 };
 
 /**
- * Extract public ID from Cloudinary URL
- * @param {string} url - Cloudinary image URL
- * @returns {string} Public ID
+ * Extract the Cloudinary public_id from a secure_url
+ * Example URL: https://res.cloudinary.com/<cloud>/image/upload/v1234/folder/sub/name.jpg
+ * Returns: folder/sub/name
  */
 export const extractPublicId = (url) => {
   if (!url) return null;
-  
-  // Extract public ID from URL
-  // Example: https://res.cloudinary.com/demo/image/upload/v1234567/folder/image.jpg
-  // Returns: folder/image
   const parts = url.split('/');
   const uploadIndex = parts.indexOf('upload');
   if (uploadIndex === -1) return null;
-  
-  const publicIdParts = parts.slice(uploadIndex + 2); // Skip 'upload' and version
-  const publicId = publicIdParts.join('/').split('.')[0]; // Remove extension
-  
-  return publicId;
+  // Skip 'upload' and the version segment (v1234…)
+  const afterUpload = parts.slice(uploadIndex + 1);
+  const startIndex = afterUpload[0]?.startsWith('v') && /^v\d+$/.test(afterUpload[0]) ? 1 : 0;
+  return afterUpload.slice(startIndex).join('/').replace(/\.[^/.]+$/, '');
 };
 
 /**
- * Upload multiple images
- * @param {Array<Buffer>} fileBuffers - Array of image buffers
- * @param {string} folder - Cloudinary folder name
- * @returns {Promise<Array<Object>>} Array of upload results
+ * Upload multiple images to the same folder
  */
 export const uploadMultipleToCloudinary = async (fileBuffers, folder) => {
-  try {
-    const uploadPromises = fileBuffers.map(buffer => 
-      uploadToCloudinary(buffer, folder)
-    );
-    return await Promise.all(uploadPromises);
-  } catch (error) {
-    throw new Error(`Failed to upload multiple images: ${error.message}`);
-  }
+  return Promise.all(fileBuffers.map((buf) => uploadToCloudinary(buf, folder)));
+};
+
+/**
+ * Build a sanitized Cloudinary folder-safe string from any identifier
+ * Lowercases, strips special characters, replaces spaces/@ with underscores
+ */
+export const sanitizeFolderName = (name) => {
+  if (!name) return 'unknown';
+  return name
+    .toLowerCase()
+    .replace(/@/g, '_at_')
+    .replace(/[^a-z0-9_.-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
 };
 
 export default {
   uploadToCloudinary,
   deleteFromCloudinary,
   extractPublicId,
-  uploadMultipleToCloudinary
+  uploadMultipleToCloudinary,
+  sanitizeFolderName,
 };
