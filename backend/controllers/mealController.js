@@ -96,9 +96,15 @@ export const getMyMeals = async (req, res) => {
         console.log("Meals found:", meals.length);
         console.log("Meals data:", JSON.stringify(meals, null, 2));
 
+        // Convert DECIMAL price to real number
+        const formattedMeals = meals.map(meal => ({
+            ...meal,
+            price: parseFloat(meal.price)
+        }));
+
         return res.status(200).json({
             success: true,
-            meals: meals
+            meals: formattedMeals
         });
 
     } catch (error) {
@@ -124,9 +130,15 @@ export const getMealsByCook = async (req, res) => {
             [cookId]
         );
 
+        // Convert DECIMAL price to real number
+        const formattedMeals = meals.map(meal => ({
+            ...meal,
+            price: parseFloat(meal.price)
+        }));
+
         return res.status(200).json({
             success: true,
-            meals: meals
+            meals: formattedMeals
         });
 
     } catch (error) {
@@ -252,9 +264,16 @@ export const getAllMeals = async (req, res) => {
 
         const [meals] = await db.promise().query(query, params);
 
+        // Convert DECIMAL price and cook_rating to real numbers
+        const formattedMeals = meals.map(meal => ({
+            ...meal,
+            price: parseFloat(meal.price),
+            cook_rating: meal.cook_rating ? parseFloat(meal.cook_rating) : null
+        }));
+
         return res.status(200).json({
             success: true,
-            meals: meals
+            meals: formattedMeals
         });
 
     } catch (error) {
@@ -290,9 +309,16 @@ export const getMealById = async (req, res) => {
             });
         }
 
+        // Convert DECIMAL price and cook_rating to real numbers
+        const formattedMeal = {
+            ...meals[0],
+            price: parseFloat(meals[0].price),
+            cook_rating: meals[0].cook_rating ? parseFloat(meals[0].cook_rating) : null
+        };
+
         return res.status(200).json({
             success: true,
-            meal: meals[0]
+            meal: formattedMeal
         });
 
     } catch (error) {

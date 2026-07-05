@@ -1,8 +1,9 @@
 import db from '../config/db.js';
+import { markAllAsRead as markAllAsReadHelper } from '../utils/notificationHelper.js';
 
 export const getUserNotifications = (req, res) => {
     // Assuming auth middleware puts user data in req.user
-    const userId = req.user.id; 
+    const userId = req.user.id;
 
     const sql = 'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC';
     db.query(sql, [userId], (err, results) => {
@@ -24,11 +25,11 @@ export const markAsRead = (req, res) => {
             console.error('Error updating notification:', err);
             return res.status(500).json({ success: false, message: 'Database error' });
         }
-        
+
         if (results.affectedRows === 0) {
             return res.status(404).json({ success: false, message: 'Notification not found or unauthorized' });
         }
-        
+
         res.json({ success: true, message: 'Notification marked as read' });
     });
 };
@@ -44,4 +45,31 @@ export const getUnreadCount = (req, res) => {
         }
         res.json({ success: true, unread_count: results[0].unread_count });
     });
+};
+
+export const markAllNotificationsAsRead = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const result = await markAllAsReadHelper(userId);
+
+        if (result.success) {
+            return res.json({
+                success: true,
+                message: 'All notifications marked as read'
+            });
+        } else {
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to mark notifications as read',
+                error: result.error
+            });
+        }
+    } catch (error) {
+        console.error('Error in markAllNotificationsAsRead:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
 };

@@ -1,4 +1,5 @@
 import db from "../config/db.js";
+import { notifyNewOrder, notifyOrderStatusUpdate, notifyOrderCancelled } from '../utils/notificationHelper.js';
 
 export const placeOrder = async (req, res) => {
     const connection = await db.promise().getConnection();
@@ -61,6 +62,16 @@ export const placeOrder = async (req, res) => {
 
         await connection.commit();
 
+        // Get customer name for notification
+        const [customer] = await connection.query(
+            'SELECT full_name FROM users WHERE id = ?',
+            [customerId]
+        );
+
+        // Send notification to cook
+        await notifyNewOrder(cook_id, orderId, customer[0].full_name, total_amount);
+
+        // Emit Socket.IO event
         const io = req.app.get("io");
         if (io) {
             io.to(`cook_${cook_id}`).emit("newOrder", {
@@ -278,6 +289,17 @@ export const updateOrderStatus = async (req, res) => {
             [status, orderId]
         );
 
+        const order = orders[0];
+
+        // Get cook name for notification
+        const [cook] = await db.promise().query(
+            'SELECT full_name FROM users WHERE id = ?',
+            [cookId]
+        );
+
+        // Send notification to customer
+        await notifyOrderStatusUpdate(order.customer_id, orderId, status, cook[0].full_name);
+
         // Emit real-time update to customer
         const io = req.app.get("io");
         if (io) {
@@ -337,7 +359,16 @@ export const cancelOrder = async (req, res) => {
             [orderId]
         );
 
-        // Notify cook
+        // Get customer name for notification
+        const [customer] = await db.promise().query(
+            'SELECT full_name FROM users WHERE id = ?',
+            [customerId]
+        );
+
+        // Send notification to cook
+        await notifyOrderCancelled(order.cook_id, orderId, customer[0].full_name);
+
+        // Notify cook via Socket.IO
         const io = req.app.get("io");
         if (io) {
             io.to(`cook_${order.cook_id}`).emit("orderCancelled", {

@@ -113,9 +113,15 @@ export const getMyCookProfile = async (req, res) => {
             });
         }
 
+        // Convert DECIMAL rating to real number
+        const formattedProfile = {
+            ...profiles[0],
+            rating: parseFloat(profiles[0].rating)
+        };
+
         return res.status(200).json({
             success: true,
-            profile: profiles[0]
+            profile: formattedProfile
         });
 
     } catch (error) {
@@ -212,9 +218,15 @@ export const getAllCooks = async (req, res) => {
              ORDER BY cp.rating DESC, cp.total_orders DESC`
         );
 
+        // Convert DECIMAL rating to real number
+        const formattedCooks = cooks.map(cook => ({
+            ...cook,
+            rating: parseFloat(cook.rating)
+        }));
+
         return res.status(200).json({
             success: true,
-            cooks: cooks
+            cooks: formattedCooks
         });
 
     } catch (error) {
@@ -245,9 +257,15 @@ export const getCookById = async (req, res) => {
             });
         }
 
+        // Convert DECIMAL rating to real number
+        const formattedCook = {
+            ...cooks[0],
+            rating: parseFloat(cooks[0].rating)
+        };
+
         return res.status(200).json({
             success: true,
-            cook: cooks[0]
+            cook: formattedCook
         });
 
     } catch (error) {
@@ -531,14 +549,146 @@ export const updateCookCompleteProfile = async (req, res) => {
             [userId]
         );
 
+        // Convert DECIMAL rating to real number
+        const formattedProfile = {
+            ...profiles[0],
+            rating: parseFloat(profiles[0].rating)
+        };
+
         return res.status(200).json({
             success: true,
             message: "Profile updated successfully",
-            profile: profiles[0]
+            profile: formattedProfile
         });
 
     } catch (error) {
         console.error("updateCookCompleteProfile error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message
+        });
+    }
+};
+
+// PUT /api/cook/profile/holiday-mode
+// Toggle holiday mode for cook
+export const updateHolidayMode = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { is_holiday_mode } = req.body;
+
+        if (is_holiday_mode === undefined) {
+            return res.status(400).json({
+                success: false,
+                message: "is_holiday_mode field is required"
+            });
+        }
+
+        await db.promise().query(
+            'UPDATE cook_profiles SET is_holiday_mode = ? WHERE user_id = ?',
+            [is_holiday_mode, userId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: `Holiday mode ${is_holiday_mode ? 'enabled' : 'disabled'} successfully`,
+            is_holiday_mode
+        });
+
+    } catch (error) {
+        console.error("updateHolidayMode error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message
+        });
+    }
+};
+
+// PUT /api/cook/profile/operating-hours
+// Update cook's operating hours
+export const updateOperatingHours = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { operating_hours } = req.body;
+
+        if (!operating_hours) {
+            return res.status(400).json({
+                success: false,
+                message: "operating_hours is required"
+            });
+        }
+
+        // Validate JSON structure (should have days of week)
+        const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        const isValid = Object.keys(operating_hours).every(day => validDays.includes(day.toLowerCase()));
+
+        if (!isValid) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid operating_hours format. Must contain valid days of week."
+            });
+        }
+
+        await db.promise().query(
+            'UPDATE cook_profiles SET operating_hours = ? WHERE user_id = ?',
+            [JSON.stringify(operating_hours), userId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Operating hours updated successfully",
+            operating_hours
+        });
+
+    } catch (error) {
+        console.error("updateOperatingHours error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message
+        });
+    }
+};
+
+// PUT /api/cook/profile/bank-details
+// Update cook's bank details for payouts
+export const updateBankDetails = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { bank_details } = req.body;
+
+        if (!bank_details) {
+            return res.status(400).json({
+                success: false,
+                message: "bank_details is required"
+            });
+        }
+
+        // Validate required fields
+        const requiredFields = ['accountHolder', 'accountNumber', 'ifsc', 'bankName'];
+        const missingFields = requiredFields.filter(field => !bank_details[field]);
+
+        if (missingFields.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Missing required fields: ${missingFields.join(', ')}`
+            });
+        }
+
+        await db.promise().query(
+            'UPDATE cook_profiles SET bank_details = ? WHERE user_id = ?',
+            [JSON.stringify(bank_details), userId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Bank details updated successfully"
+        });
+
+    } catch (error) {
+        console.error("updateBankDetails error:", error);
         return res.status(500).json({
             success: false,
             message: "Server error",

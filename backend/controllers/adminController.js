@@ -116,8 +116,7 @@ export const approveCook = async (req, res) => {
     }
 };
 
-// PUT /api/admin/cooks/:cookId/reject
-// Reject a cook
+
 export const rejectCook = async (req, res) => {
     try {
         const { cookId } = req.params;
@@ -150,8 +149,6 @@ export const rejectCook = async (req, res) => {
     }
 };
 
-// GET /api/admin/users
-// Get all users
 export const getAllUsers = async (req, res) => {
     try {
         const { role } = req.query;

@@ -164,3 +164,107 @@ export const getMyReviews = async (req, res) => {
         });
     }
 };
+
+// GET /api/reviews/cook/my
+// Cook views all reviews they received
+export const getMyCookReviews = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+
+        const [reviews] = await db.promise().query(
+            `SELECT r.*,
+                    u.full_name as customer_name,
+                    u.profile_image as customer_image,
+                    m.name as meal_name
+             FROM reviews r
+             JOIN users u ON r.customer_id = u.id
+             LEFT JOIN meals m ON r.meal_id = m.id
+             WHERE r.cook_id = ?
+             ORDER BY r.created_at DESC`,
+            [cookId]
+        );
+
+        // Get rating summary
+        const [summary] = await db.promise().query(
+            `SELECT
+                AVG(rating) as average_rating,
+                COUNT(*) as total_reviews,
+                SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) as five_star,
+                SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) as four_star,
+                SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) as three_star,
+                SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) as two_star,
+                SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as one_star
+             FROM reviews WHERE cook_id = ?`,
+            [cookId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            summary: summary[0],
+            reviews
+        });
+
+    } catch (error) {
+        console.error("getMyCookReviews error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};
+
+// PUT /api/reviews/:reviewId/reply
+// Cook replies to a review
+export const replyToReview = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+        const { reviewId } = req.params;
+        const { cook_reply } = req.body;
+
+        if (!cook_reply || cook_reply.trim() === '') {
+            return res.status(400).json({
+                success: false,
+                message: "Reply text is required"
+            });
+        }
+
+        // Check if review exists and belongs to this cook
+        const [reviews] = await db.promise().query(
+            'SELECT id, cook_id FROM reviews WHERE id = ?',
+            [reviewId]
+        );
+
+        if (reviews.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Review not found"
+            });
+        }
+
+        if (reviews[0].cook_id !== cookId) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only reply to your own reviews"
+            });
+        }
+
+        await db.promise().query(
+            'UPDATE reviews SET cook_reply = ?, cook_reply_at = NOW() WHERE id = ?',
+            [cook_reply.trim(), reviewId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Reply posted successfully"
+        });
+
+    } catch (error) {
+        console.error("replyToReview error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message
+        });
+    }
+};
