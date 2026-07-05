@@ -243,20 +243,20 @@ public class AddMenuActivity extends AppCompatActivity {
         String description = binding.etMealDescription.getText().toString().trim();
         String priceStr = binding.etMealPrice.getText().toString().trim();
         boolean isAvailable = binding.switchMealAvailable.isChecked();
-        
+
         // Validation
         if (name.isEmpty()) {
             binding.etMealName.setError("Meal name is required");
             binding.etMealName.requestFocus();
             return;
         }
-        
+
         if (priceStr.isEmpty()) {
             binding.etMealPrice.setError("Price is required");
             binding.etMealPrice.requestFocus();
             return;
         }
-        
+
         double price;
         try {
             price = Double.parseDouble(priceStr);
@@ -270,8 +270,91 @@ public class AddMenuActivity extends AppCompatActivity {
             binding.etMealPrice.requestFocus();
             return;
         }
-        
-        // Create meal request with all fields properly set
+
+        // Show progress
+        binding.btnSaveMeal.setEnabled(false);
+        binding.btnSaveMeal.setText("Saving...");
+
+        // NEW FLOW: Upload to Cloudinary first if image is selected
+        if (selectedImageUri != null) {
+            uploadToCloudinaryThenSaveMeal(name, description, price, isAvailable);
+        } else {
+            // No image, create meal directly
+            saveMealWithImageUrl(name, description, price, isAvailable, null);
+        }
+    }
+
+    /**
+     * NEW METHOD: Upload image to Cloudinary first, then save meal with the URL
+     */
+    private void uploadToCloudinaryThenSaveMeal(String name, String description, double price, boolean isAvailable) {
+        Log.d(TAG, "=== Uploading to Cloudinary ===");
+
+        // Validate file size (max 5MB)
+        if (!com.tiffincraft.app.utils.ImageUploadHelper.isValidFileSize(this, selectedImageUri, 5)) {
+            resetButton();
+            Toast.makeText(this, "Image size must be less than 5MB", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Create multipart body using helper
+        MultipartBody.Part imagePart = com.tiffincraft.app.utils.ImageUploadHelper.createImagePart(
+            this,
+            selectedImageUri,
+            "image"
+        );
+
+        if (imagePart == null) {
+            Log.e(TAG, "Failed to create image part");
+            resetButton();
+            Toast.makeText(this, "Failed to process image", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String token = "Bearer " + sessionManager.getToken();
+
+        // Update button text to show upload progress
+        binding.btnSaveMeal.setText("Uploading image...");
+
+        apiService.uploadMealImageCloudinary(token, imagePart).enqueue(new Callback<com.tiffincraft.app.models.UploadResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<com.tiffincraft.app.models.UploadResponse> call,
+                                   @NonNull Response<com.tiffincraft.app.models.UploadResponse> response) {
+                Log.d(TAG, "Cloudinary upload response: " + response.code());
+
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    String cloudinaryUrl = response.body().getData().getUrl();
+                    Log.d(TAG, "✅ Image uploaded to Cloudinary: " + cloudinaryUrl);
+
+                    // Now save meal with Cloudinary URL
+                    binding.btnSaveMeal.setText("Saving meal...");
+                    saveMealWithImageUrl(name, description, price, isAvailable, cloudinaryUrl);
+                } else {
+                    Log.e(TAG, "❌ Cloudinary upload failed");
+                    resetButton();
+                    String errorMsg = "Failed to upload image";
+                    if (response.body() != null && response.body().getMessage() != null) {
+                        errorMsg = response.body().getMessage();
+                    }
+                    Toast.makeText(AddMenuActivity.this, errorMsg, Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<com.tiffincraft.app.models.UploadResponse> call, @NonNull Throwable t) {
+                Log.e(TAG, "❌ Cloudinary upload network error", t);
+                resetButton();
+                Toast.makeText(AddMenuActivity.this, "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    /**
+     * Save meal with the Cloudinary image URL (or null if no image)
+     */
+    private void saveMealWithImageUrl(String name, String description, double price, boolean isAvailable, String imageUrl) {
+        Log.d(TAG, "=== Saving meal with image URL: " + imageUrl);
+
         MealRequest mealRequest = new MealRequest();
         mealRequest.setName(name);
         mealRequest.setDescription(description);
@@ -280,35 +363,29 @@ public class AddMenuActivity extends AppCompatActivity {
         mealRequest.setCuisineType("Indian"); // Set default cuisine type
         mealRequest.setAvailable(isAvailable);
         mealRequest.setVegetarian(isVeg);
-        mealRequest.setVegan(false); // Default to false
+        mealRequest.setVegan(false);
         mealRequest.setSpiceLevel(isSpicy ? "hot" : "mild");
         mealRequest.setPreparationTime(30); // Default 30 minutes
-        
-        // Show progress
-        binding.btnSaveMeal.setEnabled(false);
-        binding.btnSaveMeal.setText("Saving...");
-        
-        // Create meal first
-        saveMeal(mealRequest);
-    }
-    
-    private void saveMeal(MealRequest mealRequest) {
+
+        // Set the Cloudinary image URL
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            mealRequest.setImageUrl(imageUrl);
+        }
+
         String token = "Bearer " + sessionManager.getToken();
-        
+
         apiService.addMeal(token, mealRequest).enqueue(new Callback<MealResponse>() {
             @Override
             public void onResponse(@NonNull Call<MealResponse> call, @NonNull Response<MealResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                    int mealId = response.body().getMealId();
-                    Log.d(TAG, "Meal created successfully with ID: " + mealId);
-                    
-                    // If image selected, upload it
-                    if (selectedImageUri != null) {
-                        uploadMealImage(mealId);
-                    } else {
-                        // No image, finish
-                        showSuccessAndFinish();
-                    }
+                    Log.d(TAG, "✅ Meal created successfully");
+                    Toast.makeText(AddMenuActivity.this, "Meal added successfully!", Toast.LENGTH_SHORT).show();
+
+                    // Clean up temp files
+                    com.tiffincraft.app.utils.ImageUploadHelper.cleanupTempFiles(AddMenuActivity.this);
+
+                    setResult(RESULT_OK);
+                    finish();
                 } else {
                     resetButton();
                     String errorMsg = "Failed to create meal";
@@ -318,143 +395,19 @@ public class AddMenuActivity extends AppCompatActivity {
                     Toast.makeText(AddMenuActivity.this, errorMsg, Toast.LENGTH_SHORT).show();
                 }
             }
-            
+
             @Override
             public void onFailure(@NonNull Call<MealResponse> call, @NonNull Throwable t) {
-                Log.e(TAG, "Error creating meal", t);
+                Log.e(TAG, "❌ Error creating meal", t);
                 resetButton();
                 Toast.makeText(AddMenuActivity.this, "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }
-    
-    private void uploadMealImage(int mealId) {
-        Log.d(TAG, "=== uploadMealImage called ===");
-        Log.d(TAG, "Meal ID: " + mealId);
-        Log.d(TAG, "Selected Image URI: " + selectedImageUri);
-        
-        try {
-            // Get file from URI
-            File file = getFileFromUri(selectedImageUri);
-            if (file == null || !file.exists()) {
-                Log.e(TAG, "❌ File not found or null");
-                Toast.makeText(this, "Image file not found", Toast.LENGTH_SHORT).show();
-                showSuccessAndFinish();
-                return;
-            }
-            
-            Log.d(TAG, "File details:");
-            Log.d(TAG, "  - Path: " + file.getAbsolutePath());
-            Log.d(TAG, "  - Name: " + file.getName());
-            Log.d(TAG, "  - Size: " + file.length() + " bytes");
-            Log.d(TAG, "  - Exists: " + file.exists());
-            Log.d(TAG, "  - Can read: " + file.canRead());
-            
-            // Detect the correct MIME type from the file extension
-            String mimeType;
-            String fileName = file.getName().toLowerCase();
-            if (fileName.endsWith(".png")) {
-                mimeType = "image/png";
-            } else if (fileName.endsWith(".webp")) {
-                mimeType = "image/webp";
-            } else {
-                mimeType = "image/jpeg"; // default for .jpg / .jpeg / camera captures
-            }
 
-            RequestBody requestFile = RequestBody.create(MediaType.parse(mimeType), file);
-            MultipartBody.Part body = MultipartBody.Part.createFormData("meal_image", file.getName(), requestFile);
-            
-            String token = "Bearer " + sessionManager.getToken();
-            
-            Log.d(TAG, "Uploading to API...");
-            apiService.uploadMealImage(token, mealId, body).enqueue(new Callback<MealResponse>() {
-                @Override
-                public void onResponse(@NonNull Call<MealResponse> call, @NonNull Response<MealResponse> response) {
-                    Log.d(TAG, "=== Upload Response ===");
-                    Log.d(TAG, "Response Code: " + response.code());
-                    Log.d(TAG, "Response Success: " + response.isSuccessful());
-                    
-                    if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                        Log.d(TAG, "✅ Image uploaded successfully");
-                        Log.d(TAG, "Image URL: " + response.body().getImageUrl());
-                        Toast.makeText(AddMenuActivity.this, "Meal with image saved!", Toast.LENGTH_SHORT).show();
-                    } else {
-                        Log.e(TAG, "❌ Image upload failed");
-                        if (response.body() != null) {
-                            Log.e(TAG, "Message: " + response.body().getMessage());
-                        }
-                        if (response.errorBody() != null) {
-                            try {
-                                Log.e(TAG, "Error: " + response.errorBody().string());
-                            } catch (Exception e) {
-                                Log.e(TAG, "Could not read error", e);
-                            }
-                        }
-                        Toast.makeText(AddMenuActivity.this, "Meal saved but image upload failed", Toast.LENGTH_SHORT).show();
-                    }
-                    showSuccessAndFinish();
-                }
-                
-                @Override
-                public void onFailure(@NonNull Call<MealResponse> call, @NonNull Throwable t) {
-                    Log.e(TAG, "❌ Upload network failure", t);
-                    Log.e(TAG, "Error: " + t.getMessage());
-                    Toast.makeText(AddMenuActivity.this, "Meal saved but image upload failed", Toast.LENGTH_SHORT).show();
-                    // Still show success since meal was created
-                    showSuccessAndFinish();
-                }
-            });
-        } catch (Exception e) {
-            Log.e(TAG, "❌ Exception preparing upload", e);
-            Toast.makeText(AddMenuActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            showSuccessAndFinish();
-        }
-    }
-    
-    private File getFileFromUri(Uri uri) {
-        try {
-            // If it's a file URI, return the file directly
-            if ("file".equalsIgnoreCase(uri.getScheme())) {
-                return new File(uri.getPath());
-            }
-            
-            // If it's a content URI, copy to cache
-            if ("content".equalsIgnoreCase(uri.getScheme())) {
-                File tempFile = new File(getCacheDir(), "temp_meal_" + System.currentTimeMillis() + ".jpg");
-                
-                try (java.io.InputStream inputStream = getContentResolver().openInputStream(uri);
-                     FileOutputStream outputStream = new FileOutputStream(tempFile)) {
-                    
-                    if (inputStream == null) return null;
-                    
-                    byte[] buffer = new byte[4096];
-                    int bytesRead;
-                    while ((bytesRead = inputStream.read(buffer)) != -1) {
-                        outputStream.write(buffer, 0, bytesRead);
-                    }
-                    
-                    return tempFile;
-                } catch (IOException e) {
-                    Log.e(TAG, "Error copying file", e);
-                    return null;
-                }
-            }
-            
-            return null;
-        } catch (Exception e) {
-            Log.e(TAG, "Error getting file from URI", e);
-            return null;
-        }
-    }
-    
-    private void showSuccessAndFinish() {
-        Toast.makeText(this, "Meal Saved Successfully!", Toast.LENGTH_SHORT).show();
-        
-        // Set result to indicate success
-        setResult(RESULT_OK);
-        finish();
-    }
-    
+    // REMOVE OLD METHODS: saveMeal(), uploadMealImage(), getFileFromUri()
+    // These are replaced by the new Cloudinary flow above
+
     private void resetButton() {
         binding.btnSaveMeal.setEnabled(true);
         binding.btnSaveMeal.setText("Save Meal");

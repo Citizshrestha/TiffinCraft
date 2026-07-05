@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.google.android.material.button.MaterialButton;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.adapters.OrderAdapter;
 import com.tiffincraft.app.api.ApiService;
@@ -21,10 +22,14 @@ import com.tiffincraft.app.models.Order;
 import com.tiffincraft.app.models.OrderResponse;
 import com.tiffincraft.app.models.UpdateOrderStatusRequest;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.SocketManager;
+
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import io.socket.emitter.Emitter;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -37,6 +42,7 @@ public class ManageOrdersActivity extends AppCompatActivity
     private ActivityManageOrdersBinding binding;
     private ApiService apiService;
     private SessionManager sessionManager;
+    private SocketManager socketManager;
 
     private OrderAdapter adapter;
     private List<Order> allOrders = new ArrayList<>();
@@ -50,11 +56,13 @@ public class ManageOrdersActivity extends AppCompatActivity
 
         sessionManager = new SessionManager(this);
         apiService = RetrofitClient.getInstance(this).getApiService();
+        socketManager = SocketManager.getInstance(this);
 
         setupRecyclerView();
         setupFilterTabs();
         setupClickListeners();
         setupBottomNavigation();
+        setupSocketListeners();
         loadOrders();
     }
 
@@ -65,6 +73,18 @@ public class ManageOrdersActivity extends AppCompatActivity
             binding.bottomNavigation.setSelectedItemId(R.id.nav_orders);
         }
         loadOrders();
+
+        // Connect socket
+        connectSocket();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Disconnect socket when activity is not visible
+        if (socketManager != null) {
+            socketManager.disconnect();
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -79,10 +99,8 @@ public class ManageOrdersActivity extends AppCompatActivity
     }
 
     private void setupClickListeners() {
-        binding.btnBack.setOnClickListener(v -> finish());
-
         binding.btnRefresh.setOnClickListener(v -> {
-            binding.btnRefresh.animate().rotation(360f).setDuration(400).start();
+            binding.btnRefresh.setIconResource(R.drawable.ic_refresh);
             loadOrders();
         });
 
@@ -91,18 +109,17 @@ public class ManageOrdersActivity extends AppCompatActivity
     }
 
     private void setupFilterTabs() {
-        View[] tabs = {
-                binding.tabAll, binding.tabNew, binding.tabAccepted,
-                binding.tabPreparing, binding.tabDelivery, binding.tabDone
+        MaterialButton[] tabs = {
+                binding.tabAll, binding.tabNew, binding.tabAccepted, binding.tabPreparing
         };
-        String[] filters = { null, "pending", "confirmed", "preparing", "ready", "delivered" };
+        String[] filters = { null, "pending", "preparing", "ready" };
 
         for (int i = 0; i < tabs.length; i++) {
             final int index = i;
             final String filter = filters[i];
             tabs[i].setOnClickListener(v -> {
                 currentFilter = filter;
-                for (View tab : tabs) setTabSelected(tab, false);
+                for (MaterialButton tab : tabs) setTabSelected(tab, false);
                 setTabSelected(tabs[index], true);
                 applyFilter();
             });
@@ -110,23 +127,18 @@ public class ManageOrdersActivity extends AppCompatActivity
         setTabSelected(binding.tabAll, true);
     }
 
-    private void setTabSelected(View tab, boolean selected) {
-        if (!(tab instanceof TextView)) return;
-        TextView tv = (TextView) tab;
+    private void setTabSelected(MaterialButton tab, boolean selected) {
         if (selected) {
-            android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
-            gd.setColor(0xFF4CAF50);
-            gd.setCornerRadius(dpToPx(18));
-            tv.setBackground(gd);
-            tv.setTextColor(0xFFFFFFFF);
-            tv.setTypeface(null, android.graphics.Typeface.BOLD);
+            tab.setBackgroundColor(0xFF4CAF50);
+            tab.setTextColor(0xFFFFFFFF);
+            tab.setIconTint(android.content.res.ColorStateList.valueOf(0xFFFFFFFF));
+            tab.setStrokeWidth(0);
         } else {
-            android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
-            gd.setColor(0xFFF2F2F2);
-            gd.setCornerRadius(dpToPx(18));
-            tv.setBackground(gd);
-            tv.setTextColor(0xFF555555);
-            tv.setTypeface(null, android.graphics.Typeface.NORMAL);
+            tab.setBackgroundColor(0xFFFFFFFF);
+            tab.setTextColor(0xFF666666);
+            tab.setIconTint(android.content.res.ColorStateList.valueOf(0xFF666666));
+            tab.setStrokeWidth(dpToPx(1));
+            tab.setStrokeColor(android.content.res.ColorStateList.valueOf(0xFFE0E0E0));
         }
     }
 
@@ -307,5 +319,125 @@ public class ManageOrdersActivity extends AppCompatActivity
 
     private int dpToPx(int dp) {
         return Math.round(dp * getResources().getDisplayMetrics().density);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Socket.IO Real-time Updates
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void connectSocket() {
+        if (socketManager != null) {
+            socketManager.connect();
+
+            // Join cook room
+            int cookId = sessionManager.getUserId();
+            if (cookId > 0) {
+                socketManager.joinCookRoom(cookId);
+                Log.d(TAG, "Joined cook room for real-time order updates: " + cookId);
+            }
+        }
+    }
+
+    private void setupSocketListeners() {
+        if (socketManager == null) return;
+
+        // Listen for new orders
+        socketManager.onNewOrder(new Emitter.Listener() {
+            @Override
+            public void call(Object... args) {
+                runOnUiThread(() -> {
+                    try {
+                        if (args.length > 0 && args[0] != null) {
+                            JSONObject data = (JSONObject) args[0];
+                            handleNewOrderEvent(data);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error handling new order event", e);
+                    }
+                });
+            }
+        });
+
+        // Listen for cancelled orders
+        socketManager.onOrderCancelled(new Emitter.Listener() {
+            @Override
+            public void call(Object... args) {
+                runOnUiThread(() -> {
+                    try {
+                        if (args.length > 0 && args[0] != null) {
+                            JSONObject data = (JSONObject) args[0];
+                            handleOrderCancelledEvent(data);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error handling order cancelled event", e);
+                    }
+                });
+            }
+        });
+    }
+
+    private void handleNewOrderEvent(JSONObject data) {
+        try {
+            int orderId = data.optInt("orderId");
+            double totalAmount = data.optDouble("total_amount", 0);
+
+            Log.d(TAG, "🔔 New Order Event! Order #" + orderId);
+
+            // Show toast
+            Toast.makeText(this,
+                    "🔔 New Order #" + orderId + " - ₹" + String.format("%.0f", totalAmount),
+                    Toast.LENGTH_LONG).show();
+
+            // Play notification sound and vibrate
+            playNotificationSound();
+
+            // Refresh orders list
+            loadOrders();
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error processing new order event", e);
+        }
+    }
+
+    private void handleOrderCancelledEvent(JSONObject data) {
+        try {
+            int orderId = data.optInt("orderId");
+            String message = data.optString("message", "Order cancelled");
+
+            Log.d(TAG, "Order #" + orderId + " cancelled by customer");
+
+            Toast.makeText(this,
+                    "Order #" + orderId + " was cancelled by customer",
+                    Toast.LENGTH_SHORT).show();
+
+            // Refresh orders list
+            loadOrders();
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error processing order cancelled event", e);
+        }
+    }
+
+    private void playNotificationSound() {
+        try {
+            // Vibrate
+            android.os.Vibrator vibrator = (android.os.Vibrator) getSystemService(VIBRATOR_SERVICE);
+            if (vibrator != null && vibrator.hasVibrator()) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    vibrator.vibrate(android.os.VibrationEffect.createOneShot(500, android.os.VibrationEffect.DEFAULT_AMPLITUDE));
+                } else {
+                    vibrator.vibrate(500);
+                }
+            }
+
+            // Play default notification sound
+            android.media.RingtoneManager.getRingtone(
+                    this,
+                    android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
+            ).play();
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error playing notification", e);
+        }
     }
 }
