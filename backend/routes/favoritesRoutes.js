@@ -1,22 +1,22 @@
 import express from 'express';
-import { authenticate } from '../middleware/authMiddleware.js';
-import * as favoritesController from '../controllers/favoritesController.js';
+import { protect } from '../middleware/authMiddleware.js';
+import {
+    getFavorites,
+    addFavorite,
+    removeFavorite,
+    checkFavorite
+} from '../controllers/favoritesController.js';
 
 const router = express.Router();
 
-// All routes require authentication
-router.use(authenticate);
+router.use(protect);
 
-// Get all favorites for logged-in customer
-router.get('/', favoritesController.getFavorites);
+router.get('/', getFavorites);
 
-// Add cook to favorites
-router.post('/', favoritesController.addToFavorites);
+router.post('/', addFavorite);
 
-// Remove cook from favorites
-router.delete('/:cookId', favoritesController.removeFromFavorites);
+router.delete('/:cook_id', removeFavorite);
 
-// Check if cook is in favorites
-router.get('/check/:cookId', favoritesController.checkFavoriteStatus);
+router.get('/check/:cook_id', checkFavorite);
 
 export default router;

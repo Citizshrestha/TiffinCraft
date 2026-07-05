@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { protect, roleOnly } from "../middleware/authMiddleware.js";
-import { uploadMealImage } from "../middleware/uploadMiddleware.js";
+import { uploadSingle } from "../middleware/uploadMiddleware.js";
 import {
     addMeal,
     getMyMeals,
@@ -23,7 +23,7 @@ router.post(
     "/:mealId/image",
     protect,
     roleOnly("cook"),
-    uploadMealImage,
+    uploadSingle("meal_image"),
     uploadMealImageController
 );
 
