@@ -22,8 +22,27 @@ import java.util.concurrent.TimeUnit;
 
 public class RetrofitClient {
 
-    public static final String BASE_URL = "https://proud-sloths-film.loca.lt/api/";
-    public static final String SERVER_URL = "https://proud-sloths-film.loca.lt";
+    /**
+     * BASE_URL / SERVER_URL are now MUTABLE and backed by {@link ServerConfig}'s
+     * cache instead of a hardcoded literal. This is the permanent fix for
+     * "backend error on login/register even though backend + tunnel are
+     * running": the previous hardcoded tunnel URL went stale every time the
+     * tunnel restarted (new random loca.lt subdomain), requiring a manual
+     * source edit + APK rebuild.
+     *
+     * Now:
+     *  1. On first use (see getInstance), a background discovery call hits
+     *     the PC's LAN IP at /api/config to fetch the CURRENT tunnel/LAN URL.
+     *  2. FailoverInterceptor below detects failed requests (stale URL) and
+     *     triggers re-discovery + retry automatically, mid-session.
+     *  3. resetInstance() rebuilds Retrofit with whatever URL is cached now.
+     *
+     * No more manual RetrofitClient edits or rebuilds are needed when the
+     * tunnel URL rotates — as long as the phone is on the same WiFi as the
+     * PC (per user's confirmed setup), discovery always succeeds.
+     */
+    public static String BASE_URL;
+    public static String SERVER_URL;
 
     private static RetrofitClient instance;
     private final Retrofit retrofit;
@@ -31,6 +50,11 @@ public class RetrofitClient {
 
     private RetrofitClient(Context context) {
         this.context = context.getApplicationContext();
+
+        // Load whatever URL is currently cached (or compiled-in default on
+        // very first run before discovery has ever completed).
+        BASE_URL = ServerConfig.getCachedBaseUrl(this.context);
+        SERVER_URL = ServerConfig.getCachedServerUrl(this.context);
 
         HttpLoggingInterceptor loggingInterceptor = new HttpLoggingInterceptor();
         loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BODY); // Changed from HEADERS to BODY
@@ -40,12 +64,9 @@ public class RetrofitClient {
             public Response intercept(Chain chain) throws IOException {
                 Request originalRequest = chain.request();
 
-                // Always add the localtunnel bypass header
                 Request.Builder builder = originalRequest.newBuilder()
                         .header("Bypass-Tunnel-Reminder", "true");
 
-                // If the request already carries an Authorization header, keep it
-                // Otherwise, try to inject the stored token
                 if (originalRequest.header("Authorization") == null) {
                     SharedPreferences prefs = context.getSharedPreferences(
                             "TiffinCraftSession", Context.MODE_PRIVATE);
@@ -58,6 +79,9 @@ public class RetrofitClient {
                 return chain.proceed(builder.build());
             }
         };
+
+        Interceptor authErrorInterceptor = new AuthErrorInterceptor(this.context);
+        Interceptor failoverInterceptor = new FailoverInterceptor(this.context);
 
         CookieJar cookieJar = new CookieJar() {
             private final HashMap<String, List<Cookie>> cookieStore = new HashMap<>();
@@ -90,6 +114,8 @@ public class RetrofitClient {
                 .retryOnConnectionFailure(true)
                 .cookieJar(cookieJar)
                 .addInterceptor(authInterceptor)
+                .addInterceptor(authErrorInterceptor)  // Add auth error handling
+                .addInterceptor(failoverInterceptor)
                 .addInterceptor(loggingInterceptor)
                 .build();
 

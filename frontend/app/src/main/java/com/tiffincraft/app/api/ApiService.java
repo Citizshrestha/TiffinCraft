@@ -21,6 +21,11 @@ import com.tiffincraft.app.models.ResendOtpRequest;
 import com.tiffincraft.app.models.ResetPasswordRequest;
 import com.tiffincraft.app.models.UpdateOrderStatusRequest;
 import com.tiffincraft.app.models.UploadResponse;
+import com.tiffincraft.app.models.CartResponse;
+import com.tiffincraft.app.models.AddToCartRequest;
+import com.tiffincraft.app.models.UpdateCartItemRequest;
+import com.tiffincraft.app.models.CheckoutRequest;
+import com.tiffincraft.app.models.CheckoutResponse;
 
 import okhttp3.MultipartBody;
 import retrofit2.Call;
@@ -82,6 +87,17 @@ public interface ApiService {
             @Body CookProfileRequest request
     );
 
+    @PUT("cook/profile/complete")
+    Call<CookProfileResponse> updateCookCompleteProfile(
+            @Header("Authorization") String token,
+            @Body CookProfileRequest request
+    );
+
+    @GET("cook/profile")
+    Call<CookProfileResponse> getCookProfile(
+            @Header("Authorization") String token
+    );
+
     @GET("cook")
     Call<CookProfileResponse> getAllCooks();
 
@@ -139,7 +155,42 @@ public interface ApiService {
             @Part MultipartBody.Part mealImage
     );
 
-    // Upload cook profile image
+    // ====== NEW CLOUDINARY UPLOAD ENDPOINTS ======
+    
+    // Upload meal image to Cloudinary (use this for new meal images)
+    @Multipart
+    @POST("upload/meal-image")
+    Call<UploadResponse> uploadMealImageCloudinary(
+            @Header("Authorization") String token,
+            @Part MultipartBody.Part image
+    );
+
+    // Upload profile image to Cloudinary (for both cook and customer)
+    @Multipart
+    @POST("upload/profile-image")
+    Call<UploadResponse> uploadProfileImageCloudinary(
+            @Header("Authorization") String token,
+            @Part MultipartBody.Part image
+    );
+
+    // Upload document to Cloudinary (certificates, licenses)
+    @Multipart
+    @POST("upload/document")
+    Call<UploadResponse> uploadDocumentCloudinary(
+            @Header("Authorization") String token,
+            @Part MultipartBody.Part document
+    );
+
+    // Delete image from Cloudinary
+    @DELETE("upload/image")
+    Call<RegisterResponse> deleteImageCloudinary(
+            @Header("Authorization") String token,
+            @Body com.google.gson.JsonObject requestBody
+    );
+
+    // ====== LEGACY UPLOAD ENDPOINTS (DEPRECATED) ======
+    
+    // Upload cook profile image (OLD - consider migrating to Cloudinary)
     @Multipart
     @POST("cook/profile/image")
     Call<UploadResponse> uploadCookProfileImage(
@@ -147,7 +198,7 @@ public interface ApiService {
             @Part MultipartBody.Part profile_image
     );
 
-    // Upload customer profile image
+    // Upload customer profile image (OLD - consider migrating to Cloudinary)
     @Multipart
     @POST("auth/profile/image")
     Call<UploadResponse> uploadCustomerProfileImage(
@@ -212,6 +263,43 @@ public interface ApiService {
             @Path("id") int notificationId
     );
 
+    @PUT("notifications/read-all")
+    Call<RegisterResponse> markAllNotificationsAsRead(
+            @Header("Authorization") String token
+    );
+
+    // Cook profile management endpoints
+    @PUT("cook/profile/holiday-mode")
+    Call<CookProfileResponse> updateHolidayMode(
+            @Header("Authorization") String token,
+            @Body com.google.gson.JsonObject requestBody
+    );
+
+    @PUT("cook/profile/operating-hours")
+    Call<CookProfileResponse> updateOperatingHours(
+            @Header("Authorization") String token,
+            @Body com.google.gson.JsonObject requestBody
+    );
+
+    @PUT("cook/profile/bank-details")
+    Call<CookProfileResponse> updateBankDetails(
+            @Header("Authorization") String token,
+            @Body com.google.gson.JsonObject requestBody
+    );
+
+    // Cook Reviews endpoints
+    @GET("reviews/cook/my")
+    Call<com.tiffincraft.app.models.ReviewResponse> getMyCookReviews(
+            @Header("Authorization") String token
+    );
+
+    @PUT("reviews/{reviewId}/reply")
+    Call<RegisterResponse> replyToReview(
+            @Header("Authorization") String token,
+            @Path("reviewId") int reviewId,
+            @Body com.google.gson.JsonObject requestBody
+    );
+
     // Cook Orders endpoints
     @GET("orders/cook/my")
     Call<OrderResponse> getCookOrders(
@@ -254,4 +342,22 @@ public interface ApiService {
             @Header("Authorization") String token,
             @Path("cookId") int cookId
     );
+
+    @GET("cart")
+Call<CartResponse> getCart(@Header("Authorization") String token);
+
+@POST("cart")
+Call<CartResponse> addToCart(@Header("Authorization") String token, @Body AddToCartRequest request);
+
+@PUT("cart/{cartItemId}")
+Call<CartResponse> updateCartItem(@Header("Authorization") String token, @Path("cartItemId") int cartItemId, @Body UpdateCartItemRequest request);
+
+@DELETE("cart/{cartItemId}")
+Call<CartResponse> removeCartItem(@Header("Authorization") String token, @Path("cartItemId") int cartItemId);
+
+@DELETE("cart")
+Call<CartResponse> clearCart(@Header("Authorization") String token);
+
+@POST("cart/checkout")
+Call<CheckoutResponse> checkoutCart(@Header("Authorization") String token, @Body CheckoutRequest request);
 }
