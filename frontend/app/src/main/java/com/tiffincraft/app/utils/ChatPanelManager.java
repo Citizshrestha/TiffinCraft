@@ -56,8 +56,7 @@ public class ChatPanelManager {
     private ChatListAdapter adapter;
     private RecyclerView    rvChatList;
     private TextView        tvContactCount;
-    private TextView        tvTabChats, tvTabContacts;
-    private View            tabIndicatorChats, tabIndicatorContacts;
+    private TextView        tabChats, tabContacts, tabChannels;
 
     private ApiService     apiService;
     private SessionManager sessionManager;
@@ -98,17 +97,14 @@ public class ChatPanelManager {
         tvContactCount = panelView.findViewById(R.id.tvContactCount);
 
         // Tabs
-        tvTabChats           = panelView.findViewById(R.id.tvTabChats);
-        tvTabContacts        = panelView.findViewById(R.id.tvTabContacts);
-        tabIndicatorChats    = panelView.findViewById(R.id.tabIndicatorChats);
-        tabIndicatorContacts = panelView.findViewById(R.id.tabIndicatorContacts);
+        tabChats    = panelView.findViewById(R.id.tabChats);
+        tabContacts = panelView.findViewById(R.id.tabContacts);
+        tabChannels = panelView.findViewById(R.id.tabChannels);
 
-        if (tvTabChats != null) {
-            tvTabChats.setOnClickListener(v -> switchTab(false));
-        }
-        if (tvTabContacts != null) {
-            tvTabContacts.setOnClickListener(v -> switchTab(true));
-        }
+        tabChats.setOnClickListener(v -> switchTab(false));
+        tabContacts.setOnClickListener(v -> switchTab(true));
+        tabChannels.setOnClickListener(v ->
+                Toast.makeText(activity, "Channels coming soon", Toast.LENGTH_SHORT).show());
 
         // RecyclerView
         rvChatList = panelView.findViewById(R.id.rvChatList);
@@ -132,15 +128,20 @@ public class ChatPanelManager {
     private void switchTab(boolean contactsTab) {
         showingContactsTab = contactsTab;
 
-        if (tabIndicatorChats != null && tabIndicatorContacts != null) {
-            tabIndicatorChats.setVisibility(contactsTab ? View.INVISIBLE : View.VISIBLE);
-            tabIndicatorContacts.setVisibility(contactsTab ? View.VISIBLE : View.INVISIBLE);
-        }
-        if (tvTabChats != null && tvTabContacts != null) {
-            tvTabChats.setTextColor(activity.getColor(
-                    contactsTab ? R.color.text_hint : R.color.purple_primary));
-            tvTabContacts.setTextColor(activity.getColor(
-                    contactsTab ? R.color.purple_primary : R.color.text_hint));
+        if (contactsTab) {
+            tabChats.setBackground(null);
+            tabChats.setTextColor(0xCCFFFFFF);
+            tabChats.setTypeface(null, android.graphics.Typeface.NORMAL);
+            tabContacts.setBackgroundResource(R.drawable.bg_chat_tab_selected);
+            tabContacts.setTextColor(0xFFFFFFFF);
+            tabContacts.setTypeface(null, android.graphics.Typeface.BOLD);
+        } else {
+            tabContacts.setBackground(null);
+            tabContacts.setTextColor(0xCCFFFFFF);
+            tabContacts.setTypeface(null, android.graphics.Typeface.NORMAL);
+            tabChats.setBackgroundResource(R.drawable.bg_chat_tab_selected);
+            tabChats.setTextColor(0xFFFFFFFF);
+            tabChats.setTypeface(null, android.graphics.Typeface.BOLD);
         }
 
         if (contactsTab) loadContacts(); else loadConversations();

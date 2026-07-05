@@ -43,10 +43,11 @@
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/tvContactCount"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="12dp"
-                    android:text="• 10 contacts"
+                    android:text="• 0 contacts"
                     android:textColor="#CCFFFFFF"
                     android:textSize="14sp" />
 
