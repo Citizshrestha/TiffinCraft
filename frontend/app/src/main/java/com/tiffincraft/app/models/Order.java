@@ -44,6 +44,12 @@ public class Order {
     @SerializedName("meal_price")
     private double mealPrice;
 
+    @SerializedName("meal_image")
+    private String mealImage;
+
+    @SerializedName("special_instructions")
+    private String specialInstructions;
+
     // Getters
     public int getId() { return id; }
     public int getCustomerId() { return customerId; }
@@ -58,6 +64,8 @@ public class Order {
     public String getMealName() { return mealName; }
     public int getQuantity() { return quantity; }
     public double getMealPrice() { return mealPrice; }
+    public String getMealImage() { return mealImage; }
+    public String getSpecialInstructions() { return specialInstructions; }
 
     // Setters
     public void setId(int id) { this.id = id; }

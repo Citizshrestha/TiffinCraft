@@ -66,21 +66,21 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         String type = notification.getType() != null ? notification.getType().toLowerCase() : "system";
         switch (type) {
             case "order":
-                holder.ivIcon.setImageResource(R.drawable.ic_cart);
-                holder.iconContainer.setBackgroundResource(R.drawable.circle_bg_orange_light);
+                holder.ivIcon.setImageResource(R.drawable.ic_orders);
+                holder.iconContainer.setBackgroundResource(R.drawable.circle_icon_orange);
                 break;
             case "promo":
-                holder.ivIcon.setImageResource(R.drawable.ic_discount);
-                holder.iconContainer.setBackgroundResource(R.drawable.circle_bg_red_light);
+                holder.ivIcon.setImageResource(R.drawable.ic_offers);
+                holder.iconContainer.setBackgroundResource(R.drawable.circle_icon_purple);
                 break;
             case "cook":
-                holder.ivIcon.setImageResource(R.drawable.ic_chef);
-                holder.iconContainer.setBackgroundResource(R.drawable.circle_bg_green_light);
+                holder.ivIcon.setImageResource(R.drawable.ic_cook);
+                holder.iconContainer.setBackgroundResource(R.drawable.circle_icon_green);
                 break;
             case "system":
             default:
                 holder.ivIcon.setImageResource(R.drawable.ic_notifications);
-                holder.iconContainer.setBackgroundResource(R.drawable.circle_bg_blue_light);
+                holder.iconContainer.setBackgroundResource(R.drawable.circle_icon_blue);
                 break;
         }
 

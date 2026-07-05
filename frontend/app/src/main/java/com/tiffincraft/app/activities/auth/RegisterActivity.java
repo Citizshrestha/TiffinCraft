@@ -273,9 +273,6 @@ public class RegisterActivity extends AppCompatActivity {
         tvLogin.setOnClickListener(v -> finish());
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // GOOGLE SIGN-IN
-    // ═══════════════════════════════════════════════════════════
 
     private void signInWithGoogle() {
         if (isLoading) return;
@@ -357,9 +354,6 @@ public class RegisterActivity extends AppCompatActivity {
                 });
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // REGULAR EMAIL/PASSWORD REGISTRATION
-    // ═══════════════════════════════════════════════════════════
 
     private void attemptRegister() {
         if (isLoading) return;
@@ -445,23 +439,14 @@ public class RegisterActivity extends AppCompatActivity {
                             RegisterResponse registerResponse = response.body();
 
                             if (registerResponse.isSuccess()) {
-                                if (registerResponse.isAutoVerified()) {
-                                    Toast.makeText(RegisterActivity.this,
-                                        "Registration successful! Please log in.", Toast.LENGTH_LONG).show();
-                                    Intent intent = new Intent(RegisterActivity.this, LoginActivity.class);
-                                    intent.putExtra("role", role);
-                                    startActivity(intent);
-                                    finish();
-                                } else {
-                                    Toast.makeText(RegisterActivity.this,
-                                        R.string.otp_sent_to_email, Toast.LENGTH_SHORT).show();
+                                Toast.makeText(RegisterActivity.this,
+                                    R.string.otp_sent_to_email, Toast.LENGTH_SHORT).show();
 
-                                    Intent intent = new Intent(RegisterActivity.this, OtpActivity.class);
-                                    intent.putExtra("email", email);
-                                    intent.putExtra("role", role);
-                                    startActivity(intent);
-                                    finish();
-                                }
+                                Intent intent = new Intent(RegisterActivity.this, OtpActivity.class);
+                                intent.putExtra("email", email);
+                                intent.putExtra("role", role);
+                                startActivity(intent);
+                                finish();
                             } else {
                                 Toast.makeText(RegisterActivity.this,
                                     registerResponse.getMessage() != null ? registerResponse.getMessage() : "Registration failed",
@@ -497,9 +482,6 @@ public class RegisterActivity extends AppCompatActivity {
                 });
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // HELPER METHODS
-    // ═══════════════════════════════════════════════════════════
 
     private void navigateToHome(String userRole) {
         Intent intent;

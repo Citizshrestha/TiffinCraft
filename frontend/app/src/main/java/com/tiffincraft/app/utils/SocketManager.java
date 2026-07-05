@@ -19,7 +19,6 @@ import io.socket.emitter.Emitter;
 public class SocketManager {
 
     private static final String TAG = "SocketManager";
-    private static final String SOCKET_URL = "http://192.168.100.115:5000";
 
     private static SocketManager instance;
     private Socket socket;
@@ -49,6 +48,15 @@ public class SocketManager {
             return;
         }
 
+        // Get dynamic server URL from RetrofitClient
+        String serverUrl = RetrofitClient.getServerUrl(context);
+        if (serverUrl == null || serverUrl.isEmpty()) {
+            Log.e(TAG, "Cannot connect: Server URL not available");
+            return;
+        }
+
+        Log.d(TAG, "Connecting socket to: " + serverUrl);
+
         try {
             IO.Options options = new IO.Options();
             options.forceNew = true;
@@ -60,7 +68,7 @@ public class SocketManager {
             auth.put("token", token.replace("Bearer ", ""));
             options.auth = auth;
 
-            socket = IO.socket(SOCKET_URL, options);
+            socket = IO.socket(serverUrl, options);
 
             socket.on(Socket.EVENT_CONNECT, new Emitter.Listener() {
                 @Override
