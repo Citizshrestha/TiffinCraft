@@ -18,8 +18,6 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.model.GlideUrl;
-import com.bumptech.glide.load.model.LazyHeaders;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
@@ -79,16 +77,18 @@ public class CookProfileActivity extends AppCompatActivity {
 
         // Settings button
         if (binding.btnSettings != null) {
-            binding.btnSettings.setOnClickListener(v ->
-                Toast.makeText(this, "Settings — coming soon", Toast.LENGTH_SHORT).show()
-            );
+            binding.btnSettings.setOnClickListener(v -> {
+                Intent intent = new Intent(this, CookSettingsActivity.class);
+                startActivity(intent);
+            });
         }
 
         // Edit profile menu item
         if (binding.menuEditKitchenProfile != null) {
-            binding.menuEditKitchenProfile.setOnClickListener(v ->
-                Toast.makeText(this, "Edit Profile — coming soon", Toast.LENGTH_SHORT).show()
-            );
+            binding.menuEditKitchenProfile.setOnClickListener(v -> {
+                Intent intent = new Intent(this, EditCookProfileActivity.class);
+                startActivityForResult(intent, 1003);
+            });
         }
 
         // Logout button
@@ -111,35 +111,28 @@ public class CookProfileActivity extends AppCompatActivity {
         
         // Setup other menu items
         setupMenuItems();
-        
+
+        // Add click listener for reviews
+        if (binding.tvProfileRating != null) {
+            binding.tvProfileRating.setOnClickListener(v -> {
+                Intent intent = new Intent(this, CookReviewsActivity.class);
+                startActivity(intent);
+            });
+        }
+
         // Setup bottom navigation
         setupBottomNavigation();
     }
 
-    /**
-     * Build full URL from relative path returned by backend
-     */
-    private String getFullImageUrl(String imageUrl) {
-        if (imageUrl == null || imageUrl.isEmpty()) return null;
-        if (imageUrl.startsWith("http")) return imageUrl;
-        return RetrofitClient.SERVER_URL + imageUrl;
-    }
-
-    /**
-     * Load profile image from session using Glide
-     */
+    
     private void loadProfileImage() {
         String imageUrl = sessionManager.getProfileImage();
-        String fullUrl = getFullImageUrl(imageUrl);
-        if (fullUrl != null) {
-            Log.d(TAG, "Loading cook profile image: " + fullUrl);
-
-            GlideUrl glideUrl = new GlideUrl(fullUrl, new LazyHeaders.Builder()
-                .addHeader("Bypass-Tunnel-Reminder", "true")
-                .build());
-
+        
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            Log.d(TAG, "Loading profile image: " + imageUrl);
+            
             Glide.with(this)
-                .load(glideUrl)
+                .load(imageUrl)
                 .placeholder(R.drawable.ic_default_avatar)
                 .error(R.drawable.ic_default_avatar)
                 .circleCrop()
@@ -153,9 +146,7 @@ public class CookProfileActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Check storage permission and open image picker
-     */
+    
     private void checkPermissionAndOpenPicker() {
         // Android 13+ uses READ_MEDIA_IMAGES
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -181,9 +172,7 @@ public class CookProfileActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Handle permission request result
-     */
+   
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
@@ -198,9 +187,7 @@ public class CookProfileActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Open image picker to select profile photo
-     */
+    
     private void openImagePicker() {
         Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
         intent.setType("image/*");
@@ -210,9 +197,7 @@ public class CookProfileActivity extends AppCompatActivity {
         );
     }
 
-    /**
-     * Handle image picker result
-     */
+   
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -230,19 +215,28 @@ public class CookProfileActivity extends AppCompatActivity {
                 // Start upload
                 uploadProfileImage(selectedImageUri);
             }
+        } else if (requestCode == 1003 && resultCode == RESULT_OK) {
+            // Profile was updated, reload profile display
+            String fullName = sessionManager.getFullName();
+            if (binding.tvCookName != null) {
+                binding.tvCookName.setText(
+                    (fullName != null && !fullName.isEmpty()) ? fullName : "Home Cook"
+                );
+            }
+            if (binding.tvKitchenNameProfile != null) {
+                binding.tvKitchenNameProfile.setText(
+                    (fullName != null && !fullName.isEmpty()) ? fullName + "'s Kitchen" : "Home Cook Kitchen"
+                );
+            }
+            Toast.makeText(this, "Profile refreshed", Toast.LENGTH_SHORT).show();
         }
     }
 
-    /**
-     * Upload profile image to server
-     * CRITICAL: Compression runs on background thread
-     */
+  
     private void uploadProfileImage(Uri imageUri) {
-        // Show progress (if you have progress views in layout)
         showUploadProgress(true);
         binding.btnEditAvatar.setEnabled(false);
 
-        // Compress image on background thread
         new Thread(() -> {
             compressedFile = ImageUtils.compressImage(CookProfileActivity.this, imageUri);
 
@@ -282,27 +276,16 @@ public class CookProfileActivity extends AppCompatActivity {
                                 if (response.isSuccessful() && response.body() != null
                                         && response.body().isSuccess()) {
 
-                                    String newImageUrl = response.body().getImageUrl();
+                                    String newImageUrl = response.body().getData().getUrl();
                                     Log.d(TAG, "Upload successful: " + newImageUrl);
 
                                     // Save to session
                                     sessionManager.saveProfileImage(newImageUrl);
 
                                     // Show success message
-                                    if (binding.tvUploadSuccess != null) {
-                                        binding.tvUploadSuccess.setVisibility(View.VISIBLE);
-                                    }
-
                                     Toast.makeText(CookProfileActivity.this,
                                             "Profile photo updated!",
                                             Toast.LENGTH_SHORT).show();
-
-                                    // Hide success message after 3 seconds
-                                    new Handler().postDelayed(() -> {
-                                        if (binding.tvUploadSuccess != null) {
-                                            binding.tvUploadSuccess.setVisibility(View.GONE);
-                                        }
-                                    }, 3000);
 
                                 } else {
                                     Log.e(TAG, "Upload failed: " + response.code());
@@ -310,7 +293,6 @@ public class CookProfileActivity extends AppCompatActivity {
                                             "Upload failed. Try again.",
                                             Toast.LENGTH_SHORT).show();
 
-                                    // Reload previous image
                                     loadProfileImage();
                                 }
                             }
@@ -321,7 +303,6 @@ public class CookProfileActivity extends AppCompatActivity {
                                 showUploadProgress(false);
                                 binding.btnEditAvatar.setEnabled(true);
 
-                                // Clean up temp file
                                 ImageUtils.deleteFile(compressedFile);
 
                                 Log.e(TAG, "Upload failed", t);
@@ -339,14 +320,12 @@ public class CookProfileActivity extends AppCompatActivity {
 
     /**
      * Show/hide upload progress
+     * You can add ProgressBar views to your layout and control them here
      */
     private void showUploadProgress(boolean show) {
-        if (binding.uploadProgress != null) {
-            binding.uploadProgress.setVisibility(show ? View.VISIBLE : View.GONE);
-        }
-        if (binding.tvUploadSuccess != null) {
-            binding.tvUploadSuccess.setVisibility(View.GONE);
-        }
+        // If you have progress views in layout, show/hide them here
+        // Example:
+        // binding.uploadProgress.setVisibility(show ? View.VISIBLE : View.GONE);
     }
     
     private void setupBottomNavigation() {
@@ -363,8 +342,7 @@ public class CookProfileActivity extends AppCompatActivity {
                     finish();
                     return true;
                 } else if (itemId == R.id.nav_meals) {
-                    startActivity(new Intent(CookProfileActivity.this, CookMealActivity.class));
-                    finish();
+                    startActivity(new Intent(CookProfileActivity.this, AddMenuActivity.class));
                     return true;
                 } else if (itemId == R.id.nav_orders) {
                     startActivity(new Intent(CookProfileActivity.this, ManageOrdersActivity.class));
@@ -407,7 +385,6 @@ public class CookProfileActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Clean up any remaining temp files
         if (compressedFile != null) {
             ImageUtils.deleteFile(compressedFile);
         }

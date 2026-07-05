@@ -26,9 +26,13 @@ import com.tiffincraft.app.models.DashboardResponse;
 import com.tiffincraft.app.models.DashboardStats;
 import com.tiffincraft.app.models.NotificationResponse;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.SocketManager;
+
+import org.json.JSONObject;
 
 import java.text.DecimalFormat;
 
+import io.socket.emitter.Emitter;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -44,11 +48,12 @@ public class CookHomeActivity extends AppCompatActivity {
     private View btnAddMeal;
     private BottomNavigationView bottomNavigation;
     private SessionManager sessionManager;
+    private SocketManager socketManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
+
         try {
             setContentView(R.layout.activity_cook_home);
 
@@ -57,11 +62,13 @@ public class CookHomeActivity extends AppCompatActivity {
             getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
 
             sessionManager = new SessionManager(this);
+            socketManager = SocketManager.getInstance(this);
 
             initViews();
             loadUserData();
             setupListeners();
             setupBottomNavigation();
+            setupSocketListeners();
             applyEntranceAnimations();
             setupBackPressHandler();
             
@@ -85,6 +92,18 @@ public class CookHomeActivity extends AppCompatActivity {
             bottomNavigation.setSelectedItemId(R.id.nav_home);
         }
         fetchUnreadNotifications();
+
+        // Connect socket and join cook room
+        connectSocket();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Disconnect socket when activity is not visible
+        if (socketManager != null) {
+            socketManager.disconnect();
+        }
     }
 
     private void initViews() {
@@ -341,24 +360,8 @@ public class CookHomeActivity extends AppCompatActivity {
     }
 
     private void applyEntranceAnimations() {
-        try {
-            View appBarLayout = findViewById(R.id.appBarLayout);
-
-            if (appBarLayout != null) {
-                appBarLayout.setAlpha(0f);
-                appBarLayout.setTranslationY(-50f);
-                appBarLayout.animate()
-                    .alpha(1f)
-                    .translationY(0f)
-                    .setDuration(500)
-                    .setStartDelay(100)
-                    .start();
-            } else {
-                Log.w(TAG, "appBarLayout not found in layout");
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error applying entrance animations", e);
-        }
+        // Animation removed as layout doesn't have appBarLayout
+        // The activity loads without entrance animations
     }
 
     private void setupBackPressHandler() {
@@ -397,5 +400,123 @@ public class CookHomeActivity extends AppCompatActivity {
                 Log.e(TAG, "Error fetching unread count", t);
             }
         });
+    }
+
+    // ========== Socket.IO Real-time Updates ==========
+
+    private void connectSocket() {
+        if (socketManager != null) {
+            socketManager.connect();
+
+            // Join cook room
+            int cookId = sessionManager.getUserId();
+            if (cookId > 0) {
+                socketManager.joinCookRoom(cookId);
+                Log.d(TAG, "Joined cook room: " + cookId);
+            }
+        }
+    }
+
+    private void setupSocketListeners() {
+        if (socketManager == null) return;
+
+        // Listen for new orders
+        socketManager.onNewOrder(new Emitter.Listener() {
+            @Override
+            public void call(Object... args) {
+                runOnUiThread(() -> {
+                    try {
+                        if (args.length > 0 && args[0] != null) {
+                            JSONObject data = (JSONObject) args[0];
+                            handleNewOrder(data);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error handling new order event", e);
+                    }
+                });
+            }
+        });
+
+        // Listen for cancelled orders
+        socketManager.onOrderCancelled(new Emitter.Listener() {
+            @Override
+            public void call(Object... args) {
+                runOnUiThread(() -> {
+                    try {
+                        if (args.length > 0 && args[0] != null) {
+                            JSONObject data = (JSONObject) args[0];
+                            handleOrderCancelled(data);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error handling order cancelled event", e);
+                    }
+                });
+            }
+        });
+    }
+
+    private void handleNewOrder(JSONObject data) {
+        try {
+            int orderId = data.optInt("orderId");
+            String customerName = data.optString("mealName", "New Order");
+            double totalAmount = data.optDouble("total_amount", 0);
+
+            Log.d(TAG, "🔔 New Order Received! Order #" + orderId);
+
+            // Show toast notification
+            Toast.makeText(this,
+                    "🔔 New Order: ₹" + String.format("%.0f", totalAmount),
+                    Toast.LENGTH_LONG).show();
+
+            // Play notification sound and vibrate
+            playNotificationSound();
+
+            // Refresh dashboard data
+            fetchDashboardData();
+            fetchUnreadNotifications();
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error processing new order", e);
+        }
+    }
+
+    private void handleOrderCancelled(JSONObject data) {
+        try {
+            int orderId = data.optInt("orderId");
+            String message = data.optString("message", "Order cancelled");
+
+            Log.d(TAG, "Order #" + orderId + " cancelled");
+
+            Toast.makeText(this, "Order #" + orderId + " was cancelled", Toast.LENGTH_SHORT).show();
+
+            // Refresh dashboard
+            fetchDashboardData();
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error processing order cancellation", e);
+        }
+    }
+
+    private void playNotificationSound() {
+        try {
+            // Vibrate
+            android.os.Vibrator vibrator = (android.os.Vibrator) getSystemService(VIBRATOR_SERVICE);
+            if (vibrator != null && vibrator.hasVibrator()) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    vibrator.vibrate(android.os.VibrationEffect.createOneShot(500, android.os.VibrationEffect.DEFAULT_AMPLITUDE));
+                } else {
+                    vibrator.vibrate(500);
+                }
+            }
+
+            // Play default notification sound
+            android.media.RingtoneManager.getRingtone(
+                this,
+                android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
+            ).play();
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error playing notification", e);
+        }
     }
 }

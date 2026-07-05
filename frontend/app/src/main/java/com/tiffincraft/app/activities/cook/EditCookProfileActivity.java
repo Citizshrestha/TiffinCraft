@@ -13,11 +13,10 @@ import com.tiffincraft.app.R;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.databinding.ActivityEditCookProfileBinding;
+import com.tiffincraft.app.models.CookProfile;
 import com.tiffincraft.app.models.CookProfileRequest;
 import com.tiffincraft.app.models.CookProfileResponse;
 import com.tiffincraft.app.session.SessionManager;
-
-import org.json.JSONObject;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -30,7 +29,7 @@ public class EditCookProfileActivity extends AppCompatActivity {
     private ActivityEditCookProfileBinding binding;
     private SessionManager sessionManager;
     private ApiService apiService;
-    private JSONObject currentProfile;
+    private CookProfile currentProfile;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,7 +41,7 @@ public class EditCookProfileActivity extends AppCompatActivity {
         apiService = RetrofitClient.getInstance(this).getApiService();
 
         setupToolbar();
-        loadCurrentProfile();
+        loadCurrentData();
         setupListeners();
     }
 
@@ -51,32 +50,25 @@ public class EditCookProfileActivity extends AppCompatActivity {
             setSupportActionBar(binding.toolbar);
             if (getSupportActionBar() != null) {
                 getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-                getSupportActionBar().setTitle("Edit Profile");
+                getSupportActionBar().setTitle("Edit Kitchen Profile");
             }
             binding.toolbar.setNavigationOnClickListener(v -> finish());
         }
     }
 
-    private void loadCurrentProfile() {
+    private void loadCurrentData() {
         showLoading(true);
 
         String token = "Bearer " + sessionManager.getToken();
-        apiService.getMyCookProfile(token).enqueue(new Callback<CookProfileResponse>() {
+        apiService.getCookProfile(token).enqueue(new Callback<CookProfileResponse>() {
             @Override
             public void onResponse(@NonNull Call<CookProfileResponse> call,
                                    @NonNull Response<CookProfileResponse> response) {
                 showLoading(false);
 
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                    try {
-                        currentProfile = new JSONObject(response.body().getProfile().toString());
-                        populateFields();
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error parsing profile", e);
-                        Toast.makeText(EditCookProfileActivity.this,
-                                "Failed to load profile", Toast.LENGTH_SHORT).show();
-                        finish();
-                    }
+                    currentProfile = response.body().getProfile();
+                    populateFields();
                 } else {
                     Toast.makeText(EditCookProfileActivity.this,
                             "Failed to load profile", Toast.LENGTH_SHORT).show();
@@ -98,41 +90,23 @@ public class EditCookProfileActivity extends AppCompatActivity {
     private void populateFields() {
         if (currentProfile == null) return;
 
-        try {
-            if (binding.etFullName != null && currentProfile.has("full_name")) {
-                binding.etFullName.setText(currentProfile.getString("full_name"));
-            }
-
-            if (binding.etPhone != null && currentProfile.has("phone")) {
-                binding.etPhone.setText(currentProfile.getString("phone"));
-            }
-
-            if (binding.etEmail != null && currentProfile.has("email")) {
-                binding.etEmail.setText(currentProfile.getString("email"));
-                binding.etEmail.setEnabled(false); // Email cannot be changed
-            }
-
-            if (binding.etKitchenName != null && currentProfile.has("kitchen_name")) {
-                binding.etKitchenName.setText(currentProfile.getString("kitchen_name"));
-            }
-
-            if (binding.etFoodType != null && currentProfile.has("food_type")) {
-                binding.etFoodType.setText(currentProfile.getString("food_type"));
-            }
-
-            if (binding.etDescription != null && currentProfile.has("description")) {
-                binding.etDescription.setText(currentProfile.getString("description"));
-            }
-
-            if (binding.etAddress != null && currentProfile.has("address")) {
-                binding.etAddress.setText(currentProfile.getString("address"));
-            }
-
-            if (binding.etCapacity != null && currentProfile.has("capacity_per_day")) {
-                binding.etCapacity.setText(String.valueOf(currentProfile.getInt("capacity_per_day")));
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error populating fields", e);
+        if (currentProfile.getFullName() != null) {
+            binding.etFullName.setText(currentProfile.getFullName());
+        }
+        if (currentProfile.getPhone() != null) {
+            binding.etPhone.setText(currentProfile.getPhone());
+        }
+        if (currentProfile.getAddress() != null) {
+            binding.etAddress.setText(currentProfile.getAddress());
+        }
+        if (currentProfile.getKitchenName() != null) {
+            binding.etKitchenName.setText(currentProfile.getKitchenName());
+        }
+        if (currentProfile.getFoodType() != null) {
+            binding.etFoodType.setText(currentProfile.getFoodType());
+        }
+        if (currentProfile.getDescription() != null) {
+            binding.etDescription.setText(currentProfile.getDescription());
         }
     }
 
@@ -140,7 +114,6 @@ public class EditCookProfileActivity extends AppCompatActivity {
         if (binding.btnSaveProfile != null) {
             binding.btnSaveProfile.setOnClickListener(v -> validateAndSave());
         }
-
         if (binding.btnCancel != null) {
             binding.btnCancel.setOnClickListener(v -> finish());
         }
@@ -149,15 +122,13 @@ public class EditCookProfileActivity extends AppCompatActivity {
     private void validateAndSave() {
         String fullName = binding.etFullName.getText().toString().trim();
         String phone = binding.etPhone.getText().toString().trim();
+        String address = binding.etAddress.getText().toString().trim();
         String kitchenName = binding.etKitchenName.getText().toString().trim();
         String foodType = binding.etFoodType.getText().toString().trim();
         String description = binding.etDescription.getText().toString().trim();
-        String address = binding.etAddress.getText().toString().trim();
-        String capacityStr = binding.etCapacity.getText().toString().trim();
 
-        // Validation
         if (TextUtils.isEmpty(fullName)) {
-            binding.etFullName.setError("Name is required");
+            binding.etFullName.setError("Full name is required");
             binding.etFullName.requestFocus();
             return;
         }
@@ -180,35 +151,26 @@ public class EditCookProfileActivity extends AppCompatActivity {
             return;
         }
 
-        if (TextUtils.isEmpty(foodType)) {
-            binding.etFoodType.setError("Food type is required");
-            binding.etFoodType.requestFocus();
+        // Check if anything changed
+        boolean changed = false;
+        if (!fullName.equals(currentProfile.getFullName())) changed = true;
+        if (!phone.equals(currentProfile.getPhone())) changed = true;
+        if (!address.equals(currentProfile.getAddress() != null ? currentProfile.getAddress() : "")) changed = true;
+        if (!kitchenName.equals(currentProfile.getKitchenName())) changed = true;
+        if (!foodType.equals(currentProfile.getFoodType() != null ? currentProfile.getFoodType() : "")) changed = true;
+        if (!description.equals(currentProfile.getDescription() != null ? currentProfile.getDescription() : "")) changed = true;
+
+        if (!changed) {
+            Toast.makeText(this, "No changes made", Toast.LENGTH_SHORT).show();
+            finish();
             return;
         }
 
-        if (TextUtils.isEmpty(description)) {
-            binding.etDescription.setError("Description is required");
-            binding.etDescription.requestFocus();
-            return;
-        }
-
-        int capacity = 0;
-        if (!TextUtils.isEmpty(capacityStr)) {
-            try {
-                capacity = Integer.parseInt(capacityStr);
-            } catch (NumberFormatException e) {
-                binding.etCapacity.setError("Invalid number");
-                binding.etCapacity.requestFocus();
-                return;
-            }
-        }
-
-        // Save changes
-        saveProfile(fullName, phone, address, kitchenName, foodType, description, capacity);
+        saveProfile(fullName, phone, address, kitchenName, foodType, description);
     }
 
     private void saveProfile(String fullName, String phone, String address,
-                             String kitchenName, String foodType, String description, int capacity) {
+                             String kitchenName, String foodType, String description) {
         showLoading(true);
 
         CookProfileRequest request = new CookProfileRequest();
@@ -218,17 +180,15 @@ public class EditCookProfileActivity extends AppCompatActivity {
         request.setKitchenName(kitchenName);
         request.setFoodType(foodType);
         request.setDescription(description);
-        request.setCapacityPerDay(capacity);
 
         String token = "Bearer " + sessionManager.getToken();
-        apiService.updateCookProfile(token, request).enqueue(new Callback<CookProfileResponse>() {
+        apiService.updateCookCompleteProfile(token, request).enqueue(new Callback<CookProfileResponse>() {
             @Override
             public void onResponse(@NonNull Call<CookProfileResponse> call,
                                    @NonNull Response<CookProfileResponse> response) {
                 showLoading(false);
 
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                    // Update session with new name
                     sessionManager.saveFullName(fullName);
 
                     Toast.makeText(EditCookProfileActivity.this,
