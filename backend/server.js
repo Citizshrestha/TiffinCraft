@@ -15,8 +15,12 @@ import adminRoutes from "./routes/adminRoutes.js";
 import customerDashboardRoutes from "./routes/customerDashboardRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import favoritesRoutes from "./routes/favoritesRoutes.js";
+import cartRoutes from "./routes/cartRoutes.js";
+import uploadRoutes from "./routes/uploadRoutes.js";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import fs from "fs";
+import getLanIp from "./utils/lanIp.js";
 
 dotenv.config();
 
@@ -135,6 +139,36 @@ app.get("/api/health", (_req, res) => {
     });
 });
 
+// ── Dynamic tunnel URL discovery ──────────────────────────────
+// The Android app calls this (via the PC's stable LAN IP) at startup to fetch
+// the CURRENT public tunnel URL. This means the tunnel URL can change/rotate
+// freely (localtunnel restarts, PC reboot, etc.) without ever needing to
+// rebuild or reinstall the APK — the app self-heals its BASE_URL at runtime.
+const tunnelConfigPath = join(__dirname, "tunnel-config.json");
+const LAN_IP = getLanIp();
+
+app.get("/api/config", (_req, res) => {
+    let tunnelConfig = null;
+    try {
+        if (fs.existsSync(tunnelConfigPath)) {
+            tunnelConfig = JSON.parse(fs.readFileSync(tunnelConfigPath, "utf-8"));
+        }
+    } catch (e) {
+        console.warn("⚠️  Could not read tunnel-config.json:", e.message);
+    }
+
+    // Always include the LAN fallback so the app can use it directly
+    // when on the same WiFi network, even if the tunnel is down.
+    res.json({
+        tunnel: tunnelConfig, // { baseUrl, serverUrl, updatedAt } or null if tunnel never started
+        lan: {
+            baseUrl: `http://${LAN_IP}:${PORT}/api/`,
+            serverUrl: `http://${LAN_IP}:${PORT}`
+        },
+        timestamp: new Date().toISOString()
+    });
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/cook", cookRoutes);
 app.use("/api/meals", mealRoutes);
@@ -144,6 +178,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/customer", customerDashboardRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/favorites", favoritesRoutes);
+app.use("/api/cart", cartRoutes);
+app.use("/api/upload", uploadRoutes);
 
 app.use((_req, res) => {
     res.status(404).json({ message: "Route not found." });
