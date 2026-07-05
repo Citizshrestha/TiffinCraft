@@ -1,3 +1,24 @@
 {
-    "java.configuration.updateBuildConfiguration": "interactive"
+    "java.configuration.updateBuildConfiguration": "disabled",
+    "java.jdt.ls.java.home": "D:\\DevTools\\Java\\jdk-21.0.5.11-hotspot",
+    "java.import.gradle.enabled": false,
+    "java.autobuild.enabled": false,
+    "java.project.explorer.showNonJavaResources": false,
+    "java.project.importHint": false,
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-21",
+            "path": "D:\\DevTools\\Java\\jdk-21.0.5.11-hotspot",
+            "default": true
+        }
+    ],
+    "files.exclude": {
+        "**/frontend/.gradle": true,
+        "**/frontend/build": true,
+        "**/frontend/.idea": true
+    },
+    "java.import.exclusions": [
+        "**/frontend/**",
+        "**/app/**"
+    ]
 }
