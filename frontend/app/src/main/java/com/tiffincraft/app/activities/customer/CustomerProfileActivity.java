@@ -453,7 +453,7 @@ public class CustomerProfileActivity extends AppCompatActivity {
                                 if (response.isSuccessful() && response.body() != null
                                         && response.body().isSuccess()) {
 
-                                    String newImageUrl = response.body().getImageUrl();
+                                    String newImageUrl = response.body().getData().getUrl();
                                     Log.d(TAG, "Upload successful: " + newImageUrl);
 
                                     sessionManager.saveProfileImage(newImageUrl);

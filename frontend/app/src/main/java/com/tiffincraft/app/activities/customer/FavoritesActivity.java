@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.gson.JsonObject;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.adapters.FavoritesAdapter;
@@ -30,6 +31,7 @@ public class FavoritesActivity extends AppCompatActivity implements FavoritesAda
     private LinearLayout emptyState;
     private ProgressBar progressBar;
     private ImageButton btnBack;
+    private BottomNavigationView bottomNavigation;
 
     private FavoritesAdapter adapter;
     private ApiService apiService;
@@ -43,6 +45,7 @@ public class FavoritesActivity extends AppCompatActivity implements FavoritesAda
         initViews();
         setupRecyclerView();
         setupClickListeners();
+        setupBottomNavigation();
         loadFavorites();
     }
 
@@ -51,8 +54,9 @@ public class FavoritesActivity extends AppCompatActivity implements FavoritesAda
         emptyState = findViewById(R.id.emptyState);
         progressBar = findViewById(R.id.progressBar);
         btnBack = findViewById(R.id.btnBack);
+        bottomNavigation = findViewById(R.id.bottomNavigation);
 
-        apiService = RetrofitClient.getClient().create(ApiService.class);
+        apiService = RetrofitClient.getInstance(this).getApiService();
         sessionManager = new SessionManager(this);
     }
 
@@ -64,6 +68,32 @@ public class FavoritesActivity extends AppCompatActivity implements FavoritesAda
 
     private void setupClickListeners() {
         btnBack.setOnClickListener(v -> finish());
+    }
+
+    private void setupBottomNavigation() {
+        bottomNavigation.setSelectedItemId(R.id.nav_favorites);
+
+        bottomNavigation.setOnItemSelectedListener(item -> {
+            int itemId = item.getItemId();
+
+            if (itemId == R.id.nav_home) {
+                startActivity(new Intent(this, CustomerHomeActivity.class));
+                finish();
+                return true;
+            } else if (itemId == R.id.nav_orders) {
+                // startActivity(new Intent(this, OrderHistoryActivity.class));
+                // finish();
+                return true;
+            } else if (itemId == R.id.nav_favorites) {
+                return true;
+            } else if (itemId == R.id.nav_profile) {
+                startActivity(new Intent(this, CustomerProfileActivity.class));
+                finish();
+                return true;
+            }
+
+            return false;
+        });
     }
 
     private void loadFavorites() {
@@ -183,6 +213,10 @@ public class FavoritesActivity extends AppCompatActivity implements FavoritesAda
     @Override
     protected void onResume() {
         super.onResume();
+        // Set favorites tab as selected when returning to this activity
+        if (bottomNavigation != null) {
+            bottomNavigation.setSelectedItemId(R.id.nav_favorites);
+        }
         // Reload favorites when returning to this activity
         loadFavorites();
     }

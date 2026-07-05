@@ -21,6 +21,7 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.common.CartActivity;
 import com.tiffincraft.app.activities.common.NotificationActivity;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
@@ -71,10 +72,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
             setupBottomNavigation();
             applyEntranceAnimations();
             setupBackPressHandler();
-            
-            // Load dashboard data from backend
-            loadDashboardData();
-            
+
             Log.d(TAG, "CustomerHomeActivity onCreate completed successfully");
         } catch (Exception e) {
             Log.e(TAG, "Error in onCreate", e);
@@ -88,6 +86,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
         if (bottomNavigation != null) {
             bottomNavigation.setSelectedItemId(R.id.nav_home);
         }
+        loadDashboardData();
         fetchUnreadNotifications();
     }
 
@@ -290,10 +289,12 @@ public class CustomerHomeActivity extends AppCompatActivity {
         });
 
         // Floating cart button tapped
-        fabCart.setOnClickListener(v -> {
-            // startActivity(new Intent(this, CartActivity.class));
-            Toast.makeText(this, "Cart coming soon", Toast.LENGTH_SHORT).show();
-        });
+        fabCart.setOnClickListener(v -> openCart());
+        cartBadge.setOnClickListener(v -> openCart());
+    }
+
+    private void openCart() {
+        startActivity(new Intent(this, CartActivity.class));
     }
 
     private void setupBottomNavigation() {
