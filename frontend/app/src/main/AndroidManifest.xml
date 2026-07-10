@@ -10,11 +10,13 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
 
     <application
+        android:name=".TiffinCraftApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -109,6 +111,10 @@
 
         <activity
             android:name=".activities.cook.CookEarningsActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.AllTransactionsActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
         <activity
@@ -208,6 +214,28 @@
             android:name=".activities.cook.BankDetailsActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
+        <activity
+            android:name=".activities.cook.CookSubscriptionsActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.OperatingHoursActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.ChangePasswordActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.NotificationPreferencesActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+         <activity
+     android:name=".activities.common.ChatActivity"
+     android:theme="@style/Theme.TiffinCraft.NoActionBar"
+     android:windowSoftInputMode="adjustResize"/>
+
     </application>
 
 </manifest>
+
