@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?android:attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp">
+
+    <FrameLayout
+        android:layout_width="48dp"
+        android:layout_height="48dp">
+
+        <ImageView
+            android:id="@+id/ivContactAvatar"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_avatar_circle"
+            android:contentDescription="Contact Avatar"
+            android:scaleType="centerCrop" />
+
+        <View
+            android:id="@+id/viewOnlineDot"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:layout_gravity="bottom|end"
+            android:background="@drawable/bg_online_dot"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvContactName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Contact Name"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvLastMessage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Last message preview"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="end"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvContactTimestamp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="12:38 PM"
+            android:textColor="@color/text_hint"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/tvUnreadCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/bg_badge_red"
+            android:gravity="center"
+            android:minWidth="20dp"
+            android:minHeight="20dp"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:text="1"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFF"
+    android:orientation="vertical">
+
+    <!-- Header -->
+    <LinearLayout
+        android:id="@+id/chatHeader"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:background="#FFFFFF"
+        android:elevation="2dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="4dp"
+        android:paddingEnd="12dp">
+
+        <!-- Back button -->
+        <ImageView
+            android:id="@+id/btnBack"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:clickable="true"
+            android:contentDescription="Back"
+            android:focusable="true"
+            android:padding="10dp"
+            android:src="@drawable/ic_back"
+            app:tint="#111111" />
+
+        <!-- Avatar -->
+        <FrameLayout
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginStart="4dp">
+
+            <ImageView
+                android:id="@+id/ivChatAvatar"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="@drawable/bg_avatar_circle"
+                android:contentDescription="Contact Avatar"
+                android:scaleType="centerCrop" />
+
+        </FrameLayout>
+
+        <!-- Name + status -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvChatName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Farhan Alam"
+                android:textColor="#111111"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <View
+                    android:id="@+id/viewStatusDot"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:layout_marginEnd="5dp"
+                    android:background="@drawable/bg_online_dot" />
+
+                <TextView
+                    android:id="@+id/tvChatStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Online"
+                    android:textColor="#4CAF50"
+                    android:textSize="12sp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Call button -->
+        <ImageView
+            android:id="@+id/btnCall"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:clickable="true"
+            android:contentDescription="Call"
+            android:focusable="true"
+            android:padding="10dp"
+            android:src="@drawable/ic_phone_chat" />
+
+    </LinearLayout>
+
+    <!-- Selection header (shown instead of chatHeader while multi-selecting) -->
+    <LinearLayout
+        android:id="@+id/selectionHeader"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:background="#FFFFFF"
+        android:elevation="2dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="4dp"
+        android:paddingEnd="12dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/btnCloseSelection"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:clickable="true"
+            android:contentDescription="Cancel selection"
+            android:focusable="true"
+            android:padding="10dp"
+            android:src="@drawable/ic_close"
+            app:tint="#111111" />
+
+        <TextView
+            android:id="@+id/tvSelectedCount"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="1 selected"
+            android:textColor="#111111"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:id="@+id/btnBulkEdit"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:clickable="true"
+            android:contentDescription="Edit message"
+            android:focusable="true"
+            android:padding="9dp"
+            android:src="@drawable/ic_edit"
+            android:visibility="gone"
+            app:tint="#111111" />
+
+        <ImageView
+            android:id="@+id/btnBulkDelete"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="4dp"
+            android:clickable="true"
+            android:contentDescription="Delete selected messages"
+            android:focusable="true"
+            android:padding="9dp"
+            android:src="@drawable/ic_delete"
+            app:tint="#E53935" />
+
+    </LinearLayout>
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#F0F0F0" />
+
+    <!-- Messages RecyclerView -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvMessages"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#FAFAFA"
+        android:clipToPadding="false"
+        android:overScrollMode="never"
+        android:paddingStart="8dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="8dp" />
+
+    <!-- Inline edit indicator (Instagram-style — shown above the composer while editing) -->
+    <LinearLayout
+        android:id="@+id/editBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#FFFFFF"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="8dp"
+        android:visibility="gone">
+
+        <View
+            android:layout_width="3dp"
+            android:layout_height="28dp"
+            android:background="#4CAF50" />
+
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginStart="10dp"
+            android:contentDescription="Editing"
+            android:src="@drawable/ic_edit"
+            app:tint="#4CAF50" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="Editing message"
+            android:textColor="#4CAF50"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:id="@+id/btnCancelEdit"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:clickable="true"
+            android:contentDescription="Cancel edit"
+            android:focusable="true"
+            android:padding="8dp"
+            android:src="@drawable/ic_close"
+            app:tint="#777777" />
+
+    </LinearLayout>
+
+    <!-- Input Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#FFFFFF"
+        android:elevation="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="8dp">
+
+        <!-- Attachment button -->
+        <ImageView
+            android:id="@+id/btnAttachment"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:clickable="true"
+            android:contentDescription="Attach media"
+            android:focusable="true"
+            android:padding="4dp"
+            android:src="@drawable/ic_add" />
+
+        <!-- Text input -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_chat_input"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="12dp">
+
+            <EditText
+                android:id="@+id/etMessage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@null"
+                android:hint="Type a message..."
+                android:imeOptions="actionSend"
+                android:inputType="textMultiLine|textCapSentences"
+                android:maxLines="4"
+                android:textColor="#111111"
+                android:textColorHint="#BDBDBD"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+        <!-- Send button -->
+        <FrameLayout
+            android:id="@+id/btnSend"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_send_button"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:contentDescription="Send"
+                android:src="@drawable/ic_send" />
+
+        </FrameLayout>
+
+    </LinearLayout>
+
+</LinearLayout>
