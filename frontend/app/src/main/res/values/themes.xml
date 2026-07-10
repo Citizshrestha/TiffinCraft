@@ -1,13 +1,22 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
 
-    <style name="Base.Theme.TiffinCraft" parent="Theme.Material3.DayNight.NoActionBar">
+    <!-- Light-only theme. This app never uses a dark/night appearance, so the
+         parent is Light (not DayNight) and the surface tokens are pinned to light
+         values. This keeps MaterialCardView, dialogs and menus white with dark
+         text even when the device is in system dark mode. -->
+    <style name="Base.Theme.TiffinCraft" parent="Theme.Material3.Light.NoActionBar">
 
         <item name="colorPrimary">@color/green_primary</item>
         <item name="colorPrimaryVariant">@color/green_primary_dark</item>
         <item name="colorSecondary">@color/green_primary_light</item>
         <item name="colorTertiary">@color/green_surface_light</item>
 
+        <!-- Pin light surfaces so cards/dialogs never resolve dark -->
+        <item name="colorSurface">@color/white</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
         <item name="android:colorBackground">@color/white</item>
+        <item name="colorOnBackground">@color/text_primary</item>
 
         <item name="android:statusBarColor">@color/white</item>
         <item name="android:windowLightStatusBar">true</item>
