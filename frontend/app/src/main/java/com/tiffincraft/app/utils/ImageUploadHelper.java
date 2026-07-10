@@ -75,6 +75,13 @@ public class ImageUploadHelper {
     }
 
     /**
+     * Create chat media part with "media" field name.
+     */
+    public static MultipartBody.Part createMediaPart(Context context, Uri mediaUri) {
+        return createImagePart(context, mediaUri, "media");
+    }
+
+    /**
      * Convert URI to File
      */
     private static File getFileFromUri(Context context, Uri uri) {
@@ -148,7 +155,7 @@ public class ImageUploadHelper {
     /**
      * Get MIME type from URI
      */
-    private static String getMimeType(Context context, Uri uri) {
+    public static String getMimeType(Context context, Uri uri) {
         String mimeType = null;
 
         if ("content".equals(uri.getScheme())) {
@@ -172,7 +179,15 @@ public class ImageUploadHelper {
     }
 
     /**
-     * Validate file size (max 5MB for Cloudinary)
+     * Validate if file is a video
+     */
+    public static boolean isVideoFile(Context context, Uri uri) {
+        String mimeType = getMimeType(context, uri);
+        return mimeType != null && mimeType.startsWith("video/");
+    }
+
+    /**
+     * Validate file size
      */
     public static boolean isValidFileSize(Context context, Uri uri, long maxSizeInMB) {
         try {
@@ -207,3 +222,5 @@ public class ImageUploadHelper {
         }
     }
 }
+
+

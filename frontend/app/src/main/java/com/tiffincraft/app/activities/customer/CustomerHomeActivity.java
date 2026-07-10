@@ -29,6 +29,7 @@ import com.tiffincraft.app.models.CustomerDashboardResponse;
 import com.tiffincraft.app.models.NotificationResponse;
 import com.tiffincraft.app.models.PopularCook;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.ChatPanelManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +52,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
     private SessionManager sessionManager;
     private LinearLayout popularCooksContainer;
     private ApiService apiService;
+    private ChatPanelManager chatPanelManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,6 +74,10 @@ public class CustomerHomeActivity extends AppCompatActivity {
             setupBottomNavigation();
             applyEntranceAnimations();
             setupBackPressHandler();
+
+            // Chat: this screen has no dedicated chat button in its layout,
+            // so let the panel manager inflate its own floating chat button.
+            chatPanelManager = ChatPanelManager.attach(this);
 
             Log.d(TAG, "CustomerHomeActivity onCreate completed successfully");
         } catch (Exception e) {
