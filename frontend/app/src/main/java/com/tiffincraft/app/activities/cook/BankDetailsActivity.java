@@ -212,16 +212,22 @@ public class BankDetailsActivity extends AppCompatActivity {
 
         showLoading(true);
 
-        MultipartBody.Part imagePart = ImageUploadHelper.createImagePart(this, imageUri);
+        // /upload/bank-qr expects a "document" multipart field (see uploadRoutes.js
+        // uploadSingle('document')) plus a "qrType" text field so the backend can file
+        // the QR under cook/<cookName>/Bank Details/<Esewa|Khalti|Bank>/ in Cloudinary.
+        MultipartBody.Part imagePart = ImageUploadHelper.createDocumentPart(this, imageUri);
         if (imagePart == null) {
             showLoading(false);
             Toast.makeText(this, "Failed to prepare image for upload", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        okhttp3.RequestBody qrTypePart = okhttp3.RequestBody.create(
+                okhttp3.MediaType.parse("text/plain"), qrType);
+
         String token = "Bearer " + sessionManager.getToken();
 
-        apiService.uploadDocumentCloudinary(token, imagePart).enqueue(new Callback<UploadResponse>() {
+        apiService.uploadBankQr(token, qrTypePart, imagePart).enqueue(new Callback<UploadResponse>() {
             @Override
             public void onResponse(@NonNull Call<UploadResponse> call,
                                    @NonNull Response<UploadResponse> response) {
@@ -249,7 +255,20 @@ public class BankDetailsActivity extends AppCompatActivity {
                             break;
                     }
                 } else {
-                    Toast.makeText(BankDetailsActivity.this, "Upload failed", Toast.LENGTH_SHORT).show();
+                    String errorMsg = "Upload failed (code " + response.code() + ")";
+                    if (response.errorBody() != null) {
+                        try {
+                            String errorBody = response.errorBody().string();
+                            Log.e(TAG, "QR upload error body: " + errorBody);
+                            JSONObject errJson = new JSONObject(errorBody);
+                            if (errJson.has("message")) {
+                                errorMsg = errJson.getString("message");
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Could not parse upload error body", e);
+                        }
+                    }
+                    Toast.makeText(BankDetailsActivity.this, errorMsg, Toast.LENGTH_SHORT).show();
                 }
             }
 

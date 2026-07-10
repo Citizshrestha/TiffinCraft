@@ -158,7 +158,8 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
                 } else if (itemId == R.id.nav_meals) {
                     return true; // Already on this screen
                 } else if (itemId == R.id.nav_orders) {
-                    Toast.makeText(this, "Orders screen coming soon", Toast.LENGTH_SHORT).show();
+                    startActivity(new Intent(this, ManageOrdersActivity.class));
+                    finish();
                     return true;
                 } else if (itemId == R.id.nav_earnings) {
                     startActivity(new Intent(this, CookEarningsActivity.class));
@@ -525,12 +526,7 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
     
     @Override
     public void onSubscriptionClick(Meal meal) {
-        // Show subscription options dialog
-        new MaterialAlertDialogBuilder(this)
-            .setTitle("Add to Subscription")
-            .setMessage("Add \"" + meal.getName() + "\" to subscription plans?\n\nSubscription features are coming soon!")
-            .setPositiveButton("OK", null)
-            .show();
+        startActivity(new Intent(this, CookSubscriptionsActivity.class));
     }
     
     @Override

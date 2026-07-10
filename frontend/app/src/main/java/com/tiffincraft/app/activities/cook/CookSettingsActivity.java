@@ -56,10 +56,8 @@ public class CookSettingsActivity extends AppCompatActivity {
         });
 
         // Operating Hours
-        binding.layoutOperatingHours.setOnClickListener(v -> {
-            Toast.makeText(this, "Operating hours configuration - Coming in next update", Toast.LENGTH_SHORT).show();
-            // TODO: Open OperatingHoursActivity
-        });
+        binding.layoutOperatingHours.setOnClickListener(v ->
+                startActivity(new Intent(this, OperatingHoursActivity.class)));
 
         // Bank Details
         binding.layoutBankDetails.setOnClickListener(v -> {
@@ -67,29 +65,25 @@ public class CookSettingsActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
-        // Change Password
-        binding.layoutChangePassword.setOnClickListener(v -> {
-            Toast.makeText(this, "Change password - Coming in next update", Toast.LENGTH_SHORT).show();
-            // TODO: Open ChangePasswordActivity
+        // Edit Kitchen Profile
+        binding.layoutEditKitchenProfile.setOnClickListener(v -> {
+            Intent intent = new Intent(this, EditCookProfileActivity.class);
+            startActivity(intent);
         });
+
+        // Change Password
+        binding.layoutChangePassword.setOnClickListener(v ->
+                startActivity(new Intent(this, ChangePasswordActivity.class)));
 
         // Notification Preferences
-        binding.layoutNotificationPreferences.setOnClickListener(v -> {
-            Toast.makeText(this, "Notification preferences - Coming in next update", Toast.LENGTH_SHORT).show();
-            // TODO: Open NotificationPreferencesActivity
-        });
+        binding.layoutNotificationPreferences.setOnClickListener(v ->
+                startActivity(new Intent(this, NotificationPreferencesActivity.class)));
 
         // Terms & Conditions
-        binding.layoutTerms.setOnClickListener(v -> {
-            Toast.makeText(this, "Terms & Conditions - Coming in next update", Toast.LENGTH_SHORT).show();
-            // TODO: Open WebView with Terms
-        });
+        binding.layoutTerms.setOnClickListener(v -> showTermsDialog());
 
         // Privacy Policy
-        binding.layoutPrivacy.setOnClickListener(v -> {
-            Toast.makeText(this, "Privacy Policy - Coming in next update", Toast.LENGTH_SHORT).show();
-            // TODO: Open WebView with Privacy
-        });
+        binding.layoutPrivacy.setOnClickListener(v -> showPrivacyDialog());
 
         // About App
         binding.layoutAbout.setOnClickListener(v -> {
@@ -109,14 +103,10 @@ public class CookSettingsActivity extends AppCompatActivity {
             @Override
             public void onResponse(@NonNull Call<CookProfileResponse> call,
                                    @NonNull Response<CookProfileResponse> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                    // Get holiday mode status from profile
-                    // Note: CookProfileResponse needs to have isHolidayMode field
-                    // For now, set to false by default
-                    isHolidayMode = false; // TODO: Get from response.body().getProfile().isHolidayMode()
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()
+                        && response.body().getProfile() != null) {
+                    isHolidayMode = response.body().getProfile().isHolidayMode();
                     binding.switchHolidayMode.setChecked(isHolidayMode);
-
-                    // Update status text
                     updateHolidayModeStatus(isHolidayMode);
                 }
             }
@@ -182,9 +172,71 @@ public class CookSettingsActivity extends AppCompatActivity {
     }
 
     private void showAboutDialog() {
+        int currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
+        String appVersion = getAppVersionName();
         new AlertDialog.Builder(this)
                 .setTitle("About TiffinCraft")
-                .setMessage("TiffinCraft Cook App\n\nVersion 1.0.0\n\nConnect home cooks with hungry customers.\n\n© 2024 TiffinCraft. All rights reserved.")
+                .setMessage("TiffinCraft Cook App\n\nVersion " + appVersion
+                        + "\n\nConnect home cooks with hungry customers.\n\n© " + currentYear
+                        + " TiffinCraft. All rights reserved.")
+                .setPositiveButton("OK", null)
+                .show();
+    }
+
+    private String getAppVersionName() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            return "1.0.0";
+        }
+    }
+
+    private void showTermsDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Terms & Conditions")
+                .setMessage(
+                        "1. Acceptance of Terms\n" +
+                        "By listing meals on TiffinCraft, you agree to prepare and deliver food that meets local " +
+                        "health and safety standards.\n\n" +
+                        "2. Cook Responsibilities\n" +
+                        "You are responsible for the accuracy of meal descriptions, pricing, allergen information, " +
+                        "and for fulfilling orders within the time you commit to.\n\n" +
+                        "3. Payments\n" +
+                        "TiffinCraft calculates your earnings from delivered orders. Payouts follow the bank " +
+                        "details you provide in Settings.\n\n" +
+                        "4. Order Cancellations\n" +
+                        "Repeated cancellations or unfulfilled orders may affect your kitchen's visibility and " +
+                        "rating on the platform.\n\n" +
+                        "5. Account Suspension\n" +
+                        "TiffinCraft may suspend accounts that violate food safety regulations or platform policies.\n\n" +
+                        "6. Changes to Terms\n" +
+                        "These terms may be updated from time to time; continued use of the app means you accept " +
+                        "the updated terms.")
+                .setPositiveButton("OK", null)
+                .show();
+    }
+
+    private void showPrivacyDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Privacy Policy")
+                .setMessage(
+                        "1. Information We Collect\n" +
+                        "We collect your name, contact details, kitchen profile, bank/payment details, and order " +
+                        "history to operate your cook account.\n\n" +
+                        "2. How We Use Your Data\n" +
+                        "Your data is used to process orders, calculate earnings, show your kitchen to nearby " +
+                        "customers, and send order-related notifications.\n\n" +
+                        "3. Data Sharing\n" +
+                        "Customer contact and delivery details are shared with you only for orders you accept. " +
+                        "We do not sell your personal data to third parties.\n\n" +
+                        "4. Data Security\n" +
+                        "Passwords are stored using industry-standard hashing, and payment details are handled " +
+                        "securely.\n\n" +
+                        "5. Your Rights\n" +
+                        "You can update your profile at any time from Settings, or contact support to request " +
+                        "account deletion.\n\n" +
+                        "6. Contact\n" +
+                        "For privacy questions, reach out to the TiffinCraft support team from within the app.")
                 .setPositiveButton("OK", null)
                 .show();
     }

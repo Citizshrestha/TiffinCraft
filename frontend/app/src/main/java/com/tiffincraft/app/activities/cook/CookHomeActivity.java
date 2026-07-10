@@ -24,8 +24,11 @@ import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.DashboardResponse;
 import com.tiffincraft.app.models.DashboardStats;
+import com.tiffincraft.app.models.EarningsSummaryResponse;
 import com.tiffincraft.app.models.NotificationResponse;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.ChatPanelManager;
+import com.tiffincraft.app.utils.CurrencyUtils;
 import com.tiffincraft.app.utils.SocketManager;
 
 import org.json.JSONObject;
@@ -40,15 +43,37 @@ import retrofit2.Response;
 public class CookHomeActivity extends AppCompatActivity {
 
     private static final String TAG = "CookHomeActivity";
+    private static final String[] MONTH_NAMES = {
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+    };
 
     private ImageView imgCookProfilePic;
     private TextView tvKitchenName, tvWelcome;
     private TextView tvTodayOrders, tvTodayEarnings, tvActiveSubscriptions, tvAvgRating;
-    private TextView tvNotificationBadge;
-    private View btnAddMeal;
+    private TextView tvNotificationBadge, tvEarningsPeriod;
+    private TextView tvOverviewTotalEarnings, tvOverviewSubtitle, tvViewAllOrders, tvNoOrdersToday;
+    private com.tiffincraft.app.views.SparklineView sparklineHome;
+    private android.widget.LinearLayout layoutChartDates;
+    private androidx.recyclerview.widget.RecyclerView rvTodayOrders;
+    private com.tiffincraft.app.adapters.TodayOrderAdapter todayOrderAdapter;
+    private final java.util.List<com.tiffincraft.app.models.Order> todayOrders = new java.util.ArrayList<>();
+    private View btnAddMeal, btnManageMeals, btnViewOrders, btnSubscriptions, btnThisWeek;
+    private TextView tvOverviewPeriodLabel;
     private BottomNavigationView bottomNavigation;
     private SessionManager sessionManager;
     private SocketManager socketManager;
+    private ChatPanelManager chatPanelManager;
+
+    // Earnings data storage
+    private double todayEarnings = 0;
+    private double thisWeekEarnings = 0;
+    private double thisMonthEarnings = 0;
+    private int currentEarningsPeriod = 1; // 0=Today, 1=This Week, 2=This Month
+
+    // Overview card month selection (defaults to current month)
+    private int selectedOverviewMonth;
+    private int selectedOverviewYear;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,6 +89,10 @@ public class CookHomeActivity extends AppCompatActivity {
             sessionManager = new SessionManager(this);
             socketManager = SocketManager.getInstance(this);
 
+            java.util.Calendar now = java.util.Calendar.getInstance();
+            selectedOverviewMonth = now.get(java.util.Calendar.MONTH) + 1;
+            selectedOverviewYear = now.get(java.util.Calendar.YEAR);
+
             initViews();
             loadUserData();
             setupListeners();
@@ -71,13 +100,18 @@ public class CookHomeActivity extends AppCompatActivity {
             setupSocketListeners();
             applyEntranceAnimations();
             setupBackPressHandler();
-            
+
             // Click on notification bell
             findViewById(R.id.btnNotifications).setOnClickListener(v -> {
                 Intent intent = new Intent(this, NotificationActivity.class);
                 startActivity(intent);
             });
-            
+
+            // Chat: layout already has its own fabChat button, so attach the
+            // panel without inflating a second floating button.
+            chatPanelManager = ChatPanelManager.attach(this, false);
+            findViewById(R.id.fabChat).setOnClickListener(v -> chatPanelManager.open());
+
             Log.d(TAG, "CookHomeActivity onCreate completed successfully");
         } catch (Exception e) {
             Log.e(TAG, "Error in onCreate", e);
@@ -92,6 +126,11 @@ public class CookHomeActivity extends AppCompatActivity {
             bottomNavigation.setSelectedItemId(R.id.nav_home);
         }
         fetchUnreadNotifications();
+
+        // Refresh stats, earnings and today's orders with real data every time we return here
+        fetchDashboardData();
+        fetchEarningsData();
+        fetchTodayOrders();
 
         // Connect socket and join cook room
         connectSocket();
@@ -114,9 +153,43 @@ public class CookHomeActivity extends AppCompatActivity {
         tvTodayEarnings = findViewById(R.id.tvTodayEarnings);
         tvActiveSubscriptions = findViewById(R.id.tvActiveSubscriptions);
         tvAvgRating = findViewById(R.id.tvAvgRating);
+        tvEarningsPeriod = findViewById(R.id.tvEarningsPeriod);
         btnAddMeal = findViewById(R.id.btnAddMeal);
         bottomNavigation = findViewById(R.id.bottomNavigation);
         tvNotificationBadge = findViewById(R.id.tvNotificationBadge);
+
+        tvOverviewTotalEarnings = findViewById(R.id.tvTotalEarnings);
+        tvOverviewSubtitle = findViewById(R.id.tvOverviewSubtitle);
+        sparklineHome = findViewById(R.id.sparklineHome);
+        layoutChartDates = findViewById(R.id.layoutChartDates);
+        tvViewAllOrders = findViewById(R.id.tvViewAllOrders);
+        tvNoOrdersToday = findViewById(R.id.tvNoOrdersToday);
+        rvTodayOrders = findViewById(R.id.rvTodayOrders);
+
+        todayOrderAdapter = new com.tiffincraft.app.adapters.TodayOrderAdapter(this, todayOrders, order -> {
+            Intent intent = new Intent(this, com.tiffincraft.app.activities.order.OrderDetailsCookActivity.class);
+            intent.putExtra("order_id", order.getId());
+            startActivity(intent);
+        });
+        rvTodayOrders.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(this));
+        rvTodayOrders.setAdapter(todayOrderAdapter);
+
+        tvViewAllOrders.setOnClickListener(v ->
+                startActivity(new Intent(this, ManageOrdersActivity.class)));
+
+        btnManageMeals = findViewById(R.id.btnManageMeals);
+        btnViewOrders = findViewById(R.id.btnViewOrders);
+        btnSubscriptions = findViewById(R.id.btnSubscriptions);
+        btnThisWeek = findViewById(R.id.btnThisWeek);
+        tvOverviewPeriodLabel = findViewById(R.id.tvOverviewPeriodLabel);
+
+        btnManageMeals.setOnClickListener(v ->
+                startActivity(new Intent(this, CookMealActivity.class)));
+        btnViewOrders.setOnClickListener(v ->
+                startActivity(new Intent(this, ManageOrdersActivity.class)));
+        btnSubscriptions.setOnClickListener(v ->
+                startActivity(new Intent(this, CookSubscriptionsActivity.class)));
+        btnThisWeek.setOnClickListener(v -> showOverviewMonthPicker());
     }
 
     private void loadUserData() {
@@ -162,6 +235,7 @@ public class CookHomeActivity extends AppCompatActivity {
 
         // Fetch real dashboard data from backend
         fetchDashboardData();
+        fetchEarningsData();
     }
 
     /**
@@ -193,7 +267,7 @@ public class CookHomeActivity extends AppCompatActivity {
                 Log.d(TAG, "=== Dashboard Response Received ===");
                 Log.d(TAG, "Response Code: " + response.code());
                 Log.d(TAG, "Response Success: " + response.isSuccessful());
-                
+
                 if (response.isSuccessful() && response.body() != null
                         && response.body().isSuccess()) {
 
@@ -231,17 +305,17 @@ public class CookHomeActivity extends AppCompatActivity {
                 Log.e(TAG, "Error message: " + t.getMessage());
                 Log.e(TAG, "Error class: " + t.getClass().getName());
                 Log.e(TAG, "Cause: " + (t.getCause() != null ? t.getCause().getMessage() : "null"));
-                
+
                 // Show default values on error
                 setDefaultDashboardValues();
-                
+
                 String errorMessage = "Could not load dashboard";
                 if (t.getMessage() != null && t.getMessage().contains("Unable to resolve host")) {
                     errorMessage = "Cannot connect to server";
                 } else if (t.getMessage() != null && t.getMessage().contains("timeout")) {
                     errorMessage = "Connection timeout";
                 }
-                
+
                 Toast.makeText(CookHomeActivity.this,
                         errorMessage,
                         Toast.LENGTH_SHORT).show();
@@ -261,6 +335,8 @@ public class CookHomeActivity extends AppCompatActivity {
         // Update today's orders
         if (stats.getTodayOrders() != null) {
             tvTodayOrders.setText(String.valueOf(stats.getTodayOrders().getCount()));
+            bindChangeChip(R.id.tvOrdersChange, stats.getTodayOrders().getChangePercentage(), "%");
+            bindVsLabel(R.id.tvOrdersVsLabel, stats.getTodayOrders().getVsLabel());
         }
 
         // Update today's earnings
@@ -268,11 +344,15 @@ public class CookHomeActivity extends AppCompatActivity {
             DecimalFormat formatter = new DecimalFormat("#,##0");
             String earnings = "₹" + formatter.format(stats.getTodayEarnings().getAmount());
             tvTodayEarnings.setText(earnings);
+            bindChangeChip(R.id.tvEarningsChange, stats.getTodayEarnings().getChangePercentage(), "%");
+            bindVsLabel(R.id.tvEarningsVsLabel, stats.getTodayEarnings().getVsLabel());
         }
 
         // Update active subscriptions (using active orders count)
         if (stats.getActiveOrders() != null) {
             tvActiveSubscriptions.setText(String.valueOf(stats.getActiveOrders().getCount()));
+            bindChangeChip(R.id.tvSubscriptionsChange, stats.getActiveOrders().getChangePercentage(), "%");
+            bindVsLabel(R.id.tvSubscriptionsVsLabel, stats.getActiveOrders().getVsLabel());
         }
 
         // Update average rating
@@ -280,9 +360,36 @@ public class CookHomeActivity extends AppCompatActivity {
             DecimalFormat ratingFormatter = new DecimalFormat("0.0");
             String rating = ratingFormatter.format(stats.getAverageRating().getRating());
             tvAvgRating.setText(rating);
+            bindChangeChip(R.id.tvRatingChange, stats.getAverageRating().getChangeValue(), "");
+            bindVsLabel(R.id.tvRatingVsLabel, stats.getAverageRating().getVsLabel());
         }
 
         Log.d(TAG, "Dashboard UI updated with real data");
+    }
+
+    /** Show a real "↑ 12.5%" / "↓ 3%" change chip, green for up, red for down, hidden when flat. */
+    private void bindChangeChip(int viewId, double change, String suffix) {
+        TextView chip = findViewById(viewId);
+        if (chip == null) return;
+        DecimalFormat fmt = new DecimalFormat("0.#");
+        if (change > 0) {
+            chip.setText("↑ " + fmt.format(change) + suffix);
+            chip.setTextColor(0xFF43A047);
+            chip.setVisibility(View.VISIBLE);
+        } else if (change < 0) {
+            chip.setText("↓ " + fmt.format(Math.abs(change)) + suffix);
+            chip.setTextColor(0xFFE53935);
+            chip.setVisibility(View.VISIBLE);
+        } else {
+            chip.setVisibility(View.GONE);
+        }
+    }
+
+    private void bindVsLabel(int viewId, String label) {
+        TextView tv = findViewById(viewId);
+        if (tv != null && label != null && !label.isEmpty()) {
+            tv.setText(label);
+        }
     }
 
     /**
@@ -312,14 +419,6 @@ public class CookHomeActivity extends AppCompatActivity {
             startActivity(new Intent(CookHomeActivity.this, AddMenuActivity.class));
         });
 
-        // Profile avatar tapped → go to cook profile (if exists in layout)
-        // View imgProfile = findViewById(R.id.imgProfile);
-        // if (imgProfile != null) {
-        //     imgProfile.setOnClickListener(v ->
-        //         startActivity(new Intent(CookHomeActivity.this, CookProfileActivity.class))
-        //     );
-        // }
-
         // Earnings card tapped → go to earnings detail
         View tvEarningsCard = tvTodayEarnings != null ? (View) tvTodayEarnings.getParent().getParent() : null;
         if (tvEarningsCard != null) {
@@ -327,8 +426,264 @@ public class CookHomeActivity extends AppCompatActivity {
                 startActivity(new Intent(CookHomeActivity.this, CookEarningsActivity.class))
             );
         }
+
+        // Earnings period toggle
+        if (tvEarningsPeriod != null) {
+            tvEarningsPeriod.setOnClickListener(v -> toggleEarningsPeriod());
+        }
     }
 
+    /**
+     * Toggle between Today, This Week, This Month earnings display
+     */
+    private void toggleEarningsPeriod() {
+        currentEarningsPeriod = (currentEarningsPeriod + 1) % 3;
+        updateEarningsDisplay();
+    }
+
+    /**
+     * Update earnings display based on current period selection
+     */
+    private void updateEarningsDisplay() {
+        String earnings;
+        String periodLabel;
+
+        switch (currentEarningsPeriod) {
+            case 0: // Today
+                earnings = CurrencyUtils.formatRupees(todayEarnings);
+                periodLabel = "Today";
+                break;
+            case 1: // This Week
+                earnings = CurrencyUtils.formatRupees(thisWeekEarnings);
+                periodLabel = "This Week";
+                break;
+            case 2: // This Month
+                earnings = CurrencyUtils.formatRupees(thisMonthEarnings);
+                periodLabel = "This Month";
+                break;
+            default:
+                earnings = CurrencyUtils.formatRupees(0);
+                periodLabel = "This Week";
+        }
+
+        tvTodayEarnings.setText(earnings);
+        if (tvEarningsPeriod != null) {
+            tvEarningsPeriod.setText(periodLabel);
+        }
+    }
+
+    /**
+     * Fetch earnings data from backend API
+     */
+    private void fetchEarningsData() {
+        String token = "Bearer " + sessionManager.getToken();
+
+        ApiService apiService = RetrofitClient.getInstance(this).getApiService();
+
+        Callback<EarningsSummaryResponse> callback = new Callback<EarningsSummaryResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<EarningsSummaryResponse> call,
+                                   @NonNull Response<EarningsSummaryResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    com.tiffincraft.app.models.EarningsSummary earnings = response.body().getEarnings();
+                    if (earnings != null) {
+                        todayEarnings = earnings.getTodayTotal();
+                        thisWeekEarnings = earnings.getThisWeekTotal();
+                        thisMonthEarnings = earnings.getThisMonthTotal();
+
+                        // Update display with current period
+                        updateEarningsDisplay();
+
+                        // Overview card: figure for the selected month + 7-day chart
+                        updateOverviewChart(earnings.getWeeklyBreakdown(), earnings.getThisMonthOrderCount());
+
+                        Log.d(TAG, "✅ Earnings data fetched: Today=₹" + todayEarnings +
+                              ", Week=₹" + thisWeekEarnings + ", Month=₹" + thisMonthEarnings);
+                    }
+                } else {
+                    Log.e(TAG, "❌ Failed to fetch earnings: " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<EarningsSummaryResponse> call, @NonNull Throwable t) {
+                Log.e(TAG, "❌ Earnings API call failed", t);
+                com.google.android.material.snackbar.Snackbar
+                        .make(findViewById(android.R.id.content),
+                                "Could not load earnings.",
+                                com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
+                        .setAction("Retry", v -> fetchEarningsData())
+                        .setAnchorView(bottomNavigation)
+                        .show();
+            }
+        };
+
+        if (isCurrentOverviewMonthSelected()) {
+            apiService.getCookEarningsSummary(token).enqueue(callback);
+        } else {
+            apiService.getCookEarningsSummaryByMonth(token, selectedOverviewMonth, selectedOverviewYear)
+                    .enqueue(callback);
+        }
+    }
+
+    private boolean isCurrentOverviewMonthSelected() {
+        java.util.Calendar now = java.util.Calendar.getInstance();
+        return selectedOverviewMonth == now.get(java.util.Calendar.MONTH) + 1
+                && selectedOverviewYear == now.get(java.util.Calendar.YEAR);
+    }
+
+    /** Opens the same month/year picker used on the Earnings screen, scoped to the overview card. */
+    private void showOverviewMonthPicker() {
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_month_picker, null);
+        TextView tvYear = dialogView.findViewById(R.id.tvPickerYear);
+        android.widget.GridLayout grid = dialogView.findViewById(R.id.gridMonths);
+
+        final int[] pickerYear = {selectedOverviewYear};
+        tvYear.setText(String.valueOf(pickerYear[0]));
+
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Select month")
+                .setView(dialogView)
+                .setNegativeButton("Cancel", null)
+                .create();
+
+        dialogView.findViewById(R.id.btnPrevYear).setOnClickListener(v -> {
+            pickerYear[0]--;
+            tvYear.setText(String.valueOf(pickerYear[0]));
+        });
+        dialogView.findViewById(R.id.btnNextYear).setOnClickListener(v -> {
+            pickerYear[0]++;
+            tvYear.setText(String.valueOf(pickerYear[0]));
+        });
+
+        float density = getResources().getDisplayMetrics().density;
+        for (int m = 1; m <= 12; m++) {
+            final int month = m;
+            TextView cell = new TextView(this);
+            cell.setText(MONTH_NAMES[m - 1].substring(0, 3));
+            cell.setTextSize(14);
+            cell.setTextColor(0xFF111111);
+            cell.setGravity(android.view.Gravity.CENTER);
+            int pad = (int) (12 * density);
+            cell.setPadding(pad, pad, pad, pad);
+            cell.setBackgroundResource(android.R.drawable.list_selector_background);
+
+            android.widget.GridLayout.LayoutParams lp = new android.widget.GridLayout.LayoutParams();
+            lp.width = 0;
+            lp.columnSpec = android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f);
+            cell.setLayoutParams(lp);
+
+            cell.setOnClickListener(v -> {
+                selectedOverviewMonth = month;
+                selectedOverviewYear = pickerYear[0];
+                dialog.dismiss();
+                fetchEarningsData();
+            });
+            grid.addView(cell);
+        }
+
+        dialog.show();
+    }
+
+    /**
+     * Fill the green overview card with the real 7-day earnings line and date labels.
+     * Shows the total + order count for whichever month is currently selected via the
+     * pill dropdown (defaults to the current month, same figure as the Earnings screen).
+     */
+    private void updateOverviewChart(java.util.List<com.tiffincraft.app.models.WeeklyBreakdown> weeklyBreakdown,
+                                      int monthOrderCount) {
+        if (tvOverviewTotalEarnings != null) {
+            tvOverviewTotalEarnings.setText(CurrencyUtils.formatRupees(thisMonthEarnings));
+        }
+        if (tvOverviewSubtitle != null) {
+            tvOverviewSubtitle.setText(monthOrderCount == 1
+                    ? "Total Earnings · 1 order"
+                    : "Total Earnings · " + monthOrderCount + " orders");
+        }
+        if (tvOverviewPeriodLabel != null) {
+            tvOverviewPeriodLabel.setText(isCurrentOverviewMonthSelected()
+                    ? "This Month"
+                    : MONTH_NAMES[selectedOverviewMonth - 1].substring(0, 3) + " " + selectedOverviewYear);
+        }
+        if (sparklineHome == null || layoutChartDates == null) return;
+
+        java.util.List<Double> values = new java.util.ArrayList<>();
+        layoutChartDates.removeAllViews();
+
+        int count = weeklyBreakdown != null ? weeklyBreakdown.size() : 0;
+        java.text.SimpleDateFormat parseFmt =
+                new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+        java.text.SimpleDateFormat labelFmt =
+                new java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault());
+
+        for (int i = 0; i < count; i++) {
+            com.tiffincraft.app.models.WeeklyBreakdown day = weeklyBreakdown.get(i);
+            values.add(day.getAmount());
+
+            String label = day.getDate() != null ? day.getDate() : "";
+            try {
+                java.util.Date d = parseFmt.parse(label);
+                if (d != null) label = labelFmt.format(d);
+            } catch (java.text.ParseException ignored) { }
+
+            TextView tv = new TextView(this);
+            tv.setText(label);
+            tv.setTextColor(0xFFC8E6C9);
+            tv.setTextSize(9.5f);
+            tv.setGravity(i == 0 ? android.view.Gravity.START
+                    : (i == count - 1 ? android.view.Gravity.END : android.view.Gravity.CENTER));
+            android.widget.LinearLayout.LayoutParams lp =
+                    new android.widget.LinearLayout.LayoutParams(0,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            tv.setLayoutParams(lp);
+            layoutChartDates.addView(tv);
+        }
+
+        sparklineHome.setValues(values);
+    }
+
+    /** Load the cook's real orders and show the ones placed today. */
+    private void fetchTodayOrders() {
+        String token = "Bearer " + sessionManager.getToken();
+        ApiService apiService = RetrofitClient.getInstance(this).getApiService();
+
+        apiService.getCookOrders(token).enqueue(new Callback<com.tiffincraft.app.models.OrderResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<com.tiffincraft.app.models.OrderResponse> call,
+                                   @NonNull Response<com.tiffincraft.app.models.OrderResponse> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().isSuccess() && response.body().getOrders() != null) {
+
+                    java.text.SimpleDateFormat dayFmt =
+                            new java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US);
+                    String todayKey = dayFmt.format(new java.util.Date());
+
+                    todayOrders.clear();
+                    for (com.tiffincraft.app.models.Order order : response.body().getOrders()) {
+                        java.util.Date created =
+                                com.tiffincraft.app.models.ChatMessage.parseServerDate(order.getCreatedAt());
+                        if (created != null && todayKey.equals(dayFmt.format(created))) {
+                            todayOrders.add(order);
+                        }
+                        if (todayOrders.size() >= 5) break;
+                    }
+                    todayOrderAdapter.notifyDataSetChanged();
+
+                    boolean empty = todayOrders.isEmpty();
+                    tvNoOrdersToday.setVisibility(empty ? View.VISIBLE : View.GONE);
+                    rvTodayOrders.setVisibility(empty ? View.GONE : View.VISIBLE);
+                } else {
+                    Log.e(TAG, "❌ Failed to fetch today's orders: " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<com.tiffincraft.app.models.OrderResponse> call,
+                                  @NonNull Throwable t) {
+                Log.e(TAG, "❌ Today's orders API call failed", t);
+            }
+        });
+    }
 
     private void setupBottomNavigation() {
         bottomNavigation.setSelectedItemId(R.id.nav_home);

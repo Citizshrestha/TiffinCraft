@@ -112,7 +112,9 @@ public class ManageOrdersActivity extends AppCompatActivity
         MaterialButton[] tabs = {
                 binding.tabAll, binding.tabNew, binding.tabAccepted, binding.tabPreparing, binding.tabCompleted
         };
-        String[] filters = { null, "pending", "preparing", "ready", "completed" };
+        // Order statuses are pending/confirmed/preparing/ready/delivered/cancelled —
+        // there is no "completed" status, so the "Completed" tab must filter "delivered".
+        String[] filters = { null, "pending", "preparing", "ready", "delivered" };
 
         for (int i = 0; i < tabs.length; i++) {
             final int index = i;

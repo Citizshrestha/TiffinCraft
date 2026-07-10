@@ -24,7 +24,6 @@ import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.databinding.ActivityCookProfileBinding;
 import com.tiffincraft.app.models.UploadResponse;
 import com.tiffincraft.app.session.SessionManager;
-import com.tiffincraft.app.activities.onboarding.SelectRoleActivity;
 import com.tiffincraft.app.utils.ImageUtils;
 
 import java.io.File;
@@ -75,42 +74,13 @@ public class CookProfileActivity extends AppCompatActivity {
             binding.btnEditAvatar.setOnClickListener(v -> checkPermissionAndOpenPicker());
         }
 
-        // Settings button
+        // Settings button (account/support/logout live in Settings now)
         if (binding.btnSettings != null) {
             binding.btnSettings.setOnClickListener(v -> {
                 Intent intent = new Intent(this, CookSettingsActivity.class);
                 startActivity(intent);
             });
         }
-
-        // Edit profile menu item
-        if (binding.menuEditKitchenProfile != null) {
-            binding.menuEditKitchenProfile.setOnClickListener(v -> {
-                Intent intent = new Intent(this, EditCookProfileActivity.class);
-                startActivityForResult(intent, 1003);
-            });
-        }
-
-        // Logout button
-        if (binding.btnLogout != null) {
-            binding.btnLogout.setOnClickListener(v -> {
-                new android.app.AlertDialog.Builder(this)
-                    .setTitle("Logout")
-                    .setMessage("Are you sure you want to logout?")
-                    .setPositiveButton("Logout", (dialog, which) -> {
-                        sessionManager.logout();
-                        Intent intent = new Intent(this, SelectRoleActivity.class);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        startActivity(intent);
-                        finish();
-                    })
-                    .setNegativeButton("Cancel", null)
-                    .show();
-            });
-        }
-        
-        // Setup other menu items
-        setupMenuItems();
 
         // Add click listener for reviews
         if (binding.tvProfileRating != null) {
@@ -120,8 +90,147 @@ public class CookProfileActivity extends AppCompatActivity {
             });
         }
 
+        // Kitchen open/closed toggle ↔ holiday mode (checked = open = holiday off)
+        binding.switchKitchenStatusProfile.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (buttonView.isPressed()) {
+                updateKitchenStatus(isChecked);
+            }
+        });
+
+        // Real data for stats, rating chip and kitchen details
+        loadCookProfileData();
+        loadEarningsTotals();
+
         // Setup bottom navigation
         setupBottomNavigation();
+    }
+
+    /** Populate the profile screen from GET /cook/profile/me — no hardcoded values. */
+    private void loadCookProfileData() {
+        String token = "Bearer " + sessionManager.getToken();
+        ApiService apiService = RetrofitClient.getInstance(this).getApiService();
+
+        apiService.getMyCookProfile(token).enqueue(new Callback<com.tiffincraft.app.models.CookProfileResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<com.tiffincraft.app.models.CookProfileResponse> call,
+                                   @NonNull Response<com.tiffincraft.app.models.CookProfileResponse> response) {
+                if (!response.isSuccessful() || response.body() == null
+                        || !response.body().isSuccess() || response.body().getProfile() == null) {
+                    Log.e(TAG, "Failed to load cook profile: " + response.code());
+                    return;
+                }
+                com.tiffincraft.app.models.CookProfile profile = response.body().getProfile();
+
+                if (profile.getKitchenName() != null && !profile.getKitchenName().isEmpty()) {
+                    binding.tvKitchenNameProfile.setText(profile.getKitchenName());
+                }
+
+                // Rating chip: live review average + count
+                java.text.DecimalFormat ratingFmt = new java.text.DecimalFormat("0.0");
+                String ratingLabel = profile.getTotalReviews() > 0
+                        ? ratingFmt.format(profile.getRating()) + " · " + profile.getTotalReviews() + " reviews"
+                        : "No reviews yet";
+                binding.tvProfileRating.setText(ratingLabel);
+
+                // Joined date from users.created_at
+                java.util.Date joined =
+                        com.tiffincraft.app.models.ChatMessage.parseServerDate(profile.getUserCreatedAt());
+                binding.tvJoinedDate.setText(joined != null
+                        ? new java.text.SimpleDateFormat("MMM yyyy", java.util.Locale.getDefault()).format(joined)
+                        : "—");
+
+                // Kitchen details card
+                binding.tvProfileFoodType.setText(orDash(profile.getFoodType()));
+                binding.tvProfileCapacity.setText(profile.getCapacityPerDay() > 0
+                        ? profile.getCapacityPerDay() + " meals/day" : "—");
+                binding.tvProfilePhone.setText(orDash(profile.getPhone()));
+                binding.tvProfileEmail.setText(orDash(profile.getEmail()));
+                binding.tvProfileAddress.setText(orDash(profile.getAddress()));
+
+                // Kitchen status toggle: open = not in holiday mode
+                boolean open = !profile.isHolidayMode();
+                binding.switchKitchenStatusProfile.setChecked(open);
+                updateKitchenStatusText(open);
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<com.tiffincraft.app.models.CookProfileResponse> call,
+                                  @NonNull Throwable t) {
+                Log.e(TAG, "Cook profile load failed", t);
+            }
+        });
+    }
+
+    /** Populate the stats row from GET /orders/cook/earnings (all-time totals). */
+    private void loadEarningsTotals() {
+        String token = "Bearer " + sessionManager.getToken();
+        ApiService apiService = RetrofitClient.getInstance(this).getApiService();
+
+        apiService.getCookEarningsTotals(token).enqueue(new Callback<com.tiffincraft.app.models.CookEarningsTotalsResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<com.tiffincraft.app.models.CookEarningsTotalsResponse> call,
+                                   @NonNull Response<com.tiffincraft.app.models.CookEarningsTotalsResponse> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().isSuccess() && response.body().getEarnings() != null) {
+                    com.tiffincraft.app.models.CookEarningsTotalsResponse.Totals totals =
+                            response.body().getEarnings();
+                    binding.tvTotalOrdersProfile.setText(String.valueOf(totals.getTotalOrders()));
+                    binding.tvTotalEarningsProfile.setText(
+                            com.tiffincraft.app.utils.CurrencyUtils.formatRupees(totals.getTotalEarned()));
+                } else {
+                    Log.e(TAG, "Failed to load earnings totals: " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<com.tiffincraft.app.models.CookEarningsTotalsResponse> call,
+                                  @NonNull Throwable t) {
+                Log.e(TAG, "Earnings totals load failed", t);
+            }
+        });
+    }
+
+    private static String orDash(String value) {
+        return value != null && !value.trim().isEmpty() ? value : "—";
+    }
+
+    private void updateKitchenStatusText(boolean open) {
+        binding.tvKitchenStatusProfile.setText(open ? "Kitchen is Open" : "Kitchen is Closed");
+    }
+
+    /** Toggle kitchen availability via the holiday-mode endpoint (open = holiday off). */
+    private void updateKitchenStatus(boolean open) {
+        String token = "Bearer " + sessionManager.getToken();
+        ApiService apiService = RetrofitClient.getInstance(this).getApiService();
+
+        com.google.gson.JsonObject body = new com.google.gson.JsonObject();
+        body.addProperty("is_holiday_mode", !open);
+
+        apiService.updateHolidayMode(token, body).enqueue(new Callback<com.tiffincraft.app.models.CookProfileResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<com.tiffincraft.app.models.CookProfileResponse> call,
+                                   @NonNull Response<com.tiffincraft.app.models.CookProfileResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    updateKitchenStatusText(open);
+                    Toast.makeText(CookProfileActivity.this,
+                            open ? "Kitchen is now open" : "Kitchen is now closed",
+                            Toast.LENGTH_SHORT).show();
+                } else {
+                    binding.switchKitchenStatusProfile.setChecked(!open);
+                    Toast.makeText(CookProfileActivity.this,
+                            "Could not update kitchen status.", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<com.tiffincraft.app.models.CookProfileResponse> call,
+                                  @NonNull Throwable t) {
+                Log.e(TAG, "updateKitchenStatus failed", t);
+                binding.switchKitchenStatusProfile.setChecked(!open);
+                Toast.makeText(CookProfileActivity.this,
+                        "Network error. Try again.", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     
@@ -356,32 +465,6 @@ public class CookProfileActivity extends AppCompatActivity {
         }
     }
     
-    private void setupMenuItems() {
-        if (binding.menuPayoutDetails != null) {
-            binding.menuPayoutDetails.setOnClickListener(v ->
-                Toast.makeText(this, "Payout Details — coming soon", Toast.LENGTH_SHORT).show()
-            );
-        }
-        
-        if (binding.menuDocuments != null) {
-            binding.menuDocuments.setOnClickListener(v ->
-                Toast.makeText(this, "Documents — coming soon", Toast.LENGTH_SHORT).show()
-            );
-        }
-        
-        if (binding.menuHelpSupport != null) {
-            binding.menuHelpSupport.setOnClickListener(v ->
-                Toast.makeText(this, "Help & Support — coming soon", Toast.LENGTH_SHORT).show()
-            );
-        }
-        
-        if (binding.menuAbout != null) {
-            binding.menuAbout.setOnClickListener(v ->
-                Toast.makeText(this, "About TiffinCraft — coming soon", Toast.LENGTH_SHORT).show()
-            );
-        }
-    }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
