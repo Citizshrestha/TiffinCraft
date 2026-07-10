@@ -137,6 +137,89 @@ public class SocketManager {
         }
     }
 
+    // ==================== Chat ====================
+
+    public void joinChatRoom(int conversationId) {
+        if (socket != null && socket.connected()) {
+            socket.emit("joinChatRoom", conversationId);
+            Log.d(TAG, "Joined chat room: " + conversationId);
+        } else {
+            Log.e(TAG, "Cannot join chat room: Socket not connected");
+        }
+    }
+
+    public void leaveChatRoom(int conversationId) {
+        if (socket != null && socket.connected()) {
+            socket.emit("leaveChatRoom", conversationId);
+            Log.d(TAG, "Left chat room: " + conversationId);
+        }
+    }
+
+    public void emitChatTyping(int conversationId) {
+        if (socket != null && socket.connected()) {
+            try {
+                JSONObject data = new JSONObject();
+                data.put("conversation_id", conversationId);
+                socket.emit("chatTyping", data);
+            } catch (JSONException e) {
+                Log.e(TAG, "Error emitting typing event", e);
+            }
+        }
+    }
+
+    /** Fired when a new message arrives in a joined chat room. */
+    public void onNewChatMessage(Emitter.Listener listener) {
+        if (socket != null) {
+            socket.on("newChatMessage", listener);
+        }
+    }
+
+    /** Fired to the recipient's personal room for any new chat message (badges/notifications). */
+    public void onChatNotification(Emitter.Listener listener) {
+        if (socket != null) {
+            socket.on("chatNotification", listener);
+        }
+    }
+
+    /** Fired when the other participant reads the conversation. */
+    public void onChatMessagesRead(Emitter.Listener listener) {
+        if (socket != null) {
+            socket.on("chatMessagesRead", listener);
+        }
+    }
+
+    /** Fired when the other participant is typing. */
+    public void onChatTyping(Emitter.Listener listener) {
+        if (socket != null) {
+            socket.on("chatTyping", listener);
+        }
+    }
+
+    /** Fired when a message is edited in a joined chat room. */
+    public void onChatMessageEdited(Emitter.Listener listener) {
+        if (socket != null) {
+            socket.on("chatMessageEdited", listener);
+        }
+    }
+
+    /** Fired when a message is deleted in a joined chat room. */
+    public void onChatMessageDeleted(Emitter.Listener listener) {
+        if (socket != null) {
+            socket.on("chatMessageDeleted", listener);
+        }
+    }
+
+    /** Remove chat listeners registered by a screen (call in onDestroy). */
+    public void offChatListeners() {
+        if (socket != null) {
+            socket.off("newChatMessage");
+            socket.off("chatMessagesRead");
+            socket.off("chatTyping");
+            socket.off("chatMessageEdited");
+            socket.off("chatMessageDeleted");
+        }
+    }
+
     public void disconnect() {
         if (socket != null) {
             socket.off();
