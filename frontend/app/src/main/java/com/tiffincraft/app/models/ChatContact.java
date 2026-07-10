@@ -32,8 +32,14 @@ public class ChatContact {
         String preview;
         if (c.getLastMessageType() == null) {
             preview = "Say hello!";
+        } else if (c.isLastMessageDeleted()) {
+            preview = "This message was deleted";
         } else if (ChatApiMessage.TYPE_TEXT.equals(c.getLastMessageType())) {
             preview = c.getLastMessageContent();
+        } else if (ChatApiMessage.TYPE_IMAGE.equals(c.getLastMessageType())) {
+            preview = "Photo";
+        } else if (ChatApiMessage.TYPE_VIDEO.equals(c.getLastMessageType())) {
+            preview = "Video";
         } else {
             preview = "Call";
         }

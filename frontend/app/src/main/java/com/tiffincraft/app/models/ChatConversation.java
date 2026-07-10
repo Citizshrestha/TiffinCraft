@@ -37,6 +37,10 @@ public class ChatConversation {
     @SerializedName("last_message_sender_id")
     private int lastMessageSenderId;
 
+    /** Accept both MySQL 0/1 and JSON true/false (may also be null). */
+    @SerializedName("last_message_deleted")
+    private Object lastMessageDeletedRaw;
+
     @SerializedName("unread_count")
     private int unreadCount;
 
@@ -52,4 +56,15 @@ public class ChatConversation {
     public String getLastMessageContent() { return lastMessageContent; }
     public int getLastMessageSenderId() { return lastMessageSenderId; }
     public int getUnreadCount() { return unreadCount; }
+
+    public boolean isLastMessageDeleted() {
+        if (lastMessageDeletedRaw == null) return false;
+        if (lastMessageDeletedRaw instanceof Boolean) return (Boolean) lastMessageDeletedRaw;
+        if (lastMessageDeletedRaw instanceof Number) return ((Number) lastMessageDeletedRaw).intValue() != 0;
+        if (lastMessageDeletedRaw instanceof String) {
+            String s = ((String) lastMessageDeletedRaw).trim();
+            return "1".equals(s) || "true".equalsIgnoreCase(s);
+        }
+        return false;
+    }
 }
