@@ -30,7 +30,6 @@ public class FavoritesActivity extends AppCompatActivity implements FavoritesAda
     private RecyclerView rvFavorites;
     private LinearLayout emptyState;
     private ProgressBar progressBar;
-    private ImageButton btnBack;
     private BottomNavigationView bottomNavigation;
 
     private FavoritesAdapter adapter;
@@ -53,7 +52,6 @@ public class FavoritesActivity extends AppCompatActivity implements FavoritesAda
         rvFavorites = findViewById(R.id.rvFavorites);
         emptyState = findViewById(R.id.emptyState);
         progressBar = findViewById(R.id.progressBar);
-        btnBack = findViewById(R.id.btnBack);
         bottomNavigation = findViewById(R.id.bottomNavigation);
 
         apiService = RetrofitClient.getInstance(this).getApiService();
@@ -67,7 +65,7 @@ public class FavoritesActivity extends AppCompatActivity implements FavoritesAda
     }
 
     private void setupClickListeners() {
-        btnBack.setOnClickListener(v -> finish());
+        // No additional click listeners needed
     }
 
     private void setupBottomNavigation() {
@@ -80,9 +78,13 @@ public class FavoritesActivity extends AppCompatActivity implements FavoritesAda
                 startActivity(new Intent(this, CustomerHomeActivity.class));
                 finish();
                 return true;
+            } else if (itemId == R.id.nav_menu) {
+                startActivity(new Intent(this, CustomerMenuActivity.class));
+                finish();
+                return true;
             } else if (itemId == R.id.nav_orders) {
-                // startActivity(new Intent(this, OrderHistoryActivity.class));
-                // finish();
+                startActivity(new Intent(this, com.tiffincraft.app.activities.order.OrderHistoryActivity.class));
+                finish();
                 return true;
             } else if (itemId == R.id.nav_favorites) {
                 return true;

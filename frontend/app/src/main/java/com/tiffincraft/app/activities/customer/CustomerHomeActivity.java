@@ -5,9 +5,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -15,23 +13,29 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.card.MaterialCardView;
 import com.tiffincraft.app.R;
-import com.tiffincraft.app.activities.common.CartActivity;
 import com.tiffincraft.app.activities.common.NotificationActivity;
+import com.tiffincraft.app.adapters.CategoryAdapter;
+import com.tiffincraft.app.adapters.NearbyCookAdapter;
+import com.tiffincraft.app.adapters.PopularMealAdapter;
+import com.tiffincraft.app.adapters.RecommendedMealAdapter;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
-import com.tiffincraft.app.models.CustomerDashboardResponse;
-import com.tiffincraft.app.models.NotificationResponse;
-import com.tiffincraft.app.models.PopularCook;
+import com.tiffincraft.app.models.Category;
+import com.tiffincraft.app.models.Cook;
+import com.tiffincraft.app.models.Meal;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.ChatPanelManager;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 import retrofit2.Call;
@@ -42,15 +46,45 @@ public class CustomerHomeActivity extends AppCompatActivity {
     
     private static final String TAG = "CustomerHomeActivity";
 
-    private TextView tvGreeting, tvSubtitle;
-    private FrameLayout notificationButton, filterButton;
-    private View searchBar, heroBanner;
-    private TextView notificationDot;
-    private TextView cartBadge, tvViewAll;
-    private FloatingActionButton fabCart;
+    // UI Components
+    private ImageView imgCustomerProfile;
+    private TextView tvCustomerName;
+    private TextView tvDeliveryAddress;
+    private ImageView btnNotifications;
+    private TextView tvNotificationBadge;
+    private TextView tvWelcome;
+    private MaterialCardView searchBar;
+    private MaterialCardView btnFilter;
+    private MaterialCardView promoBanner;
+    
+    // RecyclerViews
+    private RecyclerView rvCategories;
+    private RecyclerView rvPopularMeals;
+    private RecyclerView rvRecommendedMeals;
+    private RecyclerView rvNearbyCooks;
+    
+    // View All Buttons
+    private TextView tvViewAllPopular;
+    private TextView tvViewAllRecommended;
+    private TextView tvViewAllCooks;
+    
+    // Bottom Navigation
     private BottomNavigationView bottomNavigation;
+    
+    // Adapters
+    private CategoryAdapter categoryAdapter;
+    private PopularMealAdapter popularMealAdapter;
+    private RecommendedMealAdapter recommendedMealAdapter;
+    private NearbyCookAdapter nearbyCookAdapter;
+    
+    // Data
+    private List<Category> categories;
+    private List<Meal> popularMeals;
+    private List<Meal> recommendedMeals;
+    private List<Cook> nearbyCooks;
+    
+    // Session and API
     private SessionManager sessionManager;
-    private LinearLayout popularCooksContainer;
     private ApiService apiService;
     private ChatPanelManager chatPanelManager;
 
@@ -61,6 +95,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
         try {
             setContentView(R.layout.activity_customer_home);
 
+            // Set white status bar
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
             getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.white));
             getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
@@ -69,10 +104,12 @@ public class CustomerHomeActivity extends AppCompatActivity {
             apiService = RetrofitClient.getInstance(this).getApiService();
 
             initViews();
-            loadUserData();
+            setupRecyclerViews();
             setupListeners();
             setupBottomNavigation();
-            applyEntranceAnimations();
+            loadUserData();
+            loadCategories();
+            loadMockData(); // Will be replaced with API calls
             setupBackPressHandler();
 
             // Chat: this screen has no dedicated chat button in its layout,
@@ -82,7 +119,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
             Log.d(TAG, "CustomerHomeActivity onCreate completed successfully");
         } catch (Exception e) {
             Log.e(TAG, "Error in onCreate", e);
-            finish();
+            Toast.makeText(this, "Error initializing: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -92,283 +129,259 @@ public class CustomerHomeActivity extends AppCompatActivity {
         if (bottomNavigation != null) {
             bottomNavigation.setSelectedItemId(R.id.nav_home);
         }
-        loadDashboardData();
-        fetchUnreadNotifications();
     }
 
     private void initViews() {
         try {
-            tvGreeting = findViewById(R.id.tvGreeting);
-            tvSubtitle = findViewById(R.id.tvSubtitle);
-            notificationButton = findViewById(R.id.notificationButton);
+            // Top bar
+            imgCustomerProfile = findViewById(R.id.imgCustomerProfile);
+            tvCustomerName = findViewById(R.id.tvCustomerName);
+            tvDeliveryAddress = findViewById(R.id.tvDeliveryAddress);
+            btnNotifications = findViewById(R.id.btnNotifications);
+            tvNotificationBadge = findViewById(R.id.tvNotificationBadge);
+            
+            // Greeting
+            tvWelcome = findViewById(R.id.tvWelcome);
+            
+            // Search and Filter
             searchBar = findViewById(R.id.searchBar);
-            heroBanner = findViewById(R.id.heroBanner);
-            notificationDot = findViewById(R.id.notificationDot);
-            tvViewAll = findViewById(R.id.tvViewAll);
-            fabCart = findViewById(R.id.fabCart);
-            cartBadge = findViewById(R.id.cartBadge);
+            btnFilter = findViewById(R.id.btnFilter);
+            
+            // Promo Banner
+            promoBanner = findViewById(R.id.promoBanner);
+            
+            // RecyclerViews
+            rvCategories = findViewById(R.id.rvCategories);
+            rvPopularMeals = findViewById(R.id.rvPopularMeals);
+            rvRecommendedMeals = findViewById(R.id.rvRecommendedMeals);
+            rvNearbyCooks = findViewById(R.id.rvNearbyCooks);
+            
+            // View All buttons
+            tvViewAllPopular = findViewById(R.id.tvViewAllPopular);
+            tvViewAllRecommended = findViewById(R.id.tvViewAllRecommended);
+            tvViewAllCooks = findViewById(R.id.tvViewAllCooks);
+            
+            // Bottom Navigation
             bottomNavigation = findViewById(R.id.bottomNavigation);
-            popularCooksContainer = findViewById(R.id.popularCooksContainer);
             
-            // Apply circular clipping to banner image container
-            View bannerImageContainer = findViewById(R.id.bannerImageContainer);
-            if (bannerImageContainer != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-                bannerImageContainer.setOutlineProvider(new android.view.ViewOutlineProvider() {
-                    @Override
-                    public void getOutline(android.view.View view, android.graphics.Outline outline) {
-                        outline.setOval(0, 0, view.getWidth(), view.getHeight());
-                    }
-                });
-                bannerImageContainer.setClipToOutline(true);
-            }
-            
-            // Log missing views
-            if (tvGreeting == null) Log.e(TAG, "tvGreeting is null");
-            if (bottomNavigation == null) Log.e(TAG, "bottomNavigation is null");
-            if (fabCart == null) Log.e(TAG, "fabCart is null");
-            
+            Log.d(TAG, "All views initialized successfully");
         } catch (Exception e) {
             Log.e(TAG, "Error initializing views", e);
         }
     }
 
     private void loadUserData() {
-        String fullName = sessionManager.getFullName();
-        if (fullName != null && !fullName.isEmpty()) {
-            String firstName = fullName.split(" ")[0];
-            tvGreeting.setText("Hello, " + firstName + " 👋");
-        } else {
-            tvGreeting.setText("Hello, User 👋");
-        }
-
-        // Cart badge will be updated from dashboard data
-        cartBadge.setVisibility(View.GONE);
-    }
-
-    private void loadDashboardData() {
-        String token = "Bearer " + sessionManager.getToken();
-        
-        Call<CustomerDashboardResponse> call = apiService.getCustomerDashboard(token);
-        call.enqueue(new Callback<CustomerDashboardResponse>() {
-            @Override
-            public void onResponse(Call<CustomerDashboardResponse> call, Response<CustomerDashboardResponse> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                    CustomerDashboardResponse.DashboardData data = response.body().getData();
-                    populateDashboard(data);
-                } else {
-                    Log.e(TAG, "Failed to load dashboard data: " + response.code());
-                    Toast.makeText(CustomerHomeActivity.this, "Failed to load dashboard data", Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<CustomerDashboardResponse> call, Throwable t) {
-                Log.e(TAG, "Error loading dashboard data", t);
-                Toast.makeText(CustomerHomeActivity.this, "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-    private void populateDashboard(CustomerDashboardResponse.DashboardData data) {
         try {
-            // Update cart badge
-            int cartCount = data.getStats().getCartItemsCount();
-            if (cartCount > 0) {
-                cartBadge.setText(String.valueOf(cartCount));
-                cartBadge.setVisibility(View.VISIBLE);
-            } else {
-                cartBadge.setVisibility(View.GONE);
-            }
-
-            // Update notification dot
-            int unreadCount = data.getUnreadNotificationsCount();
-            if (unreadCount > 0) {
-                notificationDot.setVisibility(View.VISIBLE);
-            } else {
-                notificationDot.setVisibility(View.GONE);
-            }
-
-            // Update greeting with user's name
-            String fullName = data.getUser().getFullName();
+            String fullName = sessionManager.getFullName();
+            
+            // Set customer name
             if (fullName != null && !fullName.isEmpty()) {
+                tvCustomerName.setText(fullName);
                 String firstName = fullName.split(" ")[0];
-                tvGreeting.setText("Hello, " + firstName + " 👋");
+                updateGreeting(firstName);
+            } else {
+                tvCustomerName.setText("Guest");
+                updateGreeting("Guest");
             }
-
-            // Populate popular cooks
-            List<CustomerDashboardResponse.PopularCook> popularCooks = data.getPopularCooks();
-            if (popularCooks != null && !popularCooks.isEmpty() && popularCooksContainer != null) {
-                popularCooksContainer.removeAllViews();
-                for (CustomerDashboardResponse.PopularCook cook : popularCooks) {
-                    View cookCard = createPopularCookCard(cook);
-                    popularCooksContainer.addView(cookCard);
-                }
-            }
-
-            Log.d(TAG, "Dashboard populated successfully");
+            
+            // Set delivery address (placeholder, can be fetched from API)
+            tvDeliveryAddress.setText("Kathmandu, Nepal");
+            
+            // Load profile image
+            // TODO: Load from session or API
+            imgCustomerProfile.setImageResource(R.drawable.ic_person);
+            
         } catch (Exception e) {
-            Log.e(TAG, "Error populating dashboard", e);
+            Log.e(TAG, "Error loading user data", e);
         }
     }
-
-    private View createPopularCookCard(CustomerDashboardResponse.PopularCook cook) {
-        View card = getLayoutInflater().inflate(R.layout.item_popular_cook, null);
+    
+    private void updateGreeting(String name) {
+        Calendar calendar = Calendar.getInstance();
+        int hour = calendar.get(Calendar.HOUR_OF_DAY);
         
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-            (int) (140 * getResources().getDisplayMetrics().density),
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        params.setMarginEnd((int) (12 * getResources().getDisplayMetrics().density));
-        card.setLayoutParams(params);
-
-        ImageView imgCook = card.findViewById(R.id.imgCook);
-        TextView tvCookName = card.findViewById(R.id.tvCookName);
-        TextView tvRating = card.findViewById(R.id.tvRating);
-        TextView tvDeliveryTime = card.findViewById(R.id.tvDeliveryTime);
-
-        // Set cook name
-        tvCookName.setText(cook.getKitchenName() != null ? cook.getKitchenName() : cook.getCookName());
-
-        // Set rating
-        String ratingText = "⭐ " + String.format("%.1f", cook.getRating()) + " (" + cook.getReviewCount() + ")";
-        tvRating.setText(ratingText);
-
-        // Set delivery time
-        tvDeliveryTime.setText(cook.getAvgDeliveryTime() + " mins");
-
-        // Load image
-        if (cook.getProfileImage() != null && !cook.getProfileImage().isEmpty()) {
-            String imageUrl = RetrofitClient.BASE_URL.replace("/api/", "/") + cook.getProfileImage();
-            Glide.with(this)
-                .load(imageUrl)
-                .placeholder(R.drawable.avatar_cook)
-                .error(R.drawable.avatar_cook)
-                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .into(imgCook);
+        String greeting;
+        if (hour < 12) {
+            greeting = "Good Morning, " + name + "! 👋";
+        } else if (hour < 17) {
+            greeting = "Good Afternoon, " + name + "! 👋";
         } else {
-            imgCook.setImageResource(R.drawable.avatar_cook);
+            greeting = "Good Evening, " + name + "! 👋";
         }
-
-        // Click listener
-        card.setOnClickListener(v -> {
-            // Navigate to cook details
-            // Intent intent = new Intent(this, CookDetailsActivity.class);
-            // intent.putExtra("cookId", cook.getCookId());
-            // startActivity(intent);
-            Toast.makeText(this, "Cook: " + cook.getCookName(), Toast.LENGTH_SHORT).show();
-        });
-
-        return card;
+        
+        tvWelcome.setText(greeting);
     }
+    
+    private void setupRecyclerViews() {
+        try {
+            // Categories RecyclerView
+            rvCategories.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+            
+            // Popular Meals RecyclerView
+            rvPopularMeals.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+            
+            // Recommended Meals RecyclerView (Grid)
+            GridLayoutManager gridLayoutManager = new GridLayoutManager(this, 2);
+            rvRecommendedMeals.setLayoutManager(gridLayoutManager);
+            
+            // Nearby Cooks RecyclerView
+            rvNearbyCooks.setLayoutManager(new LinearLayoutManager(this));
+            
+            Log.d(TAG, "RecyclerViews setup successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Error setting up RecyclerViews", e);
+        }
+    }
+    
+    private void loadCategories() {
+        categories = new ArrayList<>();
+        categories.add(new Category("🍛", "Nepali"));
+        categories.add(new Category("🍕", "Fast Food"));
+        categories.add(new Category("🥗", "Healthy"));
+        categories.add(new Category("🥟", "Snacks"));
+        categories.add(new Category("🥘", "Lunch"));
+        categories.add(new Category("🍰", "Desserts"));
+        
+        categoryAdapter = new CategoryAdapter(categories, (category, position) -> {
+            Toast.makeText(this, "Category: " + category.getName(), Toast.LENGTH_SHORT).show();
+            // TODO: Filter meals by category
+        });
+        
+        rvCategories.setAdapter(categoryAdapter);
+    }
+    
+    private void loadMockData() {
+        // Mock Popular Meals
+        popularMeals = new ArrayList<>();
+        // TODO: Replace with API call
+        
+        popularMealAdapter = new PopularMealAdapter(popularMeals, new PopularMealAdapter.OnMealClickListener() {
+            @Override
+            public void onMealClick(Meal meal) {
+                Toast.makeText(CustomerHomeActivity.this, "Meal: " + meal.getName(), Toast.LENGTH_SHORT).show();
+                // TODO: Navigate to meal details
+            }
 
+            @Override
+            public void onFavoriteClick(Meal meal, int position) {
+                Toast.makeText(CustomerHomeActivity.this, "Added to favorites", Toast.LENGTH_SHORT).show();
+                // TODO: Add to favorites API call
+            }
+        });
+        rvPopularMeals.setAdapter(popularMealAdapter);
+        
+        // Mock Recommended Meals
+        recommendedMeals = new ArrayList<>();
+        // TODO: Replace with API call
+        
+        recommendedMealAdapter = new RecommendedMealAdapter(recommendedMeals, new RecommendedMealAdapter.OnMealActionListener() {
+            @Override
+            public void onMealClick(Meal meal) {
+                Toast.makeText(CustomerHomeActivity.this, "Meal: " + meal.getName(), Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onFavoriteClick(Meal meal, int position) {
+                Toast.makeText(CustomerHomeActivity.this, "Added to favorites", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onAddToCartClick(Meal meal) {
+                Toast.makeText(CustomerHomeActivity.this, "Added to cart", Toast.LENGTH_SHORT).show();
+                // TODO: Add to cart API call
+            }
+        });
+        rvRecommendedMeals.setAdapter(recommendedMealAdapter);
+        
+        // Mock Nearby Cooks
+        nearbyCooks = new ArrayList<>();
+        // TODO: Replace with API call
+        
+        nearbyCookAdapter = new NearbyCookAdapter(nearbyCooks, new NearbyCookAdapter.OnCookClickListener() {
+            @Override
+            public void onCookClick(Cook cook) {
+                Toast.makeText(CustomerHomeActivity.this, "Cook: " + cook.getName(), Toast.LENGTH_SHORT).show();
+                // TODO: Navigate to cook details
+            }
+
+            @Override
+            public void onViewMenuClick(Cook cook) {
+                Toast.makeText(CustomerHomeActivity.this, "View menu of " + cook.getName(), Toast.LENGTH_SHORT).show();
+                // TODO: Navigate to cook menu
+            }
+        });
+        rvNearbyCooks.setAdapter(nearbyCookAdapter);
+    }
+    
     private void setupListeners() {
-        // Search bar tapped → open search activity
+        // Search bar click
         searchBar.setOnClickListener(v -> {
-            // startActivity(new Intent(this, SearchActivity.class));
             Toast.makeText(this, "Search coming soon", Toast.LENGTH_SHORT).show();
+            // TODO: Open search activity
         });
-
-        // Notification bell tapped → open notifications activity
-        notificationButton.setOnClickListener(v -> {
-            Intent intent = new Intent(this, NotificationActivity.class);
-            startActivity(intent);
+        
+        // Filter button click
+        btnFilter.setOnClickListener(v -> {
+            Toast.makeText(this, "Filter coming soon", Toast.LENGTH_SHORT).show();
+            // TODO: Show filter bottom sheet
         });
-
-        // Filter button tapped
-        if (findViewById(R.id.filterButton) != null) {
-            findViewById(R.id.filterButton).setOnClickListener(v -> {
-                // Show filter dialog or open filter activity
-                Toast.makeText(this, "Filter coming soon", Toast.LENGTH_SHORT).show();
-            });
-        }
-
-        // Hero banner tapped
-        heroBanner.setOnClickListener(v -> {
-            // Show promo details or navigate to featured section
+        
+        // Notification button click
+        btnNotifications.setOnClickListener(v -> {
+            startActivity(new Intent(this, NotificationActivity.class));
+        });
+        
+        // Promo banner click
+        promoBanner.setOnClickListener(v -> {
             Toast.makeText(this, "Promo details coming soon", Toast.LENGTH_SHORT).show();
+            // TODO: Show promo details
         });
-
-        // View All tapped
-        tvViewAll.setOnClickListener(v -> {
-            // startActivity(new Intent(this, AllCooksActivity.class));
-            Toast.makeText(this, "All cooks coming soon", Toast.LENGTH_SHORT).show();
+        
+        // View All buttons
+        tvViewAllPopular.setOnClickListener(v -> {
+            Toast.makeText(this, "View all popular meals", Toast.LENGTH_SHORT).show();
+            // TODO: Navigate to all popular meals
         });
-
-        // Floating cart button tapped
-        fabCart.setOnClickListener(v -> openCart());
-        cartBadge.setOnClickListener(v -> openCart());
+        
+        tvViewAllRecommended.setOnClickListener(v -> {
+            Toast.makeText(this, "View all recommended meals", Toast.LENGTH_SHORT).show();
+            // TODO: Navigate to all recommended meals
+        });
+        
+        tvViewAllCooks.setOnClickListener(v -> {
+            Toast.makeText(this, "View all cooks", Toast.LENGTH_SHORT).show();
+            // TODO: Navigate to all cooks
+        });
     }
-
-    private void openCart() {
-        startActivity(new Intent(this, CartActivity.class));
-    }
-
+    
     private void setupBottomNavigation() {
         bottomNavigation.setSelectedItemId(R.id.nav_home);
-
+        
         bottomNavigation.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
-
+            
             if (itemId == R.id.nav_home) {
                 return true;
+            } else if (itemId == R.id.nav_menu) {
+                startActivity(new Intent(this, CustomerMenuActivity.class));
+                finish();
+                return true;
             } else if (itemId == R.id.nav_orders) {
-                // startActivity(new Intent(this, OrderHistoryActivity.class));
+                startActivity(new Intent(this, com.tiffincraft.app.activities.order.OrderHistoryActivity.class));
+                finish();
                 return true;
             } else if (itemId == R.id.nav_favorites) {
                 startActivity(new Intent(this, FavoritesActivity.class));
-                return true;
+                return false;
             } else if (itemId == R.id.nav_profile) {
                 startActivity(new Intent(this, CustomerProfileActivity.class));
-                return true;
+                return false;
             }
-
+            
             return false;
         });
     }
-
-    private void applyEntranceAnimations() {
-        try {
-            View headerSection = findViewById(R.id.tvGreeting);
-
-            if (headerSection != null) {
-                headerSection.setAlpha(0f);
-                headerSection.setTranslationY(-20f);
-                headerSection.animate()
-                    .alpha(1f)
-                    .translationY(0f)
-                    .setDuration(400)
-                    .setStartDelay(100)
-                    .start();
-            }
-
-            if (searchBar != null) {
-                searchBar.setAlpha(0f);
-                searchBar.setTranslationY(-20f);
-                searchBar.animate()
-                    .alpha(1f)
-                    .translationY(0f)
-                    .setDuration(400)
-                    .setStartDelay(200)
-                    .start();
-            }
-
-            if (heroBanner != null) {
-                heroBanner.setAlpha(0f);
-                heroBanner.setScaleX(0.9f);
-                heroBanner.setScaleY(0.9f);
-                heroBanner.animate()
-                    .alpha(1f)
-                    .scaleX(1f)
-                    .scaleY(1f)
-                    .setDuration(500)
-                    .setStartDelay(300)
-                    .start();
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error applying entrance animations", e);
-        }
-    }
-
+    
     private void setupBackPressHandler() {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -377,31 +390,6 @@ public class CustomerHomeActivity extends AppCompatActivity {
                 intent.addCategory(Intent.CATEGORY_HOME);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
-            }
-        });
-    }
-
-    private void fetchUnreadNotifications() {
-        String token = "Bearer " + sessionManager.getToken();
-        ApiService apiService = RetrofitClient.getInstance(this).getApiService();
-
-        apiService.getUnreadNotificationCount(token).enqueue(new Callback<NotificationResponse>() {
-            @Override
-            public void onResponse(@NonNull Call<NotificationResponse> call, @NonNull Response<NotificationResponse> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                    int count = response.body().getUnreadCount();
-                    if (count > 0) {
-                        notificationDot.setVisibility(View.VISIBLE);
-                        notificationDot.setText(count > 99 ? "99+" : String.valueOf(count));
-                    } else {
-                        notificationDot.setVisibility(View.GONE);
-                    }
-                }
-            }
-
-            @Override
-            public void onFailure(@NonNull Call<NotificationResponse> call, @NonNull Throwable t) {
-                Log.e(TAG, "Error fetching unread count", t);
             }
         });
     }
