@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#FFFFFF"
-    tools:context=".activities.order.OrderHistoryActivity">
+    tools:context=".activities.customer.CustomerMenuActivity">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -33,7 +33,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="My Orders 📦"
+                    android:text="Browse Menu 🍽️"
                     android:textColor="#111111"
                     android:textSize="24sp"
                     android:textStyle="bold" />
@@ -42,12 +42,68 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Track and manage your orders"
+                    android:text="Discover delicious homemade meals"
                     android:textColor="#777777"
                     android:textSize="13.5sp" />
             </LinearLayout>
 
-            <!-- Status Tabs -->
+            <!-- Search Bar -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/searchBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp"
+                android:layout_marginBottom="20dp"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="#F8F8F8"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="14dp">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:contentDescription="Search"
+                        android:src="@drawable/ic_search"
+                        android:tint="#999999" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:text="Search meals or cooks..."
+                        android:textColor="#999999"
+                        android:textSize="14sp" />
+
+                    <FrameLayout
+                        android:id="@+id/btnFilter"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="@drawable/circle_icon_green"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Filter"
+                            android:src="@drawable/ic_filter"
+                            android:tint="#4CAF50" />
+                    </FrameLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Filter Tabs -->
             <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -57,7 +113,7 @@
                 android:layout_marginBottom="20dp">
 
                 <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/chipGroupStatus"
+                    android:id="@+id/chipGroupFilter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     app:singleSelection="true"
@@ -75,30 +131,40 @@
                         app:chipStrokeWidth="0dp" />
 
                     <com.google.android.material.chip.Chip
-                        android:id="@+id/chipActive"
+                        android:id="@+id/chipVeg"
                         android:layout_width="wrap_content"
                         android:layout_height="36dp"
-                        android:text="Active"
+                        android:text="🌱 Veg"
                         android:textColor="#555555"
                         app:chipBackgroundColor="@color/chip_background_selector"
                         app:chipCornerRadius="10dp"
                         app:chipStrokeWidth="0dp" />
 
                     <com.google.android.material.chip.Chip
-                        android:id="@+id/chipCompleted"
+                        android:id="@+id/chipNonVeg"
                         android:layout_width="wrap_content"
                         android:layout_height="36dp"
-                        android:text="Completed"
+                        android:text="🍖 Non-Veg"
                         android:textColor="#555555"
                         app:chipBackgroundColor="@color/chip_background_selector"
                         app:chipCornerRadius="10dp"
                         app:chipStrokeWidth="0dp" />
 
                     <com.google.android.material.chip.Chip
-                        android:id="@+id/chipCancelled"
+                        android:id="@+id/chipPopular"
                         android:layout_width="wrap_content"
                         android:layout_height="36dp"
-                        android:text="Cancelled"
+                        android:text="⭐ Popular"
+                        android:textColor="#555555"
+                        app:chipBackgroundColor="@color/chip_background_selector"
+                        app:chipCornerRadius="10dp"
+                        app:chipStrokeWidth="0dp" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipNearby"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:text="📍 Nearby"
                         android:textColor="#555555"
                         app:chipBackgroundColor="@color/chip_background_selector"
                         app:chipCornerRadius="10dp"
@@ -106,7 +172,7 @@
                 </com.google.android.material.chip.ChipGroup>
             </HorizontalScrollView>
 
-            <!-- Orders List -->
+            <!-- Meals Grid -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -116,12 +182,12 @@
                 android:paddingBottom="20dp">
 
                 <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rvOrderHistory"
+                    android:id="@+id/rvMeals"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:nestedScrollingEnabled="false"
-                    tools:itemCount="3"
-                    tools:listitem="@layout/item_order" />
+                    tools:itemCount="6"
+                    tools:listitem="@layout/item_recommended_meal" />
 
                 <!-- Loading -->
                 <ProgressBar
@@ -148,15 +214,15 @@
                         android:layout_width="100dp"
                         android:layout_height="100dp"
                         android:alpha="0.3"
-                        android:contentDescription="No orders"
-                        android:src="@drawable/ic_empty_orders"
+                        android:contentDescription="No meals"
+                        android:src="@drawable/meal_placeholder"
                         app:tint="#CCCCCC" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
-                        android:text="No Orders Yet"
+                        android:text="No Meals Found"
                         android:textColor="#111111"
                         android:textSize="18sp"
                         android:textStyle="bold" />
@@ -165,22 +231,9 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
-                        android:text="Start exploring delicious meals"
+                        android:text="Try adjusting your filters"
                         android:textColor="#999999"
                         android:textSize="13sp" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnBrowseMeals"
-                        android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="20dp"
-                        android:text="Browse Meals"
-                        android:textAllCaps="false"
-                        android:textColor="#FFFFFF"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        app:backgroundTint="#4CAF50"
-                        app:cornerRadius="12dp" />
                 </LinearLayout>
             </LinearLayout>
 

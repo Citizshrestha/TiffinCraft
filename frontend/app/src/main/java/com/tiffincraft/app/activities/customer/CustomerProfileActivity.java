@@ -159,6 +159,10 @@ public class CustomerProfileActivity extends AppCompatActivity {
                     startActivity(new Intent(this, CustomerHomeActivity.class));
                     finish();
                     return true;
+                } else if (itemId == R.id.nav_menu) {
+                    startActivity(new Intent(this, CustomerMenuActivity.class));
+                    finish();
+                    return true;
                 } else if (itemId == R.id.nav_orders) {
                     startActivity(new Intent(this, OrderHistoryActivity.class));
                     finish();

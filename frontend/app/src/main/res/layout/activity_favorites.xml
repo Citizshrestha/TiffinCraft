@@ -4,119 +4,123 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F8F8F8"
+    android:background="#FFFFFF"
     tools:context=".activities.customer.FavoritesActivity">
 
     <!-- Main Content -->
-    <LinearLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:fillViewport="true"
+        android:clipToPadding="false"
+        android:paddingBottom="90dp">
 
-        <!-- Header -->
-        <androidx.constraintlayout.widget.ConstraintLayout
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#FFFFFF"
-            android:elevation="2dp"
-            android:paddingStart="16dp"
-            android:paddingTop="12dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="12dp">
+            android:orientation="vertical">
 
-            <ImageButton
-                android:id="@+id/btnBack"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Back"
-                android:src="@drawable/ic_arrow_back"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:tint="#1E1E1E" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="My Favorites"
-                android:textColor="#1E1E1E"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
-
-        <!-- Content Area -->
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1">
-
-            <!-- RecyclerView for Favorites -->
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvFavorites"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:clipToPadding="false"
-                android:padding="16dp"
-                android:paddingBottom="80dp"
-                tools:listitem="@layout/item_favorite_cook" />
-
-            <!-- Empty State -->
+            <!-- Header -->
             <LinearLayout
-                android:id="@+id/emptyState"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
+                android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="32dp"
-                android:visibility="gone"
-                tools:visibility="visible">
-
-                <ImageView
-                    android:layout_width="120dp"
-                    android:layout_height="120dp"
-                    android:alpha="0.5"
-                    android:contentDescription="No favorites"
-                    android:src="@drawable/ic_favorite_border"
-                    app:tint="#BDBDBD" />
+                android:background="#FFFFFF"
+                android:paddingStart="20dp"
+                android:paddingTop="20dp"
+                android:paddingEnd="20dp"
+                android:paddingBottom="18dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="No Favorites Yet"
-                    android:textColor="#1E1E1E"
-                    android:textSize="20sp"
+                    android:text="My Favorites ❤️"
+                    android:textColor="#111111"
+                    android:textSize="24sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:gravity="center"
-                    android:text="Start adding your favorite cooks\nto see them here"
-                    android:textColor="#9E9E9E"
-                    android:textSize="14sp" />
-
+                    android:layout_marginTop="4dp"
+                    android:text="Your favorite cooks and meals"
+                    android:textColor="#777777"
+                    android:textSize="13.5sp" />
             </LinearLayout>
 
-            <!-- Loading Progress -->
-            <ProgressBar
-                android:id="@+id/progressBar"
-                android:layout_width="wrap_content"
+            <!-- Content Area -->
+            <FrameLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:indeterminateTint="#4CAF50"
-                android:visibility="gone" />
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingBottom="20dp">
 
-        </FrameLayout>
+                <!-- RecyclerView for Favorites -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvFavorites"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clipToPadding="false"
+                    android:nestedScrollingEnabled="false"
+                    tools:itemCount="3"
+                    tools:listitem="@layout/item_favorite_cook" />
 
-    </LinearLayout>
+                <!-- Empty State -->
+                <LinearLayout
+                    android:id="@+id/emptyState"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:paddingTop="100dp"
+                    android:paddingBottom="100dp"
+                    android:visibility="gone"
+                    tools:visibility="gone">
+
+                    <ImageView
+                        android:layout_width="120dp"
+                        android:layout_height="120dp"
+                        android:alpha="0.3"
+                        android:contentDescription="No favorites"
+                        android:src="@drawable/ic_favorite_border"
+                        app:tint="#CCCCCC" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="20dp"
+                        android:text="No Favorites Yet"
+                        android:textColor="#111111"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center"
+                        android:lineSpacingMultiplier="1.3"
+                        android:text="Start adding your favorite cooks\nto see them here"
+                        android:textColor="#999999"
+                        android:textSize="14sp" />
+
+                </LinearLayout>
+
+                <!-- Loading Progress -->
+                <ProgressBar
+                    android:id="@+id/progressBar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_marginTop="100dp"
+                    android:indeterminateTint="#4CAF50"
+                    android:visibility="gone" />
+
+            </FrameLayout>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
     <!-- Bottom Navigation -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
@@ -125,12 +129,10 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:background="#FFFFFF"
-        app:menu="@menu/bottom_nav_customer"
+        android:elevation="8dp"
         app:itemIconTint="@color/bottom_nav_color"
         app:itemTextColor="@color/bottom_nav_color"
-        app:itemRippleColor="#1A4CAF50"
-        app:itemActiveIndicatorStyle="@null"
         app:labelVisibilityMode="labeled"
-        app:elevation="8dp" />
+        app:menu="@menu/bottom_nav_customer" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
