@@ -43,20 +43,20 @@ export function ReportsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p style={{fontFamily:"Inter",fontWeight:700,fontSize:28,color:"#1c1f29"}}>Reports & Analytics</p>
           <p style={{fontFamily:"Inter",fontWeight:400,fontSize:14,color:"#9499a6",marginTop:4}}>View detailed analytics and performance reports.</p>
         </div>
         <button onClick={handleExport}
-          className="flex items-center gap-2 px-5 py-3 rounded-[8px] text-white text-[14px] cursor-pointer transition-all duration-150 hover:brightness-95"
+          className="flex items-center gap-2 px-5 py-3 rounded-[8px] text-white text-[14px] cursor-pointer transition-all duration-150 hover:brightness-95 self-start shrink-0"
           style={{background:"#57b869",fontFamily:"Inter",fontWeight:600,border:"none"}}>
           📊 Export Report
         </button>
       </div>
 
       {/* Key Metrics */}
-      <div className="flex gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <MetricCard icon="📦" value="6,709" label="Total Orders"    change="+12.3%" changeColor="#7887fa"/>
         <MetricCard icon="💰" value="₹1.45L" label="Total Revenue"  change="+18.5%" changeColor="#57b869"/>
         <MetricCard icon="👥" value="334"    label="Active Users"   change="+8.2%"  changeColor="#f28c40"/>
@@ -64,9 +64,9 @@ export function ReportsPage() {
       </div>
 
       {/* Charts */}
-      <div className="flex gap-4">
+      <div className="flex flex-col lg:flex-row gap-4">
         {/* Orders Breakdown */}
-        <div className="bg-white flex flex-col gap-4 p-6 rounded-[12px]" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)",width:530}}>
+        <div className="bg-white flex flex-col gap-4 p-4 sm:p-6 rounded-[12px] w-full lg:w-[530px] lg:shrink-0 min-w-0" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
           <p style={{fontFamily:"Inter",fontWeight:600,fontSize:18,color:"#1c1f29"}}>Orders Breakdown</p>
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -97,7 +97,7 @@ export function ReportsPage() {
         </div>
 
         {/* Revenue by Day */}
-        <div className="bg-white flex flex-col gap-4 p-6 rounded-[12px] flex-1" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
+        <div className="bg-white flex flex-col gap-4 p-4 sm:p-6 rounded-[12px] lg:flex-1 min-w-0" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
           <p style={{fontFamily:"Inter",fontWeight:600,fontSize:18,color:"#1c1f29"}}>Revenue by Day</p>
           <div className="h-[200px] rounded-[8px] overflow-hidden" style={{background:"#f7f7fa"}}>
             <ResponsiveContainer width="100%" height="100%">

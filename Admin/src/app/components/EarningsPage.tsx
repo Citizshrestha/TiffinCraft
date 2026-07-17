@@ -136,7 +136,7 @@ export function EarningsPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="flex gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {[
           { label:"Total Commission Earned", value:fmt(totalCommission), icon:"💹", change:"+21.3%", sub:"All time, all cooks" },
           { label:"Commission This Month",   value:"₹4,860",             icon:"📅", change:"+16.2%", sub:"June 2025"          },
@@ -156,10 +156,10 @@ export function EarningsPage() {
       </div>
 
       {/* Chart */}
-      <div className="bg-white p-6 rounded-[12px]" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+      <div className="bg-white p-4 sm:p-6 rounded-[12px]" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:16}}>
           <p style={{fontFamily:"Inter",fontWeight:600,fontSize:18,color:"#1c1f29"}}>Revenue Trend</p>
-          <div style={{display:"flex",gap:20}}>
+          <div style={{display:"flex",gap:20,flexWrap:"wrap"}}>
             {[{c:"#7887FA",l:"TiffinCraft (4% Commission)"},{c:"#57B869",l:"Cook Net Earnings (96%)"}].map(x=>(
               <div key={x.l} style={{display:"flex",alignItems:"center",gap:6}}>
                 <div style={{width:10,height:10,borderRadius:"50%",background:x.c}}/>
@@ -193,8 +193,8 @@ export function EarningsPage() {
       </div>
 
       {/* ── Commission Rates table ── */}
-      <div className="bg-white rounded-[12px] p-6" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+      <div className="bg-white rounded-[12px] p-4 sm:p-6" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:20}}>
           <div>
             <p style={{fontFamily:"Inter",fontWeight:600,fontSize:18,color:"#1c1f29"}}>Commission Rates</p>
             <p style={{fontFamily:"Inter",fontSize:13,color:"#9499a6",marginTop:2}}>4% fixed deducted from every successful delivery</p>
@@ -204,6 +204,8 @@ export function EarningsPage() {
             + Set Commission
           </button>
         </div>
+        <div className="overflow-x-auto">
+        <div className="min-w-[1130px]">
         <div className="flex gap-4 pb-4" style={{borderBottom:"1px solid #e5e8ed"}}>
           <TH w={40}>S.N</TH>
           {["Kitchen","Owner","Rate","Total Orders","Order Value","Commission Earned","Status","Actions"].map((h,i)=>(
@@ -236,14 +238,18 @@ export function EarningsPage() {
             </div>
           );
         })}
+        </div>
+        </div>
       </div>
 
       {/* ── Cook Earnings table ── */}
-      <div className="bg-white rounded-[12px] p-6" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
+      <div className="bg-white rounded-[12px] p-4 sm:p-6" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
         <div style={{marginBottom:20}}>
           <p style={{fontFamily:"Inter",fontWeight:600,fontSize:18,color:"#1c1f29"}}>Cook Earnings</p>
           <p style={{fontFamily:"Inter",fontSize:13,color:"#9499a6",marginTop:2}}>Net amount payable to each cook after 4% commission deduction</p>
         </div>
+        <div className="overflow-x-auto">
+        <div className="min-w-[1160px]">
         <div className="flex gap-4 pb-4" style={{borderBottom:"1px solid #e5e8ed"}}>
           <TH w={40}>S.N</TH>
           {["Kitchen","Owner","Total Orders","Gross Earnings","Commission (4%)","Net Earnings","Payout Status","Due Date"].map((h,i)=>(
@@ -295,13 +301,15 @@ export function EarningsPage() {
           <div style={{width:110,flexShrink:0}}/>
           <div style={{width:110,flexShrink:0}}/>
         </div>
+        </div>
+        </div>
       </div>
 
       {/* ── Commission Transactions ── */}
-      <div className="bg-white rounded-[12px] p-6" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+      <div className="bg-white rounded-[12px] p-4 sm:p-6" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:16}}>
           <p style={{fontFamily:"Inter",fontWeight:600,fontSize:18,color:"#1c1f29"}}>Commission Transactions</p>
-          <div style={{display:"flex",gap:8}}>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             {(["all","Collected","Pending","Failed"] as const).map(t=>(
               <button key={t} onClick={()=>setTxTab(t)}
                 style={{padding:"6px 14px",borderRadius:8,fontSize:12,cursor:"pointer",border:"none",fontFamily:"Inter",fontWeight:500,
@@ -311,6 +319,8 @@ export function EarningsPage() {
             ))}
           </div>
         </div>
+        <div className="overflow-x-auto">
+        <div className="min-w-[1060px]">
         <div className="flex gap-4 pb-4" style={{borderBottom:"1px solid #e5e8ed"}}>
           <TH w={40}>S.N</TH>
           {["Order ID","Kitchen","Order Amt","Rate","Commission","Cook Gets","Status","Date"].map((h,i)=>(
@@ -337,6 +347,8 @@ export function EarningsPage() {
             </div>
           );
         })}
+        </div>
+        </div>
       </div>
 
       {/* ── Modals ── */}

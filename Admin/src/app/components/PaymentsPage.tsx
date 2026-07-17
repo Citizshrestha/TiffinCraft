@@ -64,19 +64,20 @@ export function PaymentsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p style={{fontFamily:"Inter",fontWeight:700,fontSize:28,color:"#1c1f29"}}>Payments</p>
           <p style={{fontFamily:"Inter",fontWeight:400,fontSize:14,color:"#9499a6",marginTop:4}}>View and manage all payment transactions.</p>
         </div>
         <button onClick={handleExport}
+          className="self-start shrink-0"
           style={{padding:"10px 16px",borderRadius:8,border:"1px solid #e5e8ed",background:"white",fontFamily:"Inter",fontWeight:500,fontSize:13,color:"#9499a6",cursor:"pointer"}}>
           Export CSV
         </button>
       </div>
 
       {/* Stats */}
-      <div className="flex gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {[
           {label:"Total Collected",    value:"₹1,45,230", icon:"💰"},
           {label:"Pending Payouts",    value:"₹12,400",   icon:"⏳"},
@@ -111,7 +112,8 @@ export function PaymentsPage() {
       </div>
 
       <div className="bg-white rounded-[12px]" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
-        <div className="p-6">
+        <div className="p-4 sm:p-6 overflow-x-auto">
+          <div className="min-w-[1140px]">
           <div className="flex gap-4 pb-4" style={{borderBottom:"1px solid #e5e8ed"}}>
             <p style={{width:40,flexShrink:0,fontFamily:"Inter",fontWeight:600,fontSize:12,color:"#9499a6"}}>S.N</p>
             {["Pay ID","Order ID","Customer","Cook","Amount","Method","Status","Date","Actions"].map((h,i)=>(
@@ -140,6 +142,7 @@ export function PaymentsPage() {
               {idx<visible.length-1 && <div style={{height:1,background:"#f2f5f7"}}/>}
             </div>
           ))}
+          </div>
         </div>
       </div>
 

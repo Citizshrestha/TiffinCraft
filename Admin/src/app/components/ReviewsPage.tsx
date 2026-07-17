@@ -71,7 +71,7 @@ export function ReviewsPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="flex gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {[
           {icon:"⭐",value:"4.6",  label:"Average Rating",  sub:"out of 5.0"      },
           {icon:"📝",value:`${rows.length}`,label:"Total Reviews",sub:"in database"},
@@ -94,7 +94,7 @@ export function ReviewsPage() {
           <input className="flex-1 outline-none bg-transparent" style={{border:"none",fontFamily:"Inter",fontSize:14,color:"#1c1f29"}}
             placeholder="Search customer or cook..." value={search} onChange={e=>setSearch(e.target.value)}/>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {["all","5","4","3","2","1"].map(r=>(
             <button key={r} onClick={()=>setRatingFilter(r)}
               style={{padding:"10px 14px",borderRadius:8,fontSize:13,cursor:"pointer",border:"none",fontFamily:"Inter",fontWeight:500,
@@ -106,7 +106,8 @@ export function ReviewsPage() {
       </div>
 
       <div className="bg-white rounded-[12px]" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
-        <div className="p-6">
+        <div className="p-4 sm:p-6 overflow-x-auto">
+          <div className="min-w-[1100px]">
           <div className="flex gap-4 pb-4" style={{borderBottom:"1px solid #e5e8ed"}}>
             <p style={{width:40,flexShrink:0,fontFamily:"Inter",fontWeight:600,fontSize:12,color:"#9499a6"}}>S.N</p>
             {["Customer","Cook","Rating","Comment","Replied","Date","Actions"].map((h,i)=>(
@@ -143,6 +144,7 @@ export function ReviewsPage() {
               {idx<visible.length-1 && <div style={{height:1,background:"#f2f5f7"}}/>}
             </div>
           ))}
+          </div>
         </div>
       </div>
 

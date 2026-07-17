@@ -1,20 +1,33 @@
 import React, { useState } from "react";
+import { AdminUser, getStoredAdmin, updateStoredAdmin, changeAdminPassword } from "../api/authApi";
+import { updateUserApi } from "../api/usersApi";
+import { useToast } from "./Toast";
 
 interface ProfileForm { name: string; email: string; phone: string; }
 interface PasswordForm { current: string; newPass: string; confirm: string; }
 
-export function SettingsPage() {
-  // Profile state
-  const [profile, setProfile]     = useState<ProfileForm>({ name:"Admin User", email:"admin@tiffincraft.com", phone:"+91 98765 43210" });
+const storedAdmin = getStoredAdmin();
+
+export function SettingsPage({ onProfileUpdated }: { onProfileUpdated?: (admin: AdminUser) => void }) {
+  const { showToast } = useToast();
+
+  // Profile state — pre-populated from the logged-in admin's real account
+  const [profile, setProfile] = useState<ProfileForm>({
+    name: storedAdmin?.full_name || "",
+    email: storedAdmin?.email || "",
+    phone: storedAdmin?.phone || "",
+  });
   const [profileErrs, setProfileErrs] = useState<Record<string,string>>({});
+  const [savingProfile, setSavingProfile] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
 
   // Password state
   const [pwd, setPwd]             = useState<PasswordForm>({ current:"", newPass:"", confirm:"" });
   const [pwdErrs, setPwdErrs]     = useState<Record<string,string>>({});
+  const [savingPwd, setSavingPwd] = useState(false);
   const [pwdSaved, setPwdSaved]   = useState(false);
 
-  // Notification toggles
+  // Notification toggles (local preferences only — no backend concept exists for this yet)
   const [notifs, setNotifs] = useState({
     email:true, sms:false, push:true, newOrders:true, reviews:true, payments:false,
   });
@@ -29,31 +42,70 @@ export function SettingsPage() {
     return e;
   }
 
-  function saveProfile() {
+  async function saveProfile() {
+    if (savingProfile || !storedAdmin) return;
     const errs = validateProfile();
     if (Object.keys(errs).length) { setProfileErrs(errs); setProfileSaved(false); return; }
     setProfileErrs({});
-    setProfileSaved(true);
-    setTimeout(() => setProfileSaved(false), 3000);
+    setSavingProfile(true);
+    try {
+      const updated = await updateUserApi(storedAdmin.id, {
+        full_name: profile.name,
+        email: profile.email,
+        phone: profile.phone,
+        role: storedAdmin.role,
+        is_active: true,
+      });
+      const nextAdmin: AdminUser = {
+        ...storedAdmin,
+        full_name: updated.name,
+        email: updated.email,
+        phone: updated.phone,
+      };
+      updateStoredAdmin(nextAdmin);
+      onProfileUpdated?.(nextAdmin);
+      setProfileSaved(true);
+      showToast("Profile updated successfully!", "success");
+      setTimeout(() => setProfileSaved(false), 3000);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update profile.";
+      if (/email/i.test(message)) setProfileErrs({ email: message });
+      else if (/phone/i.test(message)) setProfileErrs({ phone: message });
+      else showToast(message, "error");
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
   function validatePassword(): Record<string,string> {
     const e: Record<string,string> = {};
     if (!pwd.current.trim())    e.current = "Current password is required";
     if (!pwd.newPass.trim())    e.newPass = "New password is required";
-    else if (pwd.newPass.length < 8) e.newPass = "Password must be at least 8 characters";
+    else if (pwd.newPass.length < 6) e.newPass = "Password must be at least 6 characters";
     if (!pwd.confirm.trim())    e.confirm = "Please confirm your password";
     else if (pwd.newPass !== pwd.confirm) e.confirm = "Passwords do not match";
     return e;
   }
 
-  function updatePassword() {
+  async function updatePassword() {
+    if (savingPwd) return;
     const errs = validatePassword();
     if (Object.keys(errs).length) { setPwdErrs(errs); setPwdSaved(false); return; }
     setPwdErrs({});
-    setPwd({ current:"", newPass:"", confirm:"" });
-    setPwdSaved(true);
-    setTimeout(() => setPwdSaved(false), 3000);
+    setSavingPwd(true);
+    try {
+      await changeAdminPassword(pwd.current, pwd.newPass);
+      setPwd({ current:"", newPass:"", confirm:"" });
+      setPwdSaved(true);
+      showToast("Password updated successfully!", "success");
+      setTimeout(() => setPwdSaved(false), 3000);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update password.";
+      if (/current password/i.test(message)) setPwdErrs({ current: message });
+      else showToast(message, "error");
+    } finally {
+      setSavingPwd(false);
+    }
   }
 
   function Field({ label, value, onChange, type="text", error }: {
@@ -99,20 +151,20 @@ export function SettingsPage() {
       </div>
 
       {/* Profile */}
-      <div className="bg-white rounded-[12px] p-6" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
+      <div className="bg-white rounded-[12px] p-4 sm:p-6" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
         <p style={{fontFamily:"Inter",fontWeight:600,fontSize:16,color:"#1c1f29",marginBottom:20}}>Profile</p>
         {profileSaved && <SuccessBanner msg="Profile updated successfully!"/>}
         <Field label="Full Name"     value={profile.name}  onChange={v=>setProfile({...profile,name:v})}  error={profileErrs.name}/>
         <Field label="Email Address" value={profile.email} onChange={v=>setProfile({...profile,email:v})} error={profileErrs.email} type="email"/>
         <Field label="Phone Number"  value={profile.phone} onChange={v=>setProfile({...profile,phone:v})} error={profileErrs.phone} type="tel"/>
-        <button onClick={saveProfile}
-          style={{background:"#57b869",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:14,padding:"12px 20px",borderRadius:8,cursor:"pointer"}}>
-          Save Changes
+        <button onClick={saveProfile} disabled={savingProfile}
+          style={{background:"#57b869",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:14,padding:"12px 20px",borderRadius:8,cursor:savingProfile?"not-allowed":"pointer",opacity:savingProfile?0.7:1}}>
+          {savingProfile ? "Saving..." : "Save Changes"}
         </button>
       </div>
 
       {/* Notifications */}
-      <div className="bg-white rounded-[12px] p-6" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
+      <div className="bg-white rounded-[12px] p-4 sm:p-6" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
         <p style={{fontFamily:"Inter",fontWeight:600,fontSize:16,color:"#1c1f29",marginBottom:20}}>Notifications</p>
         <div className="flex flex-col gap-4">
           {[
@@ -138,15 +190,15 @@ export function SettingsPage() {
       </div>
 
       {/* Security */}
-      <div className="bg-white rounded-[12px] p-6" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
+      <div className="bg-white rounded-[12px] p-4 sm:p-6" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
         <p style={{fontFamily:"Inter",fontWeight:600,fontSize:16,color:"#1c1f29",marginBottom:20}}>Security</p>
         {pwdSaved && <SuccessBanner msg="Password updated successfully!"/>}
         <Field label="Current Password" value={pwd.current}  onChange={v=>setPwd({...pwd,current:v})}  error={pwdErrs.current}  type="password"/>
         <Field label="New Password"     value={pwd.newPass}  onChange={v=>setPwd({...pwd,newPass:v})}  error={pwdErrs.newPass}  type="password"/>
         <Field label="Confirm Password" value={pwd.confirm}  onChange={v=>setPwd({...pwd,confirm:v})}  error={pwdErrs.confirm}  type="password"/>
-        <button onClick={updatePassword}
-          style={{background:"#57b869",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:14,padding:"12px 20px",borderRadius:8,cursor:"pointer"}}>
-          Update Password
+        <button onClick={updatePassword} disabled={savingPwd}
+          style={{background:"#57b869",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:14,padding:"12px 20px",borderRadius:8,cursor:savingPwd?"not-allowed":"pointer",opacity:savingPwd?0.7:1}}>
+          {savingPwd ? "Updating..." : "Update Password"}
         </button>
       </div>
     </div>

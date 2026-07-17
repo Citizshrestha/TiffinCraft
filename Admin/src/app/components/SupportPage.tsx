@@ -153,7 +153,7 @@ export function SupportPage() {
       </div>
 
       {/* Stats */}
-      <div className="flex gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {[
           {label:"Open Tickets",     value:String(counts.pending),    icon:"🎫", color:"#f28c40"},
           {label:"In Progress",      value:String(counts.processing), icon:"⚙️", color:"#7887fa"},
@@ -186,7 +186,8 @@ export function SupportPage() {
       </div>
 
       <div className="bg-white rounded-[12px]" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
-        <div className="p-6">
+        <div className="p-4 sm:p-6 overflow-x-auto">
+          <div className="min-w-[1010px]">
           <div className="flex gap-4 pb-4" style={{borderBottom:"1px solid #e5e8ed"}}>
             <p style={{width:40,flexShrink:0,fontFamily:"Inter",fontWeight:600,fontSize:12,color:"#9499a6"}}>S.N</p>
             {["Ticket ID","User","Subject","Priority","Status","Date","Actions"].map((h,i)=>(
@@ -218,6 +219,7 @@ export function SupportPage() {
               {idx<visible.length-1 && <div style={{height:1,background:"#f2f5f7"}}/>}
             </div>
           ))}
+          </div>
         </div>
       </div>
 
