@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Sidebar, Page } from "./components/Sidebar";
 import { DashboardPage } from "./components/DashboardPage";
 import { ManageUsersPage } from "./components/ManageUsersPage";
@@ -11,37 +11,42 @@ import { EarningsPage } from "./components/EarningsPage";
 import { ReportsPage } from "./components/ReportsPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { SupportPage } from "./components/SupportPage";
+import { AdminUser, getStoredAdmin, getToken, loginAdmin, logoutAdmin } from "./api/authApi";
+import { capitalizeRole } from "./utils/format";
 
-function LoginPage({ onLogin }: { onLogin: () => void }) {
+function LoginPage({ onLogin }: { onLogin: (admin: AdminUser) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (email === "admin@tiffincraft.com" && password === "admin123") {
-      onLogin();
-    } else {
-      setError("Invalid email or password.");
+    if (submitting) return;
+    setError("");
+    setSubmitting(true);
+    try {
+      const admin = await loginAdmin(email.trim(), password);
+      onLogin(admin);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Invalid email or password.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center"
+      className="min-h-screen flex items-center justify-center p-4"
       style={{ background: "#f2f2f5", fontFamily: "Inter, sans-serif" }}
     >
       <div
-        className="bg-white rounded-[16px] p-10 w-full max-w-[420px]"
+        className="bg-white rounded-[16px] p-6 sm:p-10 w-full max-w-[420px]"
         style={{ boxShadow: "0px 4px 24px rgba(0,0,0,0.08)" }}
       >
         {/* Logo */}
         <div className="flex items-center gap-3 mb-8">
-          <div
-            className="w-8 h-8 rounded-[6px] bg-[#58c66c] flex items-center justify-center"
-          >
-            <span className="text-white text-[16px]">🍱</span>
-          </div>
+          <img src="/tiffin-logo.png" alt="TiffinCraft logo" className="w-10 h-10 object-contain" />
           <div>
             <p style={{ fontFamily: "Inter", fontWeight: 700, fontSize: 20, color: "#1c1f29" }}>
               TiffinCraft
@@ -97,27 +102,45 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
 
           <button
             type="submit"
+            disabled={submitting}
             className="w-full py-3 rounded-[8px] text-white text-[14px] mt-2 cursor-pointer transition-all duration-150 hover:brightness-95"
-            style={{ background: "#57b869", fontFamily: "Inter", fontWeight: 600, border: "none" }}
+            style={{
+              background: "#57b869",
+              fontFamily: "Inter",
+              fontWeight: 600,
+              border: "none",
+              opacity: submitting ? 0.7 : 1,
+            }}
           >
-            Sign In
+            {submitting ? "Signing in..." : "Sign In"}
           </button>
         </form>
-
-        <p className="text-center mt-6" style={{ fontFamily: "Inter", fontSize: 12, color: "#b2b8bf" }}>
-          Use admin@tiffincraft.com / admin123
-        </p>
       </div>
     </div>
   );
 }
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [admin, setAdmin] = useState<AdminUser | null>(null);
+  const [checkedSession, setCheckedSession] = useState(false);
   const [activePage, setActivePage] = useState<Page>("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  if (!isLoggedIn) {
-    return <LoginPage onLogin={() => setIsLoggedIn(true)} />;
+  // Restore session on refresh
+  useEffect(() => {
+    const stored = getStoredAdmin();
+    if (stored && getToken()) {
+      setAdmin(stored);
+    }
+    setCheckedSession(true);
+  }, []);
+
+  if (!checkedSession) {
+    return null;
+  }
+
+  if (!admin) {
+    return <LoginPage onLogin={setAdmin} />;
   }
 
   function renderPage() {
@@ -141,7 +164,7 @@ export default function App() {
       case "reports":
         return <ReportsPage />;
       case "settings":
-        return <SettingsPage />;
+        return <SettingsPage onProfileUpdated={setAdmin} />;
       case "support":
         return <SupportPage />;
       default:
@@ -150,19 +173,47 @@ export default function App() {
   }
 
   function handleLogout() {
-    setIsLoggedIn(false);
+    logoutAdmin();
+    setAdmin(null);
     setActivePage("dashboard");
   }
 
   return (
     <div className="flex min-h-screen" style={{ background: "#f2f2f5", fontFamily: "Inter, sans-serif" }}>
-      <Sidebar activePage={activePage} onNavigate={setActivePage} onLogout={handleLogout} />
-      <main
-        className="flex-1 min-h-screen overflow-y-auto"
-        style={{ marginLeft: 260, padding: "32px" }}
-      >
-        {renderPage()}
-      </main>
+      <Sidebar
+        activePage={activePage}
+        onNavigate={setActivePage}
+        onLogout={handleLogout}
+        adminName={admin.full_name}
+        adminRoleLabel={capitalizeRole(admin.role) === "Admin" ? "Super Admin" : capitalizeRole(admin.role)}
+        mobileOpen={sidebarOpen}
+        onCloseMobile={() => setSidebarOpen(false)}
+      />
+      <div className="flex-1 min-w-0 flex flex-col lg:ml-[260px]">
+        {/* Mobile top bar — hamburger opens the sidebar drawer; hidden on lg+ */}
+        <header
+          className="lg:hidden sticky top-0 z-30 flex items-center gap-3 px-4 py-3"
+          style={{ background: "#1e222d" }}
+        >
+          <button
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+            className="w-10 h-10 rounded-[8px] flex items-center justify-center cursor-pointer"
+            style={{ background: "rgba(255,255,255,0.08)", border: "none" }}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M3 5h14M3 10h14M3 15h14" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+          <img src="/tiffin-logo.png" alt="TiffinCraft logo" className="w-7 h-7 object-contain" />
+          <p className="text-white text-[16px]" style={{ fontFamily: "Inter", fontWeight: 700 }}>
+            TiffinCraft
+          </p>
+        </header>
+        <main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          {renderPage()}
+        </main>
+      </div>
     </div>
   );
 }

@@ -17,6 +17,11 @@ interface SidebarProps {
   activePage: Page;
   onNavigate: (page: Page) => void;
   onLogout: () => void;
+  adminName?: string;
+  adminRoleLabel?: string;
+  /** Mobile drawer state — ignored on lg+ screens where the sidebar is always visible. */
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 const navItems: { id: Page; icon: string; label: string }[] = [
@@ -33,21 +38,50 @@ const navItems: { id: Page; icon: string; label: string }[] = [
   { id: "support", icon: "❓", label: "Support" },
 ];
 
-export function Sidebar({ activePage, onNavigate, onLogout }: SidebarProps) {
+export function Sidebar({
+  activePage,
+  onNavigate,
+  onLogout,
+  adminName = "Admin User",
+  adminRoleLabel = "Super Admin",
+  mobileOpen = false,
+  onCloseMobile,
+}: SidebarProps) {
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
+  const initials = adminName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((x) => x[0])
+    .join("")
+    .toUpperCase();
 
   return (
     <>
+      {/* Mobile backdrop — closes the drawer on tap, hidden on lg+ */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 lg:hidden"
+          style={{ background: "rgba(0,0,0,0.45)" }}
+          onClick={onCloseMobile}
+        />
+      )}
       <div
-        className="fixed top-0 left-0 h-full w-[260px] flex flex-col overflow-hidden z-50"
+        className={`fixed top-0 left-0 h-full w-[260px] flex flex-col overflow-hidden z-50 transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
         style={{
           background: "#1e222d",
           border: "1px solid rgba(255,255,255,0.08)",
         }}
       >
         {/* Logo Section */}
-        <div className="px-6 pt-7 pb-4">
-          <div className="w-5 h-5 rounded bg-[#58c66c] mb-[10px]" />
+        <div className="px-6 pt-7 pb-4 flex flex-col items-center text-center">
+          <img
+            src="/tiffin-logo.png"
+            alt="TiffinCraft logo"
+            className="w-11 h-11 object-contain mb-2"
+          />
           <p
             className="text-white text-2xl tracking-[-0.4px] mb-1"
             style={{ fontFamily: "Inter", fontWeight: 700 }}
@@ -73,7 +107,7 @@ export function Sidebar({ activePage, onNavigate, onLogout }: SidebarProps) {
             return (
               <button
                 key={item.id}
-                onClick={() => onNavigate(item.id)}
+                onClick={() => { onNavigate(item.id); onCloseMobile?.(); }}
                 className="flex items-center gap-3 h-11 px-[14px] rounded-[10px] w-full text-left transition-all duration-150 cursor-pointer"
                 style={
                   isActive
@@ -179,25 +213,25 @@ export function Sidebar({ activePage, onNavigate, onLogout }: SidebarProps) {
                 className="absolute inset-0 flex items-center justify-center text-white text-[13px]"
                 style={{ fontFamily: "Inter", fontWeight: 600 }}
               >
-                AU
+                {initials || "AU"}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <p
-                className="text-white text-[13px]"
+                className="text-white text-[13px] truncate"
                 style={{ fontFamily: "Inter", fontWeight: 600 }}
               >
-                Admin User
+                {adminName}
               </p>
               <p
-                className="text-[11px]"
+                className="text-[11px] truncate"
                 style={{
                   fontFamily: "Inter",
                   fontWeight: 500,
                   color: "rgba(255,255,255,0.55)",
                 }}
               >
-                Super Admin
+                {adminRoleLabel}
               </p>
             </div>
             <span
