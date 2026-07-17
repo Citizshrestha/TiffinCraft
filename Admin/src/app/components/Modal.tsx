@@ -17,7 +17,17 @@ export function Modal({ title, onClose, children, width = 500 }: { title: string
   );
 }
 
-export function ConfirmDelete({ name, onConfirm, onCancel }: { name: string; onConfirm: () => void; onCancel: () => void }) {
+export function ConfirmDelete({
+  name,
+  onConfirm,
+  onCancel,
+  loading = false,
+}: {
+  name: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading?: boolean;
+}) {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }} onClick={onCancel}>
       <div className="bg-white rounded-[16px] w-full p-6" style={{ maxWidth: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }} onClick={e => e.stopPropagation()}>
@@ -29,8 +39,20 @@ export function ConfirmDelete({ name, onConfirm, onCancel }: { name: string; onC
           Are you sure you want to delete <strong style={{ color: "#1c1f29" }}>{name}</strong>? This cannot be undone.
         </p>
         <div className="flex gap-3">
-          <button onClick={onCancel} style={{ flex: 1, padding: "12px 0", borderRadius: 8, border: "1px solid #e5e8ed", background: "white", fontFamily: "Inter", fontWeight: 500, fontSize: 14, color: "#9499a6", cursor: "pointer" }}>Cancel</button>
-          <button onClick={onConfirm} style={{ flex: 1, padding: "12px 0", borderRadius: 8, border: "none", background: "#f25959", fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: "white", cursor: "pointer" }}>Delete</button>
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            style={{ flex: 1, padding: "12px 0", borderRadius: 8, border: "1px solid #e5e8ed", background: "white", fontFamily: "Inter", fontWeight: 500, fontSize: 14, color: "#9499a6", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            style={{ flex: 1, padding: "12px 0", borderRadius: 8, border: "none", background: "#f25959", fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: "white", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}
+          >
+            {loading ? "Deleting..." : "Delete"}
+          </button>
         </div>
       </div>
     </div>
@@ -46,24 +68,84 @@ export function DetailRow({ label, value }: { label: string; value: React.ReactN
   );
 }
 
-export function FormField({ label, value, onChange, type = "text", options }: { label: string; value: string; onChange: (v: string) => void; type?: string; options?: string[] }) {
-  const base: React.CSSProperties = { border: "1px solid #e5e8ed", fontFamily: "Inter", color: "#1c1f29", background: "white", width: "100%", padding: "12px 16px", borderRadius: 8, fontSize: 14, outline: "none" };
+export function FormField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  options?: string[];
+}) {
+  const base: React.CSSProperties = {
+    border: "1px solid #e5e8ed",
+    fontFamily: "Inter",
+    color: "#1c1f29",
+    background: "white",
+    width: "100%",
+    padding: "12px 16px",
+    borderRadius: 8,
+    fontSize: 14,
+    outline: "none",
+  };
   return (
     <div style={{ marginBottom: 16 }}>
       <p style={{ fontFamily: "Inter", fontWeight: 500, fontSize: 13, color: "#1c1f29", marginBottom: 6 }}>{label}</p>
-      {options
-        ? <select style={base} value={value} onChange={e => onChange(e.target.value)} onFocus={e => (e.target.style.borderColor = "#57b869")} onBlur={e => (e.target.style.borderColor = "#e5e8ed")}>{options.map(o => <option key={o} value={o}>{o}</option>)}</select>
-        : <input type={type} style={base} value={value} onChange={e => onChange(e.target.value)} onFocus={e => (e.target.style.borderColor = "#57b869")} onBlur={e => (e.target.style.borderColor = "#e5e8ed")} />
-      }
+      {options ? (
+        <select
+          style={base}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onFocus={e => (e.target.style.borderColor = "#57b869")}
+          onBlur={e => (e.target.style.borderColor = "#e5e8ed")}
+        >
+          {options.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      ) : (
+        <input
+          type={type}
+          style={base}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onFocus={e => (e.target.style.borderColor = "#57b869")}
+          onBlur={e => (e.target.style.borderColor = "#e5e8ed")}
+        />
+      )}
     </div>
   );
 }
 
-export function SaveCancel({ onCancel, onSave }: { onCancel: () => void; onSave: () => void }) {
+export function SaveCancel({
+  onCancel,
+  onSave,
+  saving = false,
+  saveLabel = "Save Changes",
+}: {
+  onCancel: () => void;
+  onSave: () => void;
+  saving?: boolean;
+  saveLabel?: string;
+}) {
   return (
     <div className="flex gap-3 mt-2">
-      <button onClick={onCancel} style={{ flex: 1, padding: "12px 0", borderRadius: 8, border: "1px solid #e5e8ed", background: "white", fontFamily: "Inter", fontWeight: 500, fontSize: 14, color: "#9499a6", cursor: "pointer" }}>Cancel</button>
-      <button onClick={onSave}   style={{ flex: 1, padding: "12px 0", borderRadius: 8, border: "none", background: "#57b869", fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: "white", cursor: "pointer" }}>Save Changes</button>
+      <button
+        onClick={onCancel}
+        disabled={saving}
+        style={{ flex: 1, padding: "12px 0", borderRadius: 8, border: "1px solid #e5e8ed", background: "white", fontFamily: "Inter", fontWeight: 500, fontSize: 14, color: "#9499a6", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}
+      >
+        Cancel
+      </button>
+      <button
+        onClick={onSave}
+        disabled={saving}
+        style={{ flex: 1, padding: "12px 0", borderRadius: 8, border: "none", background: "#57b869", fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: "white", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1 }}
+      >
+        {saving ? "Saving..." : saveLabel}
+      </button>
     </div>
   );
 }

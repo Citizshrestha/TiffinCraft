@@ -32,7 +32,7 @@ export function Pagination({
     "w-9 h-9 rounded-[6px] flex items-center justify-center text-[13px] cursor-pointer transition-all duration-150";
 
   return (
-    <div className="flex items-center justify-between w-full">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between w-full">
       <p
         className="text-[13px]"
         style={{

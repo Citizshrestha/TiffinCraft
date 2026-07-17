@@ -14,7 +14,10 @@ type StatusType =
   | "failed"
   | "refunded"
   | "verified"
-  | "unverified";
+  | "unverified"
+  | "confirmed"
+  | "preparing"
+  | "ready";
 
 const statusConfig: Record<
   StatusType,
@@ -77,6 +80,21 @@ const statusConfig: Record<
     bg: "rgba(242,199,64,0.12)",
     color: "#f2c740",
     label: "Unverified",
+  },
+  confirmed: {
+    bg: "rgba(87,184,105,0.12)",
+    color: "#57b869",
+    label: "Confirmed",
+  },
+  preparing: {
+    bg: "rgba(242,199,64,0.12)",
+    color: "#f2c740",
+    label: "Preparing",
+  },
+  ready: {
+    bg: "rgba(120,135,250,0.12)",
+    color: "#7887fa",
+    label: "Ready",
   },
 };
 
