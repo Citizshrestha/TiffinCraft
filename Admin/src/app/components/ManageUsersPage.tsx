@@ -1,33 +1,36 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { StatusBadge } from "./StatusBadge";
 import { Pagination } from "./Pagination";
 import { ActionButtons } from "./ActionButtons";
 import { Modal, ConfirmDelete, DetailRow, FormField, SaveCancel } from "./Modal";
+import {
+  User,
+  UStatus,
+  fetchUsers,
+  createUserApi,
+  updateUserApi,
+  deleteUserApi,
+} from "../api/usersApi";
+import { ApiError } from "../api/client";
+import { toBackendRole } from "../utils/format";
+import { useToast } from "./Toast";
 
 const PER_PAGE = 10;
-type UStatus = "active" | "inactive";
-interface User { id: number; name: string; email: string; role: string; phone: string; status: UStatus; joined: string; }
 
-const SEED: User[] = [
-  { id:1,  name:"Maria Rosser",    email:"maria.rosser@gmail.com",    role:"Customer", phone:"9863201472", status:"active",   joined:"May 15, 2022" },
-  { id:2,  name:"Rayna Carder",    email:"rayna.carder@yahoo.com",    role:"Customer", phone:"9052134786", status:"active",   joined:"May 14, 2022" },
-  { id:3,  name:"Talan Press",     email:"talan.press@outlook.com",   role:"Cook",     phone:"8765432190", status:"active",   joined:"May 13, 2022" },
-  { id:4,  name:"Marley Dokidis",  email:"marley.dokidis@gmail.com",  role:"Customer", phone:"9123456780", status:"inactive", joined:"May 12, 2022" },
-  { id:5,  name:"Marcus Rosser",   email:"marcus.rosser@email.com",   role:"Customer", phone:"8901234567", status:"active",   joined:"May 11, 2022" },
-  { id:6,  name:"Zaire Bergson",   email:"zaire.bergson@mail.com",    role:"Cook",     phone:"9876543210", status:"active",   joined:"May 10, 2022" },
-  { id:7,  name:"Lincoln Siphron", email:"lincoln.s@company.com",     role:"Customer", phone:"8765409123", status:"active",   joined:"May 09, 2022" },
-  { id:8,  name:"Priya Nair",      email:"priya.nair@gmail.com",      role:"Customer", phone:"9012345678", status:"active",   joined:"May 08, 2022" },
-  { id:9,  name:"Rahul Mehta",     email:"rahul.mehta@yahoo.com",     role:"Cook",     phone:"8123456789", status:"active",   joined:"May 07, 2022" },
-  { id:10, name:"Ananya Singh",    email:"ananya.singh@outlook.com",  role:"Customer", phone:"7012345678", status:"inactive", joined:"May 06, 2022" },
-  { id:11, name:"Dev Patel",       email:"dev.patel@gmail.com",       role:"Customer", phone:"9823456780", status:"active",   joined:"May 05, 2022" },
-  { id:12, name:"Meera Iyer",      email:"meera.iyer@mail.com",       role:"Cook",     phone:"8034567891", status:"active",   joined:"May 04, 2022" },
-];
+interface AddForm {
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  status: UStatus;
+  password: string;
+}
 
-const blank: Omit<User,"id"> = { name:"", email:"", role:"Customer", phone:"", status:"active", joined:"" };
+const blank: AddForm = { name: "", email: "", phone: "", role: "Customer", status: "active", password: "" };
 
-const ini = (n: string) => n.split(" ").map(x => x[0]).join("").toUpperCase();
+const ini = (n: string) => n.split(" ").filter(Boolean).map(x => x[0]).join("").toUpperCase();
 
-function validate(f: Omit<User,"id">): Record<string,string> {
+function validate(f: { name: string; email: string; phone: string }): Record<string,string> {
   const e: Record<string,string> = {};
   if (!f.name.trim())  e.name  = "Name is required";
   if (!f.email.trim()) e.email = "Email is required";
@@ -37,8 +40,19 @@ function validate(f: Omit<User,"id">): Record<string,string> {
   return e;
 }
 
+function validateAdd(f: AddForm): Record<string,string> {
+  const e = validate(f);
+  if (!f.password.trim()) e.password = "Password is required";
+  else if (f.password.length < 6) e.password = "Password must be at least 6 characters";
+  return e;
+}
+
 export function ManageUsersPage() {
-  const [rows,    setRows]    = useState<User[]>(SEED);
+  const [rows,    setRows]    = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const { showToast } = useToast();
+
   const [tab,     setTab]     = useState("all");
   const [search,  setSearch]  = useState("");
   const [page,    setPage]    = useState(1);
@@ -47,9 +61,27 @@ export function ManageUsersPage() {
   const [draft,   setDraft]   = useState<User|null>(null);
   const [del,     setDel]     = useState<User|null>(null);
   const [adding,  setAdding]  = useState(false);
-  const [addForm, setAddForm] = useState<Omit<User,"id">>(blank);
+  const [addForm, setAddForm] = useState<AddForm>(blank);
   const [addErrs, setAddErrs] = useState<Record<string,string>>({});
   const [editErrs,setEditErrs]= useState<Record<string,string>>({});
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [savingAdd,  setSavingAdd]  = useState(false);
+  const [deleting,   setDeleting]   = useState(false);
+
+  const loadUsers = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      const data = await fetchUsers();
+      setRows(data);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load users.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadUsers(); }, [loadUsers]);
 
   // Dynamic tab counts
   const counts = {
@@ -80,28 +112,76 @@ export function ManageUsersPage() {
 
   const startEdit = (u: User) => { setEditing(u); setDraft({...u}); setEditErrs({}); };
 
-  const saveEdit = () => {
-    if (!draft) return;
+  const saveEdit = async () => {
+    if (!draft || savingEdit) return;
     const errs = validate(draft);
     if (Object.keys(errs).length) { setEditErrs(errs); return; }
-    setRows(p => p.map(u => u.id===draft.id ? draft : u));
-    setEditing(null); setDraft(null); setEditErrs({});
+    setSavingEdit(true);
+    setEditErrs({});
+    try {
+      const updated = await updateUserApi(draft.id, {
+        full_name: draft.name,
+        email: draft.email,
+        phone: draft.phone,
+        role: toBackendRole(draft.role),
+        is_active: draft.status === "active",
+      });
+      setRows(p => p.map(u => u.id === updated.id ? updated : u));
+      setEditing(null); setDraft(null);
+      showToast("User updated successfully", "success");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update user.";
+      if (/email/i.test(message)) setEditErrs({ email: message });
+      else if (/phone/i.test(message)) setEditErrs({ phone: message });
+      else showToast(message, "error");
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
-  const doDelete = () => {
-    if (!del) return;
-    setRows(p => p.filter(u => u.id!==del.id));
-    setDel(null);
+  const doDelete = async () => {
+    if (!del || deleting) return;
+    setDeleting(true);
+    try {
+      await deleteUserApi(del.id);
+      setRows(p => p.filter(u => u.id !== del.id));
+      setDel(null);
+      showToast("User deleted successfully", "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to delete user.", "error");
+      setDel(null);
+    } finally {
+      setDeleting(false);
+    }
   };
 
-  const submitAdd = () => {
-    const errs = validate(addForm);
+  const submitAdd = async () => {
+    if (savingAdd) return;
+    const errs = validateAdd(addForm);
     if (Object.keys(errs).length) { setAddErrs(errs); return; }
-    const today = new Date().toLocaleDateString("en-US",{month:"short",day:"2-digit",year:"numeric"});
-    setRows(p => [...p, { ...addForm, id: Date.now(), joined: today }]);
-    setAdding(false);
-    setAddForm(blank);
+    setSavingAdd(true);
     setAddErrs({});
+    try {
+      const created = await createUserApi({
+        full_name: addForm.name,
+        email: addForm.email,
+        phone: addForm.phone,
+        role: toBackendRole(addForm.role),
+        password: addForm.password,
+        is_active: addForm.status === "active",
+      });
+      setRows(p => [created, ...p]);
+      setAdding(false);
+      setAddForm(blank);
+      showToast("User created successfully", "success");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to create user.";
+      if (/email/i.test(message)) setAddErrs({ email: message });
+      else if (/phone/i.test(message)) setAddErrs({ phone: message });
+      else showToast(message, "error");
+    } finally {
+      setSavingAdd(false);
+    }
   };
 
   const ErrMsg = ({ field, errs }: { field:string; errs:Record<string,string> }) =>
@@ -109,12 +189,13 @@ export function ManageUsersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p style={{fontFamily:"Inter",fontWeight:700,fontSize:28,color:"#1c1f29"}}>Manage Users</p>
           <p style={{fontFamily:"Inter",fontWeight:400,fontSize:14,color:"#9499a6",marginTop:4}}>View and manage all user data.</p>
         </div>
         <button onClick={()=>{setAdding(true);setAddForm(blank);setAddErrs({});}}
+          className="self-start shrink-0"
           style={{background:"#57b869",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:14,padding:"12px 20px",borderRadius:8,cursor:"pointer"}}>
           + Add User
         </button>
@@ -137,17 +218,27 @@ export function ManageUsersPage() {
       </div>
 
       <div className="bg-white rounded-[12px]" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
-        <div className="p-6">
+        <div className="p-4 sm:p-6 overflow-x-auto">
+          <div className="min-w-[980px]">
           <div className="flex gap-4 pb-4" style={{borderBottom:"1px solid #e5e8ed"}}>
             <p style={{width:40,flexShrink:0,fontFamily:"Inter",fontWeight:600,fontSize:12,color:"#9499a6"}}>S.N</p>
             {["Name","Role","Phone","Status","Joined On","Actions"].map((h,i)=>(
               <p key={h} style={{width:[240,120,140,100,120,110][i],flexShrink:0,fontFamily:"Inter",fontWeight:600,fontSize:12,color:"#9499a6"}}>{h}</p>
             ))}
           </div>
-          {visible.length === 0 && (
+          {loading && (
+            <p style={{fontFamily:"Inter",fontSize:14,color:"#9499a6",textAlign:"center",padding:"32px 0"}}>Loading users...</p>
+          )}
+          {!loading && loadError && (
+            <div style={{textAlign:"center",padding:"32px 0"}}>
+              <p style={{fontFamily:"Inter",fontSize:14,color:"#f25959",marginBottom:12}}>{loadError}</p>
+              <button onClick={loadUsers} style={{background:"#57b869",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:13,padding:"8px 16px",borderRadius:8,cursor:"pointer"}}>Retry</button>
+            </div>
+          )}
+          {!loading && !loadError && visible.length === 0 && (
             <p style={{fontFamily:"Inter",fontSize:14,color:"#9499a6",textAlign:"center",padding:"32px 0"}}>No users found.</p>
           )}
-          {visible.map((u,idx)=>(
+          {!loading && !loadError && visible.map((u,idx)=>(
             <div key={u.id}>
               <div className="flex gap-4 items-center py-4 rounded hover:bg-[#f7f8fa] transition-colors -mx-2 px-2">
                 <p style={{width:40,flexShrink:0,fontFamily:"Inter",fontWeight:500,fontSize:13,color:"#9499a6"}}>{(page-1)*PER_PAGE+idx+1}</p>
@@ -171,6 +262,7 @@ export function ManageUsersPage() {
               {idx<visible.length-1 && <div style={{height:1,background:"#f2f5f7"}}/>}
             </div>
           ))}
+          </div>
         </div>
       </div>
 
@@ -198,6 +290,7 @@ export function ManageUsersPage() {
       {/* Edit */}
       {editing && draft && (
         <Modal title="Edit User" onClose={()=>{setEditing(null);setDraft(null);setEditErrs({});}}>
+          {editErrs.general && <p style={{fontFamily:"Inter",fontSize:13,color:"#f25959",marginBottom:12}}>{editErrs.general}</p>}
           <FormField label="Full Name" value={draft.name}   onChange={v=>setDraft({...draft,name:v})}/>
           <ErrMsg field="name"  errs={editErrs}/>
           <FormField label="Email"     value={draft.email}  onChange={v=>setDraft({...draft,email:v})} type="email"/>
@@ -206,26 +299,29 @@ export function ManageUsersPage() {
           <ErrMsg field="phone" errs={editErrs}/>
           <FormField label="Role"      value={draft.role}   onChange={v=>setDraft({...draft,role:v})} options={["Customer","Cook","Admin"]}/>
           <FormField label="Status"    value={draft.status} onChange={v=>setDraft({...draft,status:v as UStatus})} options={["active","inactive"]}/>
-          <SaveCancel onCancel={()=>{setEditing(null);setDraft(null);setEditErrs({});}} onSave={saveEdit}/>
+          <SaveCancel onCancel={()=>{setEditing(null);setDraft(null);setEditErrs({});}} onSave={saveEdit} saving={savingEdit}/>
         </Modal>
       )}
 
       {/* Add */}
       {adding && (
         <Modal title="Add New User" onClose={()=>{setAdding(false);setAddErrs({});}}>
+          {addErrs.general && <p style={{fontFamily:"Inter",fontSize:13,color:"#f25959",marginBottom:12}}>{addErrs.general}</p>}
           <FormField label="Full Name" value={addForm.name}   onChange={v=>setAddForm({...addForm,name:v})}/>
           <ErrMsg field="name"  errs={addErrs}/>
           <FormField label="Email"     value={addForm.email}  onChange={v=>setAddForm({...addForm,email:v})} type="email"/>
           <ErrMsg field="email" errs={addErrs}/>
           <FormField label="Phone"     value={addForm.phone}  onChange={v=>setAddForm({...addForm,phone:v})}/>
           <ErrMsg field="phone" errs={addErrs}/>
+          <FormField label="Password"  value={addForm.password} onChange={v=>setAddForm({...addForm,password:v})} type="password"/>
+          <ErrMsg field="password" errs={addErrs}/>
           <FormField label="Role"      value={addForm.role}   onChange={v=>setAddForm({...addForm,role:v})} options={["Customer","Cook","Admin"]}/>
           <FormField label="Status"    value={addForm.status} onChange={v=>setAddForm({...addForm,status:v as UStatus})} options={["active","inactive"]}/>
-          <SaveCancel onCancel={()=>{setAdding(false);setAddErrs({});}} onSave={submitAdd}/>
+          <SaveCancel onCancel={()=>{setAdding(false);setAddErrs({});}} onSave={submitAdd} saving={savingAdd} saveLabel="Create User"/>
         </Modal>
       )}
 
-      {del && <ConfirmDelete name={del.name} onConfirm={doDelete} onCancel={()=>setDel(null)}/>}
+      {del && <ConfirmDelete name={del.name} onConfirm={doDelete} onCancel={()=>setDel(null)} loading={deleting}/>}
     </div>
   );
 }
