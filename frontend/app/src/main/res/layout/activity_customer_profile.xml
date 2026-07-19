@@ -4,8 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF"
-    tools:context=".activities.CustomerProfileActivity">
+    android:background="@color/bg_app"
+    tools:context=".activities.customer.CustomerProfileActivity">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -20,324 +20,392 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- ============ HEADER ============ -->
-            <LinearLayout
+            <!-- ============ IMMERSIVE FOREST HEADER ============ -->
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="20dp"
-                android:paddingTop="20dp"
-                android:paddingEnd="20dp"
-                android:paddingBottom="14dp">
+                android:layout_height="wrap_content">
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Profile"
-                    android:textColor="#111111"
-                    android:textSize="22sp"
-                    android:textStyle="bold" />
-
-                <ImageView
-                    android:id="@+id/btnSettings"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:clickable="true"
-                    android:contentDescription="Settings"
-                    android:focusable="true"
-                    android:src="@drawable/ic_settings"
-                    android:tint="#111111" />
-            </LinearLayout>
-
-            <!-- ============ PROFILE CARD ============ -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:paddingTop="12dp"
-                android:paddingBottom="20dp">
-
-                <FrameLayout
-                    android:layout_width="92dp"
-                    android:layout_height="92dp">
-
-                    <androidx.cardview.widget.CardView
-                        android:layout_width="92dp"
-                        android:layout_height="92dp"
-                        app:cardCornerRadius="46dp"
-                        app:cardElevation="2dp">
-
-                        <ImageView
-                            android:id="@+id/imgCustomerAvatar"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:contentDescription="Profile photo"
-                            android:scaleType="centerCrop"
-                            android:src="@drawable/avatar_customer" />
-                    </androidx.cardview.widget.CardView>
-
-                    <ImageView
-                        android:id="@+id/btnEditAvatar"
-                        android:layout_width="28dp"
-                        android:layout_height="28dp"
-                        android:layout_gravity="bottom|end"
-                        android:background="@drawable/edit_avatar_bg"
-                        android:clickable="true"
-                        android:contentDescription="Change photo"
-                        android:focusable="true"
-                        android:padding="6dp"
-                        android:src="@drawable/ic_camera"
-                        android:tint="#FFFFFF" />
-                </FrameLayout>
-
-                <TextView
-                    android:id="@+id/tvCustomerName"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:text="Priya Sharma"
-                    android:textColor="#111111"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvCustomerContact"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="+91 98765 44320 · priya.sharma@email.com"
-                    android:textColor="#888888"
-                    android:textSize="12.5sp" />
-
-                <!-- Foodie level badge -->
                 <LinearLayout
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:background="@drawable/badge_loyalty_bg"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingStart="14dp"
-                    android:paddingTop="7dp"
-                    android:paddingEnd="14dp"
-                    android:paddingBottom="7dp">
+                    android:background="@drawable/bg_header_forest"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:paddingBottom="58dp">
 
-                    <ImageView
-                        android:layout_width="14dp"
-                        android:layout_height="14dp"
-                        android:contentDescription="Foodie level"
-                        android:src="@drawable/ic_star"
-                        android:tint="#FFFFFF" />
-
-                    <TextView
-                        android:id="@+id/tvFoodieLevel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:text="Gold Foodie · 45 orders"
-                        android:textColor="#FFFFFF"
-                        android:textSize="11.5sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- ============ STATS ROW ============ -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginEnd="20dp"
-                android:layout_marginBottom="22dp"
-                android:orientation="horizontal">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="6dp"
-                    android:layout_weight="1"
-                    app:cardBackgroundColor="#FFFFFF"
-                    app:cardCornerRadius="16dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="#EFEFEF"
-                    app:strokeWidth="1dp">
-
+                    <!-- Title row -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="20dp"
+                        android:paddingTop="18dp"
+                        android:paddingEnd="20dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="My Profile"
+                            android:textColor="@color/white"
+                            android:textSize="22sp"
+                            android:textStyle="bold" />
+
+                        <FrameLayout
+                            android:layout_width="42dp"
+                            android:layout_height="42dp"
+                            android:background="@drawable/bg_circle_glass">
+
+                            <ImageView
+                                android:id="@+id/btnSettings"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:clickable="true"
+                                android:contentDescription="Settings"
+                                android:focusable="true"
+                                android:src="@drawable/ic_settings"
+                                android:tint="@color/white" />
+                        </FrameLayout>
+                    </LinearLayout>
+
+                    <!-- Avatar with white ring + camera badge -->
+                    <FrameLayout
+                        android:layout_width="106dp"
+                        android:layout_height="106dp"
+                        android:layout_marginTop="16dp">
+
+                        <FrameLayout
+                            android:layout_width="102dp"
+                            android:layout_height="102dp"
+                            android:layout_gravity="center"
+                            android:background="@drawable/bg_avatar_ring"
+                            android:padding="3dp">
+
+                            <androidx.cardview.widget.CardView
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                app:cardCornerRadius="48dp"
+                                app:cardElevation="0dp">
+
+                                <ImageView
+                                    android:id="@+id/imgCustomerAvatar"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:contentDescription="Profile photo"
+                                    android:scaleType="centerCrop"
+                                    android:src="@drawable/avatar_customer" />
+                            </androidx.cardview.widget.CardView>
+                        </FrameLayout>
+
+                        <ImageView
+                            android:id="@+id/btnEditAvatar"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:layout_gravity="bottom|end"
+                            android:background="@drawable/bg_edit_avatar_gold"
+                            android:clickable="true"
+                            android:contentDescription="Change photo"
+                            android:focusable="true"
+                            android:padding="7dp"
+                            android:src="@drawable/ic_camera"
+                            android:tint="@color/gold_deep" />
+
+                        <ImageView
+                            android:id="@+id/btnRotateAvatar"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:layout_gravity="bottom|start"
+                            android:background="@drawable/bg_edit_avatar_gold"
+                            android:clickable="true"
+                            android:contentDescription="Rotate photo"
+                            android:focusable="true"
+                            android:padding="6dp"
+                            android:src="@drawable/ic_refresh"
+                            android:tint="@color/gold_deep" />
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/tvCustomerName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Priya Sharma"
+                        android:textColor="@color/white"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvCustomerContact"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:paddingStart="24dp"
+                        android:paddingEnd="24dp"
+                        android:ellipsize="end"
                         android:gravity="center"
-                        android:orientation="vertical"
-                        android:padding="14dp">
+                        android:maxLines="1"
+                        android:text="+977 98765 44320 · priya@email.com"
+                        android:textColor="@color/mint_on_dark"
+                        android:textSize="12.5sp" />
+
+                    <!-- Foodie level — gold badge -->
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/bg_badge_gold"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="14dp"
+                        android:paddingTop="7dp"
+                        android:paddingEnd="14dp"
+                        android:paddingBottom="7dp">
+
+                        <ImageView
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:contentDescription="Foodie level"
+                            android:src="@drawable/ic_star"
+                            android:tint="@color/gold_deep" />
+
+                        <TextView
+                            android:id="@+id/tvFoodieLevel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="Gold Foodie · 45 orders"
+                            android:textColor="@color/gold_deep"
+                            android:textSize="11.5sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Decorative circles -->
+                <ImageView
+                    android:layout_width="140dp"
+                    android:layout_height="140dp"
+                    android:layout_gravity="top|start"
+                    android:layout_marginStart="-50dp"
+                    android:layout_marginTop="-40dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/bg_circle_deco" />
+
+                <ImageView
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    android:layout_gravity="bottom|end"
+                    android:layout_marginEnd="-35dp"
+                    android:layout_marginBottom="20dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/bg_circle_deco" />
+            </FrameLayout>
+
+            <!-- ============ FLOATING STATS CARD ============ -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="-36dp"
+                android:layout_marginEnd="20dp"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="6dp"
+                app:strokeWidth="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="18dp"
+                    android:paddingBottom="18dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
 
                         <TextView
                             android:id="@+id/tvTotalOrdersCustomer"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="45"
-                            android:textColor="#111111"
-                            android:textSize="18sp"
-                            android:textStyle="bold"
                             android:maxLines="1"
                             android:singleLine="true"
-                            android:ellipsize="none" />
+                            android:text="45"
+                            android:textColor="@color/text_ink"
+                            android:textSize="19sp"
+                            android:textStyle="bold" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
+                            android:layout_marginTop="3dp"
                             android:text="Total Orders"
-                            android:textColor="#999999"
+                            android:textColor="@color/text_disabled"
                             android:textSize="10.5sp" />
                     </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
 
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:layout_marginEnd="6dp"
-                    android:layout_weight="1"
-                    app:cardBackgroundColor="#FFFFFF"
-                    app:cardCornerRadius="16dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="#EFEFEF"
-                    app:strokeWidth="1dp">
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="34dp"
+                        android:layout_gravity="center_vertical"
+                        android:background="@color/stroke_soft" />
 
                     <LinearLayout
-                        android:layout_width="match_parent"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_weight="1"
                         android:gravity="center"
-                        android:orientation="vertical"
-                        android:padding="14dp">
+                        android:orientation="vertical">
 
                         <TextView
                             android:id="@+id/tvTotalSpentCustomer"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="₹8,940"
-                            android:textColor="#111111"
-                            android:textSize="18sp"
-                            android:textStyle="bold"
                             android:maxLines="1"
                             android:singleLine="true"
-                            android:ellipsize="none" />
+                            android:text="₹8,940"
+                            android:textColor="@color/text_ink"
+                            android:textSize="19sp"
+                            android:textStyle="bold" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
+                            android:layout_marginTop="3dp"
                             android:text="Total Spent"
-                            android:textColor="#999999"
+                            android:textColor="@color/text_disabled"
                             android:textSize="10.5sp" />
                     </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
 
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:layout_weight="1"
-                    app:cardBackgroundColor="#FFFFFF"
-                    app:cardCornerRadius="16dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="#EFEFEF"
-                    app:strokeWidth="1dp">
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="34dp"
+                        android:layout_gravity="center_vertical"
+                        android:background="@color/stroke_soft" />
 
                     <LinearLayout
-                        android:layout_width="match_parent"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_weight="1"
                         android:gravity="center"
-                        android:orientation="vertical"
-                        android:padding="14dp">
+                        android:orientation="vertical">
 
                         <TextView
                             android:id="@+id/tvMemberSince"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Mar 2025"
-                            android:textColor="#111111"
-                            android:textSize="15sp"
-                            android:textStyle="bold"
                             android:maxLines="1"
                             android:singleLine="true"
-                            android:ellipsize="none" />
+                            android:text="Mar 2025"
+                            android:textColor="@color/text_ink"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
+                            android:layout_marginTop="3dp"
                             android:text="Member Since"
-                            android:textColor="#999999"
+                            android:textColor="@color/text_disabled"
                             android:textSize="10.5sp" />
                     </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-            </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-            <!-- ============ ACTIVE SUBSCRIPTION CARD ============ -->
-            <LinearLayout
+            <!-- ============ ACTIVE SUBSCRIPTION ============ -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardSubscription"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="20dp"
+                android:layout_marginTop="18dp"
                 android:layout_marginEnd="20dp"
-                android:layout_marginBottom="22dp"
-                android:background="@drawable/status_banner_light_green"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="18dp"
-                android:paddingTop="14dp"
-                android:paddingEnd="14dp"
-                android:paddingBottom="14dp">
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/stroke_soft"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/tvSubscriptionStatus"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Lunch Thali Subscription Active"
-                        android:textColor="#111111"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="From Anita's Kitchen · Renews 5 Jul"
-                        android:textColor="#666666"
-                        android:textSize="11.5sp" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/btnManageSubscription"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/filter_tab_active"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:paddingStart="14dp"
-                    android:paddingTop="9dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="16dp"
+                    android:paddingTop="14dp"
                     android:paddingEnd="14dp"
-                    android:paddingBottom="9dp"
-                    android:text="Manage"
-                    android:textColor="#FFFFFF"
-                    android:textSize="11.5sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
+                    android:paddingBottom="14dp">
 
-            <!-- ============ QUICK ACTIONS ROW ============ -->
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/circle_bg_green_light">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Subscription"
+                            android:src="@drawable/ic_subscription"
+                            android:tint="@color/green_primary_dark" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvSubscriptionStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/text_ink"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold"
+                            tools:text="Lunch Thali Subscription Active" />
+
+                        <TextView
+                            android:id="@+id/tvSubscriptionDetail"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textColor="@color/text_subtitle"
+                            android:textSize="11.5sp"
+                            tools:text="From Anita's Kitchen · Renews 5 Jul" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/btnManageSubscription"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_pill_forest"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:paddingStart="14dp"
+                        android:paddingTop="9dp"
+                        android:paddingEnd="14dp"
+                        android:paddingBottom="9dp"
+                        android:text="Manage"
+                        android:textColor="@color/white"
+                        android:textSize="11.5sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- ============ QUICK ACTIONS ============ -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="20dp"
+                android:layout_marginTop="18dp"
                 android:layout_marginEnd="20dp"
-                android:layout_marginBottom="22dp"
                 android:orientation="horizontal">
 
                 <LinearLayout
@@ -346,27 +414,34 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
-                    android:background="@drawable/filter_tab_inactive"
+                    android:background="@drawable/bg_tile_white"
                     android:clickable="true"
                     android:focusable="true"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="12dp">
+                    android:paddingTop="16dp"
+                    android:paddingBottom="14dp">
 
-                    <ImageView
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:contentDescription="Order history"
-                        android:src="@drawable/ic_orders"
-                        android:tint="#4CAF50" />
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/circle_bg_green_light">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Order history"
+                            android:src="@drawable/ic_orders"
+                            android:tint="@color/green_primary_dark" />
+                    </FrameLayout>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="Orders"
-                        android:textColor="#333333"
+                        android:layout_marginTop="8dp"
+                        android:text="My Orders"
+                        android:textColor="@color/text_ink"
                         android:textSize="10.5sp"
                         android:textStyle="bold" />
                 </LinearLayout>
@@ -378,27 +453,34 @@
                     android:layout_marginStart="6dp"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
-                    android:background="@drawable/filter_tab_inactive"
+                    android:background="@drawable/bg_tile_white"
                     android:clickable="true"
                     android:focusable="true"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="12dp">
+                    android:paddingTop="16dp"
+                    android:paddingBottom="14dp">
 
-                    <ImageView
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:contentDescription="Favorite cooks"
-                        android:src="@drawable/ic_favorite"
-                        android:tint="#4CAF50" />
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/circle_bg_red_light">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Favorite cooks"
+                            android:src="@drawable/ic_favorite"
+                            android:tint="@color/red" />
+                    </FrameLayout>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
+                        android:layout_marginTop="8dp"
                         android:text="Favorites"
-                        android:textColor="#333333"
+                        android:textColor="@color/text_ink"
                         android:textSize="10.5sp"
                         android:textStyle="bold" />
                 </LinearLayout>
@@ -409,508 +491,213 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="6dp"
                     android:layout_weight="1"
-                    android:background="@drawable/filter_tab_inactive"
+                    android:background="@drawable/bg_tile_white"
                     android:clickable="true"
                     android:focusable="true"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="12dp">
+                    android:paddingTop="16dp"
+                    android:paddingBottom="14dp">
 
-                    <ImageView
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:contentDescription="Refer and earn"
-                        android:src="@drawable/ic_offers"
-                        android:tint="#4CAF50" />
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/circle_bg_orange_light">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Refer and earn"
+                            android:src="@drawable/ic_offers"
+                            android:tint="@color/orange_warm" />
+                    </FrameLayout>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
+                        android:layout_marginTop="8dp"
                         android:text="Refer &amp; Earn"
-                        android:textColor="#333333"
+                        android:textColor="@color/text_ink"
                         android:textSize="10.5sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- ============ ACCOUNT SETTINGS LIST ============ -->
+            <!-- ============ ACCOUNT DETAILS ============ -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
+                android:layout_marginStart="24dp"
+                android:layout_marginTop="24dp"
                 android:layout_marginBottom="10dp"
-                android:text="Account"
-                android:textColor="#999999"
-                android:textSize="12sp"
+                android:letterSpacing="0.08"
+                android:text="ACCOUNT DETAILS"
+                android:textColor="@color/text_disabled"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginEnd="20dp"
-                android:layout_marginBottom="20dp"
-                app:cardBackgroundColor="#FFFFFF"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:strokeColor="#EFEFEF"
-                app:strokeWidth="1dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <!-- Edit Profile -->
-                    <LinearLayout
-                        android:id="@+id/menuEditProfile"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="?attr/selectableItemBackground"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="Edit profile"
-                            android:src="@drawable/ic_kitchen"
-                            android:tint="#4CAF50" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="14dp"
-                            android:layout_weight="1"
-                            android:text="Edit Profile"
-                            android:textColor="#222222"
-                            android:textSize="14sp" />
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:contentDescription="Open"
-                            android:src="@drawable/ic_chevron_right"
-                            android:tint="#BBBBBB" />
-                    </LinearLayout>
-
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginStart="50dp"
-                        android:background="#F0F0F0" />
-
-                    <!-- Saved Addresses -->
-                    <LinearLayout
-                        android:id="@+id/menuSavedAddresses"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="?attr/selectableItemBackground"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="Saved addresses"
-                            android:src="@drawable/ic_location"
-                            android:tint="#4CAF50" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="14dp"
-                            android:layout_weight="1"
-                            android:text="Saved Addresses"
-                            android:textColor="#222222"
-                            android:textSize="14sp" />
-
-                        <TextView
-                            android:id="@+id/tvAddressCount"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginEnd="8dp"
-                            android:text="3"
-                            android:textColor="#999999"
-                            android:textSize="12.5sp" />
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:contentDescription="Open"
-                            android:src="@drawable/ic_chevron_right"
-                            android:tint="#BBBBBB" />
-                    </LinearLayout>
-
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginStart="50dp"
-                        android:background="#F0F0F0" />
-
-                    <!-- Payment Methods -->
-                    <LinearLayout
-                        android:id="@+id/menuPaymentMethods"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="?attr/selectableItemBackground"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="Payment methods"
-                            android:src="@drawable/ic_wallet"
-                            android:tint="#4CAF50" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="14dp"
-                            android:layout_weight="1"
-                            android:text="Payment Methods"
-                            android:textColor="#222222"
-                            android:textSize="14sp" />
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:contentDescription="Open"
-                            android:src="@drawable/ic_chevron_right"
-                            android:tint="#BBBBBB" />
-                    </LinearLayout>
-
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginStart="50dp"
-                        android:background="#F0F0F0" />
-
-                    <!-- Dietary Preferences -->
-                    <LinearLayout
-                        android:id="@+id/menuDietaryPreferences"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="?attr/selectableItemBackground"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="Dietary preferences"
-                            android:src="@drawable/ic_document"
-                            android:tint="#4CAF50" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="14dp"
-                            android:layout_weight="1"
-                            android:text="Dietary Preferences"
-                            android:textColor="#222222"
-                            android:textSize="14sp" />
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:contentDescription="Open"
-                            android:src="@drawable/ic_chevron_right"
-                            android:tint="#BBBBBB" />
-                    </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- ============ NOTIFICATIONS TOGGLE ============ -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginBottom="10dp"
-                android:text="Preferences"
-                android:textColor="#999999"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginEnd="20dp"
-                android:layout_marginBottom="20dp"
-                app:cardBackgroundColor="#FFFFFF"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:strokeColor="#EFEFEF"
-                app:strokeWidth="1dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <!-- Push notifications -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="Push notifications"
-                            android:src="@drawable/ic_notifications"
-                            android:tint="#4CAF50" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="14dp"
-                            android:layout_weight="1"
-                            android:text="Push Notifications"
-                            android:textColor="#222222"
-                            android:textSize="14sp" />
-
-                        <androidx.appcompat.widget.SwitchCompat
-                            android:id="@+id/switchPushNotifications"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:checked="true"
-                            android:thumbTint="#FFFFFF"
-                            android:trackTint="#C8E6C9" />
-                    </LinearLayout>
-
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginStart="50dp"
-                        android:background="#F0F0F0" />
-
-                    <!-- Order updates via SMS -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="SMS order updates"
-                            android:src="@drawable/ic_chat"
-                            android:tint="#4CAF50" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="14dp"
-                            android:layout_weight="1"
-                            android:text="SMS Order Updates"
-                            android:textColor="#222222"
-                            android:textSize="14sp" />
-
-                        <androidx.appcompat.widget.SwitchCompat
-                            android:id="@+id/switchSmsUpdates"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:checked="false"
-                            android:thumbTint="#FFFFFF"
-                            android:trackTint="#C8E6C9" />
-                    </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- ============ SUPPORT LIST ============ -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginBottom="10dp"
-                android:text="Support"
-                android:textColor="#999999"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginEnd="20dp"
-                android:layout_marginBottom="20dp"
-                app:cardBackgroundColor="#FFFFFF"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:strokeColor="#EFEFEF"
-                app:strokeWidth="1dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <!-- Help & Support -->
-                    <LinearLayout
-                        android:id="@+id/menuHelpSupportCustomer"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="?attr/selectableItemBackground"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="Help and support"
-                            android:src="@drawable/ic_help"
-                            android:tint="#4CAF50" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="14dp"
-                            android:layout_weight="1"
-                            android:text="Help &amp; Support"
-                            android:textColor="#222222"
-                            android:textSize="14sp" />
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:contentDescription="Open"
-                            android:src="@drawable/ic_chevron_right"
-                            android:tint="#BBBBBB" />
-                    </LinearLayout>
-
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginStart="50dp"
-                        android:background="#F0F0F0" />
-
-                    <!-- Rate the App -->
-                    <LinearLayout
-                        android:id="@+id/menuRateApp"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="?attr/selectableItemBackground"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="Rate the app"
-                            android:src="@drawable/ic_star"
-                            android:tint="#4CAF50" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="14dp"
-                            android:layout_weight="1"
-                            android:text="Rate TiffinCraft"
-                            android:textColor="#222222"
-                            android:textSize="14sp" />
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:contentDescription="Open"
-                            android:src="@drawable/ic_chevron_right"
-                            android:tint="#BBBBBB" />
-                    </LinearLayout>
-
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginStart="50dp"
-                        android:background="#F0F0F0" />
-
-                    <!-- About TiffinCraft -->
-                    <LinearLayout
-                        android:id="@+id/menuAboutCustomer"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="?attr/selectableItemBackground"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="About"
-                            android:src="@drawable/ic_info"
-                            android:tint="#4CAF50" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="14dp"
-                            android:layout_weight="1"
-                            android:text="About TiffinCraft"
-                            android:textColor="#222222"
-                            android:textSize="14sp" />
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:contentDescription="Open"
-                            android:src="@drawable/ic_chevron_right"
-                            android:tint="#BBBBBB" />
-                    </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- ============ LOGOUT BUTTON ============ -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnLogoutCustomer"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
                 android:layout_marginStart="20dp"
                 android:layout_marginEnd="20dp"
                 android:layout_marginBottom="24dp"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:text="Log Out"
-                android:textAllCaps="false"
-                android:textColor="#E53935"
-                android:textSize="14.5sp"
-                android:textStyle="bold"
-                app:backgroundTint="#FFFFFF"
-                app:cornerRadius="26dp"
-                app:elevation="0dp"
-                app:icon="@drawable/ic_logout"
-                app:iconGravity="textStart"
-                app:iconTint="#E53935"
-                app:strokeColor="#E53935"
-                app:strokeWidth="1.2dp" />
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/stroke_soft"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- Phone -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:padding="14dp">
+
+                        <FrameLayout
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:background="@drawable/circle_bg_green_light">
+
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Phone"
+                                android:src="@drawable/ic_phone"
+                                android:tint="@color/green_primary_dark" />
+                        </FrameLayout>
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:layout_weight="1"
+                            android:text="Phone"
+                            android:textColor="@color/text_subtitle"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfilePhoneCustomer"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="—"
+                            android:textColor="@color/text_ink"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="62dp"
+                        android:background="@color/stroke_soft" />
+
+                    <!-- Email -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:padding="14dp">
+
+                        <FrameLayout
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:background="@drawable/circle_bg_green_light">
+
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Email"
+                                android:src="@drawable/ic_email"
+                                android:tint="@color/green_primary_dark" />
+                        </FrameLayout>
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:layout_weight="1"
+                            android:text="Email"
+                            android:textColor="@color/text_subtitle"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfileEmailCustomer"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1.6"
+                            android:ellipsize="end"
+                            android:gravity="end"
+                            android:maxLines="1"
+                            android:text="—"
+                            android:textColor="@color/text_ink"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="62dp"
+                        android:background="@color/stroke_soft" />
+
+                    <!-- Address -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:padding="14dp">
+
+                        <FrameLayout
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:background="@drawable/circle_bg_green_light">
+
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Address"
+                                android:src="@drawable/ic_location"
+                                android:tint="@color/green_primary_dark" />
+                        </FrameLayout>
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:layout_weight="1"
+                            android:text="Address"
+                            android:textColor="@color/text_subtitle"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfileAddressCustomer"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1.6"
+                            android:ellipsize="end"
+                            android:gravity="end"
+                            android:maxLines="2"
+                            android:text="—"
+                            android:textColor="@color/text_ink"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
 
@@ -922,8 +709,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:background="#FFFFFF"
-        app:elevation="8dp"
+        android:background="@color/white"
+        app:elevation="12dp"
         app:itemActiveIndicatorStyle="@null"
         app:itemIconTint="@color/bottom_nav_color"
         app:itemRippleColor="#1A4CAF50"

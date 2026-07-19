@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF"
+    android:background="@color/bg_app"
     tools:context=".activities.customer.CustomerMenuActivity">
 
     <androidx.core.widget.NestedScrollView
@@ -12,6 +12,7 @@
         android:layout_height="match_parent"
         android:fillViewport="true"
         android:clipToPadding="false"
+        android:overScrollMode="never"
         android:paddingBottom="90dp">
 
         <LinearLayout
@@ -19,75 +20,117 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Header -->
-            <LinearLayout
+            <!-- ============ IMMERSIVE FOREST HEADER ============ -->
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="#FFFFFF"
-                android:paddingStart="20dp"
-                android:paddingTop="20dp"
-                android:paddingEnd="20dp"
-                android:paddingBottom="18dp">
+                android:layout_height="wrap_content">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Browse Menu 🍽️"
-                    android:textColor="#111111"
-                    android:textSize="24sp"
-                    android:textStyle="bold" />
+                    android:background="@drawable/bg_header_forest"
+                    android:orientation="vertical"
+                    android:paddingStart="20dp"
+                    android:paddingTop="18dp"
+                    android:paddingEnd="20dp"
+                    android:paddingBottom="52dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Discover delicious homemade meals"
-                    android:textColor="#777777"
-                    android:textSize="13.5sp" />
-            </LinearLayout>
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
-            <!-- Search Bar -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Browse Menu 🍽️"
+                                android:textColor="@color/white"
+                                android:textSize="24sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="5dp"
+                                android:text="Add meals from any cook to one cart"
+                                android:textColor="@color/mint_on_dark"
+                                android:textSize="13.5sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Decorative circles over the gradient -->
+                <ImageView
+                    android:layout_width="150dp"
+                    android:layout_height="150dp"
+                    android:layout_gravity="top|end"
+                    android:layout_marginTop="-50dp"
+                    android:layout_marginEnd="-40dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/bg_circle_deco" />
+
+                <ImageView
+                    android:layout_width="90dp"
+                    android:layout_height="90dp"
+                    android:layout_gravity="bottom|start"
+                    android:layout_marginStart="-30dp"
+                    android:layout_marginBottom="10dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/bg_circle_deco" />
+            </FrameLayout>
+
+            <!-- ============ FLOATING SEARCH BAR ============ -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/searchBar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="20dp"
+                android:layout_marginTop="-30dp"
                 android:layout_marginEnd="20dp"
-                android:layout_marginBottom="20dp"
                 android:clickable="true"
                 android:focusable="true"
-                app:cardBackgroundColor="#F8F8F8"
-                app:cardCornerRadius="14dp"
-                app:cardElevation="0dp">
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="30dp"
+                app:cardElevation="8dp"
+                app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
-                    android:padding="14dp">
+                    android:paddingStart="18dp"
+                    android:paddingTop="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="10dp">
 
                     <ImageView
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:contentDescription="Search"
                         android:src="@drawable/ic_search"
-                        android:tint="#999999" />
+                        android:tint="@color/forest" />
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="12dp"
                         android:layout_weight="1"
-                        android:text="Search meals or cooks..."
-                        android:textColor="#999999"
+                        android:text="Search meals or cooks…"
+                        android:textColor="@color/text_disabled"
                         android:textSize="14sp" />
 
                     <FrameLayout
                         android:id="@+id/btnFilter"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
                         android:background="@drawable/circle_icon_green"
                         android:clickable="true"
                         android:focusable="true">
@@ -98,7 +141,7 @@
                             android:layout_gravity="center"
                             android:contentDescription="Filter"
                             android:src="@drawable/ic_filter"
-                            android:tint="#4CAF50" />
+                            android:tint="@color/green_primary_dark" />
                     </FrameLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -110,7 +153,8 @@
                 android:scrollbars="none"
                 android:paddingStart="20dp"
                 android:paddingEnd="20dp"
-                android:layout_marginBottom="20dp">
+                android:layout_marginTop="18dp"
+                android:layout_marginBottom="16dp">
 
                 <com.google.android.material.chip.ChipGroup
                     android:id="@+id/chipGroupFilter"
@@ -196,7 +240,7 @@
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
                     android:layout_marginTop="40dp"
-                    android:indeterminateTint="#4CAF50"
+                    android:indeterminateTint="@color/green_primary"
                     android:visibility="gone" />
 
                 <!-- Empty State -->

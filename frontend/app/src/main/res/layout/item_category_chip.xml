@@ -7,28 +7,28 @@
     android:layout_marginEnd="10dp"
     android:clickable="true"
     android:focusable="true"
-    app:cardBackgroundColor="#F8F8F8"
-    app:cardCornerRadius="12dp"
+    app:cardBackgroundColor="@color/white"
+    app:cardCornerRadius="22dp"
     app:cardElevation="0dp"
-    app:strokeColor="#EFEFEF"
-    app:strokeWidth="0dp">
+    app:strokeColor="@color/stroke_soft"
+    app:strokeWidth="1dp">
 
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center"
         android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingTop="10dp"
+        android:paddingStart="14dp"
+        android:paddingTop="9dp"
         android:paddingEnd="16dp"
-        android:paddingBottom="10dp">
+        android:paddingBottom="9dp">
 
         <TextView
             android:id="@+id/tvCategoryEmoji"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="🍛"
-            android:textSize="18sp" />
+            android:textSize="17sp" />
 
         <TextView
             android:id="@+id/tvCategoryName"
@@ -36,7 +36,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:text="Nepali"
-            android:textColor="#555555"
+            android:textColor="@color/text_ink"
             android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>

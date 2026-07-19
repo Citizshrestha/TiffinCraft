@@ -12,6 +12,11 @@
     <color name="green_surface_light">#F1F8F4</color>
     <color name="green_brand">#66BB6A</color>
 
+    <!-- Payment status chip text colors (paired with status_chip_pending/preparing/delivered backgrounds) -->
+    <color name="status_pending_text">#757575</color>
+    <color name="status_preparing_text">#A8660B</color>
+    <color name="status_delivered_text">#388E3C</color>
+
     <!-- Onboarding colors -->
     <color name="cream_bg">#FAF6EE</color>
     <color name="brown_dark">#3E1F00</color>
@@ -55,4 +60,22 @@
     <color name="green_light">#E8F5E9</color>
     <color name="red_light">#FFEBEE</color>
     <color name="blue_light">#E3F2FD</color>
+
+    <!-- Settings row icon accents (kept distinct so a whole screen isn't one repeated color) -->
+    <color name="purple_accent">#7C4DFF</color>
+    <color name="teal_accent">#26A69A</color>
+    <color name="indigo_accent">#5C6BC0</color>
+    <color name="slate_accent">#607D8B</color>
+
+    <!-- Premium customer redesign palette -->
+    <color name="forest_deep">#0C3B20</color>
+    <color name="forest">#145C31</color>
+    <color name="forest_bright">#1E7C42</color>
+    <color name="mint_on_dark">#CDE7D3</color>
+    <color name="mint_faint_on_dark">#9CC9A9</color>
+    <color name="gold_accent">#F5B301</color>
+    <color name="gold_deep">#5C4300</color>
+    <color name="bg_app">#F6F8F3</color>
+    <color name="stroke_soft">#EAEFE7</color>
+    <color name="text_ink">#14210F</color>
 </resources>

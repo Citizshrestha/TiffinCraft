@@ -37,17 +37,19 @@
             android:padding="20dp">
             
             <TextView
+                android:id="@+id/tvOrderId"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Order #TC123456"
                 android:textColor="@color/text_title"
                 android:textSize="16sp"
                 android:textStyle="bold" />
-                
+
             <TextView
+                android:id="@+id/tvOrderDate"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="22 May 2024, 12:30 PM"
+                android:text=""
                 android:textColor="@color/text_subtitle"
                 android:textSize="13sp" />
 
@@ -61,26 +63,90 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/tvOrderItems"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="1x Lunch Tiffin (Anita\'s Kitchen)\n- Roti (2)\n- Sabzi\n- Dal\n- Rice"
+                android:text=""
                 android:textColor="@color/text_on_light" />
 
             <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/input_border" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
 
             <TextView
+                android:id="@+id/tvTotalAmount"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Total Amount: ₹ 120"
+                android:text="Total Amount: ₹ 0"
                 android:textColor="@color/green_primary"
                 android:textSize="16sp"
                 android:textStyle="bold" />
+
+            <!-- ══════ PAYMENT SECTION (online only) ════════ -->
+            <LinearLayout
+                android:id="@+id/layoutPaymentSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/input_border" android:layout_marginBottom="16dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Payment"
+                    android:textColor="@color/text_title"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvPaymentStatusBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:paddingStart="12dp"
+                    android:paddingTop="4dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="4dp"
+                    android:text="Pending"
+                    android:textColor="@color/status_pending_text"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <ImageView
+                    android:id="@+id/ivPaymentScreenshot"
+                    android:layout_width="match_parent"
+                    android:layout_height="200dp"
+                    android:layout_marginTop="12dp"
+                    android:contentDescription="Payment Screenshot"
+                    android:scaleType="fitCenter"
+                    android:visibility="gone" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnUploadPayment"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:text="Upload Payment Screenshot"
+                    android:textAllCaps="false"
+                    android:textColor="@color/white"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    app:backgroundTint="@color/green_primary"
+                    app:cornerRadius="12dp"
+                    app:icon="@drawable/ic_upload"
+                    app:iconGravity="textStart"
+                    app:iconTint="@color/white" />
+
+            </LinearLayout>
+
             <Button
                 android:id="@+id/btnTrackOrder"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="16dp"
                 android:backgroundTint="@color/orange_warm"
                 android:text="Track Order"
                 android:textColor="@color/white"

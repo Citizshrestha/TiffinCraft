@@ -91,6 +91,19 @@
                         android:padding="6dp"
                         android:src="@drawable/ic_camera"
                         android:tint="#FFFFFF" />
+
+                    <ImageView
+                        android:id="@+id/btnRotateAvatar"
+                        android:layout_width="26dp"
+                        android:layout_height="26dp"
+                        android:layout_gravity="bottom|start"
+                        android:background="@drawable/edit_avatar_bg"
+                        android:clickable="true"
+                        android:contentDescription="Rotate photo"
+                        android:focusable="true"
+                        android:padding="5dp"
+                        android:src="@drawable/ic_refresh"
+                        android:tint="#FFFFFF" />
                 </FrameLayout>
 
                 <TextView

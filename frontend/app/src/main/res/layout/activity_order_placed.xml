@@ -25,12 +25,14 @@
         android:textStyle="bold" />
 
     <TextView
-        android:layout_width="wrap_content"
+        android:id="@+id/tvOrderMessage"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Order ID: TC123456"
+        android:gravity="center"
+        android:text="Your cook has been notified of your order."
         android:textColor="@color/text_subtitle"
-        android:textSize="16sp" />
+        android:textSize="15sp" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnTrackOrder"

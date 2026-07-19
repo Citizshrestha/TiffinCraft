@@ -247,7 +247,7 @@
                 android:layout_height="match_parent"
                 android:background="#F0F0F0" />
 
-            <!-- Response Time -->
+            <!-- Verification Status -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -259,16 +259,16 @@
                     android:id="@+id/tvResponseTime"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="30 min"
+                    android:text="Verified"
                     android:textColor="#1E1E1E"
                     android:textSize="18sp"
                     android:textStyle="bold"
-                    tools:text="30 min" />
+                    tools:text="Verified" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Delivery"
+                    android:text="Status"
                     android:textColor="#9E9E9E"
                     android:textSize="11sp" />
 

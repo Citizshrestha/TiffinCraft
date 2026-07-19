@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF"
+    android:background="@color/bg_app"
     tools:context=".activities.customer.FavoritesActivity">
 
     <!-- Main Content -->
@@ -13,6 +13,7 @@
         android:layout_height="match_parent"
         android:fillViewport="true"
         android:clipToPadding="false"
+        android:overScrollMode="never"
         android:paddingBottom="90dp">
 
         <LinearLayout
@@ -20,39 +21,55 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Header -->
-            <LinearLayout
+            <!-- ============ IMMERSIVE FOREST HEADER ============ -->
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="#FFFFFF"
-                android:paddingStart="20dp"
-                android:paddingTop="20dp"
-                android:paddingEnd="20dp"
-                android:paddingBottom="18dp">
+                android:layout_height="wrap_content">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="My Favorites ❤️"
-                    android:textColor="#111111"
-                    android:textSize="24sp"
-                    android:textStyle="bold" />
+                    android:background="@drawable/bg_header_forest"
+                    android:orientation="vertical"
+                    android:paddingStart="20dp"
+                    android:paddingTop="18dp"
+                    android:paddingEnd="20dp"
+                    android:paddingBottom="24dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Your favorite cooks and meals"
-                    android:textColor="#777777"
-                    android:textSize="13.5sp" />
-            </LinearLayout>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="My Favorites ❤️"
+                        android:textColor="@color/white"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:text="Your favorite cooks and meals"
+                        android:textColor="@color/mint_on_dark"
+                        android:textSize="13.5sp" />
+                </LinearLayout>
+
+                <!-- Decorative circles over the gradient -->
+                <ImageView
+                    android:layout_width="130dp"
+                    android:layout_height="130dp"
+                    android:layout_gravity="top|end"
+                    android:layout_marginTop="-40dp"
+                    android:layout_marginEnd="-35dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/bg_circle_deco" />
+            </FrameLayout>
 
             <!-- Content Area -->
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:paddingStart="20dp"
+                android:paddingTop="20dp"
                 android:paddingEnd="20dp"
                 android:paddingBottom="20dp">
 
