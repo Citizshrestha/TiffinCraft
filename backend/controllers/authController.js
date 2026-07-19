@@ -43,6 +43,16 @@ export const registerUser = async (req, res) => {
              otp, otpExpiry, false, 'local']
         );
 
+        // Every cook needs a cook_profiles row — all cook-side endpoints
+        // (profile, holiday mode, nearby search) join on it and 404 without it.
+        if (role === "cook") {
+            await db.promise().query(
+                `INSERT INTO cook_profiles (user_id, kitchen_name, is_approved)
+                 VALUES (?, ?, TRUE)`,
+                [result.insertId, `${full_name}'s Kitchen`]
+            );
+        }
+
         const emailResult = await sendOTPEmail(email, otp, full_name);
 
         if (!emailResult.success) {
@@ -62,6 +72,7 @@ export const registerUser = async (req, res) => {
         }
 
         return res.status(201).json({
+            success: true,
             message: "OTP sent to your email. Please verify to complete registration.",
             email: email,
             userId: result.insertId
@@ -393,6 +404,57 @@ export const resetPassword = async (req, res) => {
     }
 };
 
+/**
+ * PUT /api/auth/change-password
+ * Change password for the logged-in user (requires current password).
+ */
+export const changePassword = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "Current password and new password are required."
+            });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: "New password must be at least 6 characters."
+            });
+        }
+
+        const [users] = await db.promise().query(
+            "SELECT * FROM users WHERE id = ?", [userId]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({ success: false, message: "User not found." });
+        }
+
+        const user = users[0];
+        const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: "Current password is incorrect." });
+        }
+
+        const password_hash = await bcrypt.hash(newPassword, 10);
+
+        await db.promise().query(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            [password_hash, userId]
+        );
+
+        return res.status(200).json({ success: true, message: "Password changed successfully." });
+
+    } catch (error) {
+        return res.status(500).json({ success: false, message: "Server error.", error: error.message });
+    }
+};
+
 // Get customer profile
 export const getCustomerProfile = async (req, res) => {
     try {
@@ -569,10 +631,14 @@ export const uploadCustomerProfileImage = async (req, res) => {
             [imageUrl, userId]
         );
 
+        // Shape must match the Android UploadResponse model ({ data: { url } });
+        // returning image_url at the top level made getData() null and crashed
+        // the app with a NullPointerException on getData().getUrl().
         return res.status(200).json({
             success: true,
             message: "Profile image uploaded successfully.",
-            image_url: imageUrl
+            image_url: imageUrl,
+            data: { url: imageUrl }
         });
 
     } catch (error) {
@@ -725,6 +791,122 @@ export const updateUserProfile = async (req, res) => {
             message: "Server error",
             error: error.message
         });
+    }
+};
+
+/**
+ * PUT /api/auth/fcm-token
+ * Save (or update) the logged-in user's FCM device token for push notifications.
+ */
+export const updateFcmToken = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { fcm_token } = req.body;
+
+        if (!fcm_token || typeof fcm_token !== 'string' || fcm_token.trim().length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "fcm_token is required"
+            });
+        }
+
+        await db.promise().query(
+            "UPDATE users SET fcm_token = ? WHERE id = ?",
+            [fcm_token.trim(), userId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "FCM token updated successfully"
+        });
+    } catch (error) {
+        console.error("updateFcmToken error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message
+        });
+    }
+};
+
+/**
+ * DELETE /api/auth/account
+ * Self-service account deletion. Requires current password for confirmation.
+ * Handles any role (customer, cook, admin). Uses a TRANSACTION so that if
+ * anything fails the user is not left in a half-deleted state.
+ *
+ * IMPORTANT: The DB uses ON DELETE CASCADE on all foreign keys referencing
+ * users(id) — cook_profiles, orders, order_items, reviews, notifications,
+ * cart, favorites, conversations, messages, etc. are all deleted automatically
+ * when the user row is removed. There is NO per-table cleanup needed here.
+ */
+export const deleteOwnAccount = async (req, res) => {
+    const connection = await db.promise().getConnection();
+    try {
+        const userId = req.user.id;
+        const { password } = req.body;
+
+        if (!password) {
+            return res.status(400).json({
+                success: false,
+                message: "Current password is required to delete your account."
+            });
+        }
+
+        // Fetch user to verify password
+        const [users] = await connection.query(
+            "SELECT id, password_hash, full_name, email, role FROM users WHERE id = ?",
+            [userId]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({ success: false, message: "User not found." });
+        }
+
+        const user = users[0];
+
+        // Verify password
+        const isMatch = await bcrypt.compare(password, user.password_hash);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: "Password is incorrect." });
+        }
+
+        await connection.beginTransaction();
+
+        // Log deleted user info for audit before deletion
+        console.log(`🔴 User ${user.id} (${user.email}, ${user.role}) requested account deletion.`);
+
+        // Delete the user — ON DELETE CASCADE handles all related tables
+        await connection.query("DELETE FROM users WHERE id = ?", [userId]);
+
+        await connection.commit();
+
+        console.log(`✅ User ${user.id} (${user.email}) account permanently deleted.`);
+
+        return res.status(200).json({
+            success: true,
+            message: "Your account has been permanently deleted. We're sorry to see you go."
+        });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error("deleteOwnAccount error:", error);
+
+        // If CASCADE fails on FK constraint, give a helpful message instead of a raw stack trace
+        if (error.code === "ER_ROW_IS_REFERENCED_2" || error.code === "ER_ROW_IS_REFERENCED") {
+            return res.status(409).json({
+                success: false,
+                message: "Unable to delete account due to linked records. Please contact support."
+            });
+        }
+
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    } finally {
+        connection.release();
     }
 };
 

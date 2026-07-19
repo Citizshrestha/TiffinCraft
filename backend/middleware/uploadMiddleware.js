@@ -24,6 +24,36 @@ const upload = multer({
   }
 });
 
+const chatMediaFileFilter = (req, file, cb) => {
+  const allowedMimeTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'video/mp4',
+    'video/mpeg',
+    'video/quicktime',
+    'video/webm',
+    'video/x-matroska',
+    'video/3gpp'
+  ];
+
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only images and videos are allowed.'), false);
+  }
+};
+
+const chatMediaUpload = multer({
+  storage: storage,
+  fileFilter: chatMediaFileFilter,
+  limits: {
+    fileSize: 100 * 1024 * 1024
+  }
+});
+
 // Middleware for single image upload
 export const uploadSingle = (fieldName) => upload.single(fieldName);
 
@@ -32,6 +62,9 @@ export const uploadMultiple = (fieldName, maxCount = 10) => upload.array(fieldNa
 
 // Middleware for multiple fields with images
 export const uploadFields = (fields) => upload.fields(fields);
+
+// Middleware for chat image/video upload
+export const uploadChatMediaSingle = (fieldName) => chatMediaUpload.single(fieldName);
 
 // Error handler for multer errors
 export const handleUploadError = (error, req, res, next) => {
@@ -68,5 +101,7 @@ export default {
   uploadSingle,
   uploadMultiple,
   uploadFields,
+  uploadChatMediaSingle,
   handleUploadError
 };
+

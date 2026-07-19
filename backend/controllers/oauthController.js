@@ -105,6 +105,15 @@ export const verifyGoogleToken = async (req, res) => {
             [name, email, '', userRole, googleId, 'google', true, true]
         );
 
+        // Cook-side endpoints join on cook_profiles — create the row up front.
+        if (userRole === 'cook') {
+            await db.promise().query(
+                `INSERT INTO cook_profiles (user_id, kitchen_name, is_approved)
+                 VALUES (?, ?, TRUE)`,
+                [result.insertId, `${name}'s Kitchen`]
+            );
+        }
+
         const [newUser] = await db.promise().query(
             'SELECT * FROM users WHERE id = ?',
             [result.insertId]
