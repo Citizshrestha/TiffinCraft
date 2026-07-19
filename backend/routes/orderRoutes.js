@@ -7,10 +7,15 @@ import {
     getCookOrders,
     updateOrderStatus,
     cancelOrder,
+    cookCancelOrder,
     getCookEarnings,
     uploadPaymentScreenshot,
     verifyPayment
 } from "../controllers/orderController.js";
+import {
+    getCookEarningsSummary,
+    getCookEarningsTransactions
+} from "../controllers/earningsController.js";
 
 const router = Router();
 
@@ -21,8 +26,11 @@ router.post("/:orderId/payment-screenshot", protect, roleOnly("customer"), uploa
 
 router.get("/cook/my", protect, roleOnly("cook"), getCookOrders);
 router.get("/cook/earnings", protect, roleOnly("cook"), getCookEarnings);
+router.get("/cook/earnings/summary", protect, roleOnly("cook"), getCookEarningsSummary);
+router.get("/cook/earnings/transactions", protect, roleOnly("cook"), getCookEarningsTransactions);
 router.put("/:orderId/status", protect, roleOnly("cook"), updateOrderStatus);
 router.put("/:orderId/verify-payment", protect, roleOnly("cook"), verifyPayment);
+router.put("/:orderId/cook-cancel", protect, roleOnly("cook"), cookCancelOrder);
 
 router.get("/:orderId", protect, getOrderById);
 

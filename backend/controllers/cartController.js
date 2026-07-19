@@ -1,4 +1,5 @@
 import db from "../config/db.js";
+import { createNotification, notifyNewOrder } from "../utils/notificationHelper.js";
 
 // GET /api/cart — get current user's full cart, grouped by cook
 export const getCart = async (req, res) => {
@@ -161,20 +162,38 @@ export const clearCart = async (req, res) => {
 };
 
 // POST /api/cart/checkout — convert cart into one order per cook
-// body: { delivery_address, delivery_latitude, delivery_longitude, special_instructions (optional) }
+// Customer may order meals from Cook A and Cook B in the same cart.
+// Each cook gets their own order + in-app + FCM push notification.
+// body: { delivery_address, delivery_latitude, delivery_longitude,
+//         special_instructions (optional), payment_method (optional: cod|online) }
 export const checkoutCart = async (req, res) => {
     const conn = await db.promise().getConnection();
     try {
         const customerId = req.user.id;
-        const { delivery_address, delivery_latitude, delivery_longitude, special_instructions } = req.body;
+        const {
+            delivery_address,
+            delivery_latitude,
+            delivery_longitude,
+            special_instructions,
+            payment_method,
+        } = req.body;
 
         if (!delivery_address) {
             return res.status(400).json({ success: false, message: "delivery_address is required" });
         }
 
+        const validPaymentMethods = ["cod", "online"];
+        const selectedPaymentMethod = payment_method || "cod";
+        if (!validPaymentMethods.includes(selectedPaymentMethod)) {
+            return res.status(400).json({
+                success: false,
+                message: "payment_method must be 'cod' or 'online'",
+            });
+        }
+
         const [cartRows] = await conn.query(
             `SELECT ci.id AS cart_item_id, ci.meal_id, ci.cook_id, ci.quantity,
-                    m.price, m.is_available
+                    m.price, m.is_available, m.name AS meal_name
              FROM cart_items ci
              JOIN meals m ON ci.meal_id = m.id
              WHERE ci.customer_id = ?`,
@@ -194,12 +213,18 @@ export const checkoutCart = async (req, res) => {
             });
         }
 
-        // Group by cook
+        // Group by cook so Cook A and Cook B each receive their own order
         const byCook = {};
         for (const row of cartRows) {
             if (!byCook[row.cook_id]) byCook[row.cook_id] = [];
             byCook[row.cook_id].push(row);
         }
+
+        const [customerRows] = await conn.query(
+            "SELECT full_name FROM users WHERE id = ?",
+            [customerId]
+        );
+        const customerName = customerRows[0]?.full_name || "A customer";
 
         await conn.beginTransaction();
 
@@ -207,16 +232,30 @@ export const checkoutCart = async (req, res) => {
 
         for (const cookId of Object.keys(byCook)) {
             const items = byCook[cookId];
-            const totalAmount = items.reduce((sum, i) => sum + parseFloat(i.price) * i.quantity, 0);
+            const totalAmount = items.reduce(
+                (sum, i) => sum + parseFloat(i.price) * i.quantity,
+                0
+            );
+            const mealSummary = items
+                .map(i => `${i.quantity}x ${i.meal_name}`)
+                .join(", ");
 
             const [orderResult] = await conn.query(
                 `INSERT INTO orders 
                     (customer_id, cook_id, total_amount, status, delivery_address, 
-                     delivery_latitude, delivery_longitude, special_instructions)
-                 VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)`,
-                [customerId, cookId, totalAmount, delivery_address,
-                 delivery_latitude || null, delivery_longitude || null,
-                 special_instructions || null]
+                     delivery_latitude, delivery_longitude, special_instructions,
+                     payment_method, payment_status)
+                 VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, 'pending')`,
+                [
+                    customerId,
+                    cookId,
+                    totalAmount,
+                    delivery_address,
+                    delivery_latitude || null,
+                    delivery_longitude || null,
+                    special_instructions || null,
+                    selectedPaymentMethod,
+                ]
             );
             const orderId = orderResult.insertId;
 
@@ -228,12 +267,25 @@ export const checkoutCart = async (req, res) => {
                 );
             }
 
-            createdOrders.push({ order_id: orderId, cook_id: parseInt(cookId), total_amount: totalAmount });
+            createdOrders.push({
+                order_id: orderId,
+                cook_id: parseInt(cookId, 10),
+                total_amount: totalAmount,
+                meals: mealSummary,
+            });
 
-            // Real-time notify cook of new order (if Socket.IO is attached)
+            // Real-time socket to that cook only
             const io = req.app.get("io");
             if (io) {
-                io.to(`cook_${cookId}`).emit("newOrder", { orderId, customerId });
+                io.to(`cook_${cookId}`).emit("newOrder", {
+                    orderId,
+                    customerId,
+                    customerName,
+                    mealSummary,
+                    total_amount: totalAmount,
+                    delivery_address,
+                    payment_method: selectedPaymentMethod,
+                });
             }
         }
 
@@ -242,9 +294,44 @@ export const checkoutCart = async (req, res) => {
 
         await conn.commit();
 
+        // In-app + FCM push to each cook after commit (one notification per cook)
+        for (const order of createdOrders) {
+            try {
+                await createNotification(
+                    order.cook_id,
+                    "New Order Received! 🎉",
+                    `${customerName} ordered ${order.meals} — ₹${Number(order.total_amount).toFixed(0)}`,
+                    "new_order",
+                    order.order_id,
+                    "order",
+                    {
+                        pushData: {
+                            type: "new_order",
+                            orderId: String(order.order_id),
+                            customerName: customerName || "",
+                            totalAmount: String(order.total_amount),
+                            meals: order.meals || "",
+                        },
+                    }
+                );
+            } catch (notifyErr) {
+                console.error("checkout notify error:", notifyErr);
+                await notifyNewOrder(
+                    order.cook_id,
+                    order.order_id,
+                    customerName,
+                    order.total_amount
+                );
+            }
+        }
+
+        const cookCount = createdOrders.length;
         res.status(201).json({
             success: true,
-            message: "Order(s) placed successfully",
+            message:
+                cookCount > 1
+                    ? `${cookCount} orders placed — each cook was notified separately`
+                    : "Order placed successfully",
             orders: createdOrders,
         });
     } catch (error) {

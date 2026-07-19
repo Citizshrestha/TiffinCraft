@@ -23,7 +23,7 @@ export const addReview = async (req, res) => {
 
         const [orders] = await connection.query(
             `SELECT * FROM orders
-             WHERE id = ? AND customer_id = ? AND order_status = 'delivered'`,
+             WHERE id = ? AND customer_id = ? AND status = 'delivered'`,
             [order_id, customerId]
         );
 

@@ -1,5 +1,5 @@
 import db from "../config/db.js";
-import { notifyNewOrder, notifyOrderStatusUpdate, notifyOrderCancelled } from '../utils/notificationHelper.js';
+import { createNotification, notifyNewOrder, notifyOrderStatusUpdate, notifyOrderCancelled, notifyOrderCancelledToCustomer } from '../utils/notificationHelper.js';
 
 export const placeOrder = async (req, res) => {
     const connection = await db.promise().getConnection();
@@ -85,16 +85,36 @@ export const placeOrder = async (req, res) => {
             [customerId]
         );
 
-        // Send notification to cook
-        await notifyNewOrder(cook_id, orderId, customer[0].full_name, total_amount);
+        // In-app + FCM to this cook only (meal-specific message)
+        const customerName = customer[0]?.full_name || "A customer";
+        const mealSummary = `${quantity}x ${meal.name}`;
+        await createNotification(
+            cook_id,
+            "New Order Received! 🎉",
+            `${customerName} ordered ${mealSummary} — ₹${Number(total_amount).toFixed(0)}`,
+            "new_order",
+            orderId,
+            "order",
+            {
+                pushData: {
+                    type: "new_order",
+                    orderId: String(orderId),
+                    customerName,
+                    totalAmount: String(total_amount),
+                    meals: mealSummary,
+                },
+            }
+        );
 
-        // Emit Socket.IO event
+        // Emit Socket.IO event to this cook's room only
         const io = req.app.get("io");
         if (io) {
             io.to(`cook_${cook_id}`).emit("newOrder", {
                 orderId,
                 customerId,
+                customerName,
                 mealName: meal.name,
+                mealSummary,
                 quantity,
                 total_amount,
                 delivery_address,
@@ -189,21 +209,51 @@ export const getCustomerOrders = async (req, res) => {
     try {
         const customerId = req.user.id;
 
+        // One row per order (not per item) — item details are aggregated so the
+        // Android order card can render its item chips/summary without needing
+        // to stitch together duplicate order rows itself.
         const [orders] = await db.promise().query(
-            `SELECT o.*, 
+            `SELECT o.id, o.customer_id, o.cook_id, o.total_amount, o.status,
+                    o.delivery_address, o.special_instructions,
+                    o.payment_method, o.payment_status, o.payment_screenshot_url,
+                    o.payment_verified_at, o.created_at, o.updated_at,
                     cu.full_name as cook_name,
                     cp.kitchen_name,
-                    m.name as meal_name,
-                    m.image_url as meal_image
+                    COUNT(oi.id) as items_count,
+                    GROUP_CONCAT(CONCAT(oi.quantity, '× ', m.name) SEPARATOR ', ') as items_summary,
+                    MIN(m.image_url) as meal_image,
+                    CONCAT('[', GROUP_CONCAT(JSON_OBJECT(
+                        'id', oi.id,
+                        'meal_id', oi.meal_id,
+                        'meal_name', m.name,
+                        'quantity', oi.quantity,
+                        'price_at_time', oi.price_at_time,
+                        'image_url', m.image_url
+                    ) SEPARATOR ','), ']') as items_json
              FROM orders o
              JOIN users cu ON o.cook_id = cu.id
              JOIN cook_profiles cp ON cu.id = cp.user_id
              JOIN order_items oi ON o.id = oi.order_id
              JOIN meals m ON oi.meal_id = m.id
              WHERE o.customer_id = ?
+             GROUP BY o.id
              ORDER BY o.created_at DESC`,
             [customerId]
         );
+
+        // JSON_ARRAYAGG comes back as a JSON string (or already parsed, depending on
+        // the mysql2 version) — normalize it into a real "items" array per order so
+        // the Android app can render a real per-item image carousel.
+        orders.forEach(order => {
+            try {
+                order.items = typeof order.items_json === 'string'
+                    ? JSON.parse(order.items_json)
+                    : (order.items_json || []);
+            } catch (e) {
+                order.items = [];
+            }
+            delete order.items_json;
+        });
 
         return res.status(200).json({
             success: true,
@@ -303,12 +353,21 @@ export const updateOrderStatus = async (req, res) => {
             });
         }
 
+        const order = orders[0];
+
+        // SECURITY CHECK: For online payment orders, block "delivered" status
+        // until payment has been verified by the cook
+        if (status === 'delivered' && order.payment_method === 'online' && order.payment_status !== 'verified') {
+            return res.status(403).json({
+                success: false,
+                message: "Cannot mark as delivered until payment is verified. Please verify the payment screenshot first."
+            });
+        }
+
         await db.promise().query(
             "UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?",
             [status, orderId]
         );
-
-        const order = orders[0];
 
         // Get cook name for notification
         const [cook] = await db.promise().query(
@@ -345,11 +404,12 @@ export const updateOrderStatus = async (req, res) => {
 };
 
 // PUT /api/orders/:orderId/cancel
-// Customer cancels their order (only if placed or accepted)
+// Customer cancels their order within the 10-minute grace window
 export const cancelOrder = async (req, res) => {
     try {
         const customerId = req.user.id;
         const { orderId } = req.params;
+        const { reason } = req.body;
 
         const [orders] = await db.promise().query(
             "SELECT * FROM orders WHERE id = ? AND customer_id = ?",
@@ -365,17 +425,33 @@ export const cancelOrder = async (req, res) => {
 
         const order = orders[0];
 
-        // Can only cancel if pending or confirmed
-        if (!["pending", "confirmed"].includes(order.status)) {
+        // Enforce 10-minute grace window — only allowed while status is 'pending'
+        if (order.status !== 'pending') {
             return res.status(400).json({
                 success: false,
                 message: `Cannot cancel order with status "${order.status}".`
             });
         }
 
-        await db.promise().query(
-            "UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = ?",
+        // Check time window
+        const [[{ minutesSinceCreated }]] = await db.promise().query(
+            "SELECT TIMESTAMPDIFF(MINUTE, created_at, NOW()) as minutesSinceCreated FROM orders WHERE id = ?",
             [orderId]
+        );
+
+        if (minutesSinceCreated > 10) {
+            return res.status(400).json({
+                success: false,
+                message: "Orders can only be cancelled within 10 minutes of placing them."
+            });
+        }
+
+        // Determine refund status
+        const refundStatus = ['paid', 'verified'].includes(order.payment_status) ? 'pending' : 'not_applicable';
+
+        await db.promise().query(
+            `UPDATE orders SET status = 'cancelled', cancelled_by = 'customer', cancellation_reason = ?, refund_status = ?, updated_at = NOW() WHERE id = ?`,
+            [reason || null, refundStatus, orderId]
         );
 
         // Get customer name for notification
@@ -390,9 +466,15 @@ export const cancelOrder = async (req, res) => {
         // Notify cook via Socket.IO
         const io = req.app.get("io");
         if (io) {
+            io.to(`order_${orderId}`).emit("orderCancelled", {
+                orderId,
+                cancelled_by: 'customer',
+                reason: reason || null
+            });
             io.to(`cook_${order.cook_id}`).emit("orderCancelled", {
                 orderId,
-                message: "Customer cancelled the order."
+                message: `${customer[0].full_name} cancelled the order.`,
+                reason: reason || null
             });
         }
 
@@ -403,6 +485,85 @@ export const cancelOrder = async (req, res) => {
 
     } catch (error) {
         console.error("cancelOrder error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};
+
+// PUT /api/orders/:orderId/cook-cancel
+// Cook cancels an order (wider window: pending, confirmed, or preparing)
+export const cookCancelOrder = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+        const { orderId } = req.params;
+        const { reason } = req.body;
+
+        if (!reason || !reason.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: "Reason is required when cancelling an order."
+            });
+        }
+
+        const [orders] = await db.promise().query(
+            "SELECT * FROM orders WHERE id = ? AND cook_id = ?",
+            [orderId, cookId]
+        );
+
+        if (orders.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Order not found."
+            });
+        }
+
+        const order = orders[0];
+
+        // Cook can cancel if pending, confirmed, or preparing
+        if (!['pending', 'confirmed', 'preparing'].includes(order.status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot cancel order with status "${order.status}". Only pending, confirmed, or preparing orders can be cancelled by the cook.`
+            });
+        }
+
+        // Determine refund status
+        const refundStatus = ['paid', 'verified'].includes(order.payment_status) ? 'pending' : 'not_applicable';
+
+        await db.promise().query(
+            `UPDATE orders SET status = 'cancelled', cancelled_by = 'cook', cancellation_reason = ?, refund_status = ?, updated_at = NOW() WHERE id = ?`,
+            [reason, refundStatus, orderId]
+        );
+
+        // Get cook name for notification
+        const [cook] = await db.promise().query(
+            'SELECT full_name FROM users WHERE id = ?',
+            [cookId]
+        );
+
+        // Send notification to customer
+        await notifyOrderCancelledToCustomer(order.customer_id, orderId, reason, cook[0].full_name);
+
+        // Notify customer via Socket.IO
+        const io = req.app.get("io");
+        if (io) {
+            io.to(`order_${orderId}`).emit("orderCancelled", {
+                orderId,
+                cancelled_by: 'cook',
+                reason
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Order cancelled and customer has been notified."
+        });
+
+    } catch (error) {
+        console.error("cookCancelOrder error:", error);
         return res.status(500).json({
             success: false,
             message: "Server error.",

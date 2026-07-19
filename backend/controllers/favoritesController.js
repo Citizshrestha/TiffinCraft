@@ -6,7 +6,7 @@ export const getFavorites = async (req, res) => {
         const userId = req.user.id;
 
         const [favorites] = await db.promise().query(
-            `SELECT 
+            `SELECT
                 f.id as favorite_id,
                 f.created_at as favorited_at,
                 u.id as cook_id,
@@ -16,9 +16,13 @@ export const getFavorites = async (req, res) => {
                 cp.kitchen_name,
                 cp.food_type,
                 cp.description,
+                cp.specialties,
+                cp.years_experience,
                 cp.rating,
                 cp.total_orders,
-                cp.is_verified
+                cp.is_verified,
+                (SELECT COUNT(*) FROM meals m WHERE m.cook_id = u.id AND m.is_available = TRUE) AS total_meals,
+                (SELECT COUNT(*) FROM reviews r WHERE r.cook_id = u.id) AS total_reviews
              FROM favorites f
              JOIN users u ON f.cook_id = u.id
              JOIN cook_profiles cp ON u.id = cp.user_id
@@ -30,20 +34,32 @@ export const getFavorites = async (req, res) => {
         return res.status(200).json({
             success: true,
             count: favorites.length,
-            favorites: favorites.map(fav => ({
-                favoriteId: fav.favorite_id,
-                cookId: fav.cook_id,
-                cookName: fav.cook_name,
-                kitchenName: fav.kitchen_name || fav.cook_name,
-                profileImage: fav.profile_image,
-                address: fav.address,
-                foodType: fav.food_type,
-                description: fav.description,
-                rating: parseFloat(fav.rating) || 0,
-                totalOrders: fav.total_orders || 0,
-                isVerified: Boolean(fav.is_verified),
-                favoritedAt: fav.favorited_at
-            }))
+            favorites: favorites.map(fav => {
+                // specialties is stored as a comma-separated TEXT column, not JSON.
+                const specialties = fav.specialties
+                    ? fav.specialties.split(",").map(s => s.trim()).filter(Boolean)
+                    : [];
+
+                return {
+                    favoriteId: fav.favorite_id,
+                    cookId: fav.cook_id,
+                    cookName: fav.cook_name,
+                    kitchenName: fav.kitchen_name || fav.cook_name,
+                    profileImage: fav.profile_image,
+                    address: fav.address,
+                    foodType: fav.food_type,
+                    description: fav.description,
+                    specialties,
+                    experienceYears: fav.years_experience || null,
+                    certifications: [], // not tracked in cook_profiles yet
+                    averageRating: parseFloat(fav.rating) || 0,
+                    totalReviews: fav.total_reviews || 0,
+                    totalMeals: fav.total_meals || 0,
+                    totalOrders: fav.total_orders || 0,
+                    isVerified: Boolean(fav.is_verified),
+                    favoritedAt: fav.favorited_at
+                };
+            })
         });
 
     } catch (error) {
