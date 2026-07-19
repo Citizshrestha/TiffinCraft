@@ -134,6 +134,143 @@ export const uploadDocument = async (req, res) => {
 };
 
 /**
+ * POST /api/upload/chat-media
+ * Upload a chat image/video to <role>/<username>/chats/images|videos.
+ */
+export const uploadChatMedia = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No media file provided.' });
+    }
+
+    const userId = req.user.id;
+    const [users] = await db.promise().query(
+      'SELECT full_name, email, role FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const user = users[0];
+    const role = sanitizeFolderName(user.role || req.user.role || 'user');
+    const username = sanitizeFolderName(user.full_name || user.email || String(userId));
+    const isVideo = req.file.mimetype.startsWith('video/');
+    const mediaFolder = isVideo ? 'videos' : 'images';
+    const folder = `${role}/${username}/chats/${mediaFolder}`;
+
+    const result = await uploadToCloudinary(req.file.buffer, folder, {
+      resource_type: 'auto',
+      transformation: isVideo
+        ? undefined
+        : [
+            { width: 1200, height: 1200, crop: 'limit' },
+            { quality: 'auto:good' },
+            { fetch_format: 'auto' },
+          ],
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Chat media uploaded successfully.',
+      data: {
+        url: result.secure_url,
+        publicId: result.public_id,
+        width: result.width,
+        height: result.height,
+        format: result.format,
+        resourceType: result.resource_type,
+      },
+    });
+  } catch (error) {
+    console.error('uploadChatMedia error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to upload chat media.',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * POST /api/upload/bank-qr
+ * Upload a cook's payment QR code (eSewa / Khalti / Bank).
+ * Stored under cook/<cook name>/Bank Details/<Esewa|Khalti|Bank>/ so QR
+ * codes are easy to find per-cook in the Cloudinary media library.
+ * If the cook already has a QR of this type, the old asset is deleted
+ * first so replacing a QR doesn't leave orphaned files behind.
+ */
+const QR_TYPE_LABELS = { esewa: 'Esewa', khalti: 'Khalti', bank: 'Bank' };
+const QR_TYPE_DB_KEYS = { esewa: 'esewa_qr_url', khalti: 'khalti_qr_url', bank: 'bank_qr_url' };
+
+export const uploadBankQr = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No QR image provided.' });
+    }
+
+    const qrType = (req.body.qrType || '').toLowerCase();
+    if (!QR_TYPE_LABELS[qrType]) {
+      return res.status(400).json({ success: false, message: 'qrType must be one of: esewa, khalti, bank.' });
+    }
+
+    const userId = req.user.id;
+    const [profiles] = await db.promise().query(
+      'SELECT cp.kitchen_name, cp.bank_details, u.full_name FROM cook_profiles cp ' +
+      'JOIN users u ON u.id = cp.user_id WHERE cp.user_id = ?',
+      [userId]
+    );
+
+    if (profiles.length === 0) {
+      return res.status(404).json({ success: false, message: 'Cook profile not found.' });
+    }
+
+    const cookName = sanitizeFolderName(profiles[0].kitchen_name || profiles[0].full_name || String(userId))
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    // Delete the previous QR of this type, if one exists, so re-uploading doesn't
+    // leave the old image orphaned in Cloudinary.
+    try {
+      const existing = profiles[0].bank_details ? JSON.parse(profiles[0].bank_details) : null;
+      const oldUrl = existing ? existing[QR_TYPE_DB_KEYS[qrType]] : null;
+      if (oldUrl) {
+        const oldPublicId = extractPublicId(oldUrl);
+        if (oldPublicId) await deleteFromCloudinary(oldPublicId).catch(() => {});
+      }
+    } catch (_) {
+      // Malformed/legacy bank_details JSON — nothing to clean up, continue.
+    }
+
+    const folder = `cook/${cookName}/Bank Details/${QR_TYPE_LABELS[qrType]}`;
+
+    const result = await uploadToCloudinary(req.file.buffer, folder, {
+      transformation: [
+        { width: 1000, height: 1000, crop: 'limit' },
+        { quality: 'auto:good' },
+        { fetch_format: 'auto' },
+      ],
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'QR code uploaded successfully.',
+      data: {
+        url: result.secure_url,
+        publicId: result.public_id,
+        width: result.width,
+        height: result.height,
+        format: result.format,
+      },
+    });
+  } catch (error) {
+    console.error('uploadBankQr error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to upload QR code.', error: error.message });
+  }
+};
+
+/**
  * DELETE /api/upload/image
  * Delete an image from Cloudinary by its URL.
  */
@@ -159,4 +296,5 @@ export const deleteImage = async (req, res) => {
   }
 };
 
-export default { uploadMealImage, uploadProfileImage, uploadDocument, deleteImage };
+export default { uploadMealImage, uploadProfileImage, uploadDocument, uploadChatMedia, uploadBankQr, deleteImage };
+

@@ -1,9 +1,27 @@
 import db from '../config/db.js';
+import { sendPush } from '../config/firebaseAdmin.js';
 
 /**
  * Notification Helper
  * Centralized utility for creating notifications across the app
  */
+
+/**
+ * Fetch a user's FCM token so push notifications can be sent alongside in-app ones.
+ * @param {number} userId
+ * @returns {Promise<string|null>}
+ */
+const getFcmToken = async (userId) => {
+    try {
+        const [rows] = await db.promise().query(
+            "SELECT fcm_token FROM users WHERE id = ?",
+            [userId]
+        );
+        return rows.length > 0 ? rows[0].fcm_token : null;
+    } catch {
+        return null;
+    }
+};
 
 /**
  * Create a notification for a user
@@ -13,8 +31,9 @@ import db from '../config/db.js';
  * @param {string} type - Notification type (new_order, order_status, review, system)
  * @param {number} referenceId - Optional reference ID (order_id, review_id, etc)
  * @param {string} referenceType - Optional reference type (order, review, meal, etc)
+ * @param {object} extra - Optional extra payload { pushData, orderId }
  */
-export const createNotification = async (userId, title, message, type, referenceId = null, referenceType = null) => {
+export const createNotification = async (userId, title, message, type, referenceId = null, referenceType = null, extra = {}) => {
     try {
         await db.promise().query(
             `INSERT INTO notifications (user_id, title, message, type, reference_id, reference_type)
@@ -22,6 +41,21 @@ export const createNotification = async (userId, title, message, type, reference
             [userId, title, message, type, referenceId, referenceType]
         );
         console.log(`✅ Notification created for user ${userId}: ${title}`);
+
+        // Also send an FCM push if the user has a device token
+        const pushData = extra.pushData || {};
+        const fcmToken = await getFcmToken(userId);
+        if (fcmToken) {
+            // Don't await — fire and forget so in-app notification creation is never blocked
+            sendPush(fcmToken, title, message, pushData).then(result => {
+                if (result.success) {
+                    console.log(`📲 Push sent to user ${userId}: ${title}`);
+                }
+            }).catch(err => {
+                console.error(`❌ Push failed for user ${userId}:`, err.message);
+            });
+        }
+
         return { success: true };
     } catch (error) {
         console.error('❌ Error creating notification:', error);
@@ -39,7 +73,15 @@ export const notifyNewOrder = async (cookId, orderId, customerName, totalAmount)
         `${customerName} placed an order worth ₹${totalAmount}`,
         'new_order',
         orderId,
-        'order'
+        'order',
+        {
+            pushData: {
+                type: 'new_order',
+                orderId: String(orderId),
+                customerName: customerName || '',
+                totalAmount: String(totalAmount)
+            }
+        }
     );
 };
 
@@ -61,7 +103,14 @@ export const notifyOrderStatusUpdate = async (customerId, orderId, status, cookN
         statusMessages[status] || `Your order status: ${status}`,
         'order_status',
         orderId,
-        'order'
+        'order',
+        {
+            pushData: {
+                type: 'order_status',
+                orderId: String(orderId),
+                status: status || ''
+            }
+        }
     );
 };
 
@@ -75,7 +124,37 @@ export const notifyOrderCancelled = async (cookId, orderId, customerName) => {
         `${customerName} cancelled order #${orderId}`,
         'order_status',
         orderId,
-        'order'
+        'order',
+        {
+            pushData: {
+                type: 'order_cancelled',
+                orderId: String(orderId),
+                customerName: customerName || ''
+            }
+        }
+    );
+};
+
+/**
+ * Create notification when a cook cancels an order (sent to customer)
+ */
+export const notifyOrderCancelledToCustomer = async (customerId, orderId, reason, cookName) => {
+    const message = reason
+        ? `${cookName} cancelled order #${orderId}. Reason: ${reason}`
+        : `${cookName} cancelled order #${orderId}`;
+    return createNotification(
+        customerId,
+        'Order Cancelled by Cook',
+        message,
+        'order_status',
+        orderId,
+        'order',
+        {
+            pushData: {
+                type: 'order_cancelled_by_cook',
+                orderId: String(orderId)
+            }
+        }
     );
 };
 
@@ -90,7 +169,13 @@ export const notifyNewReview = async (cookId, reviewId, customerName, rating) =>
         `${customerName} gave you ${rating} stars ${stars}`,
         'review',
         reviewId,
-        'review'
+        'review',
+        {
+            pushData: {
+                type: 'new_review',
+                reviewId: String(reviewId)
+            }
+        }
     );
 };
 
@@ -104,7 +189,39 @@ export const notifyReviewReply = async (customerId, reviewId, cookName) => {
         `${cookName} replied to your review`,
         'review',
         reviewId,
-        'review'
+        'review',
+        {
+            pushData: {
+                type: 'review_reply',
+                reviewId: String(reviewId)
+            }
+        }
+    );
+};
+
+/**
+ * Create a notification for cook approval/rejection by admin (sent to cook).
+ * Reuses createNotification which now also sends FCM push.
+ */
+export const notifyCookApprovalUpdate = async (cookId, approved) => {
+    const title = approved ? 'Kitchen Approved 🎉' : 'Application Update';
+    const message = approved
+        ? 'Congratulations! Your kitchen has been approved. You can now start receiving orders. 🚀'
+        : 'Your TiffinCraft kitchen application needs changes. Please check your profile for details.';
+
+    return createNotification(
+        cookId,
+        title,
+        message,
+        approved ? 'cook_approved' : 'cook_rejected',
+        cookId,
+        'cook_profile',
+        {
+            pushData: {
+                type: 'cook_approval',
+                approved: approved ? 'true' : 'false'
+            }
+        }
     );
 };
 
@@ -151,6 +268,7 @@ export default {
     notifyOrderCancelled,
     notifyNewReview,
     notifyReviewReply,
+    notifyCookApprovalUpdate,
     markAllAsRead,
     cleanupOldNotifications
 };

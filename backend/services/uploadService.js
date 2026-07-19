@@ -34,14 +34,17 @@ export const uploadToCloudinary = (fileBuffer, folder, options = {}) => {
 };
 
 /**
- * Delete an image from Cloudinary by its public_id
+ * Delete media from Cloudinary by its public_id
  * @param {string} publicId - Cloudinary public_id
+ * @param {string} resourceType - 'image' | 'video' | 'raw' | 'auto'
  */
-export const deleteFromCloudinary = async (publicId) => {
+export const deleteFromCloudinary = async (publicId, resourceType = "image") => {
   try {
-    return await cloudinary.uploader.destroy(publicId);
+    return await cloudinary.uploader.destroy(publicId, {
+      resource_type: resourceType || "image",
+    });
   } catch (error) {
-    throw new Error(`Failed to delete image from Cloudinary: ${error.message}`);
+    throw new Error(`Failed to delete media from Cloudinary: ${error.message}`);
   }
 };
 

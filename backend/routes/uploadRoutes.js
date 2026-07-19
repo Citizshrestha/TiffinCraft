@@ -1,7 +1,7 @@
 import express from 'express';
-import { uploadMealImage, uploadProfileImage, uploadDocument, deleteImage } from '../controllers/uploadController.js';
-import { uploadSingle } from '../middleware/uploadMiddleware.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { uploadMealImage, uploadProfileImage, uploadDocument, uploadChatMedia, uploadBankQr, deleteImage } from '../controllers/uploadController.js';
+import { uploadSingle, uploadChatMediaSingle } from '../middleware/uploadMiddleware.js';
+import { protect, roleOnly } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -29,6 +29,22 @@ router.post(
   uploadDocument
 );
 
+// Upload a cook's payment QR code (eSewa / Khalti / Bank) — cook-only
+router.post(
+  '/bank-qr',
+  protect,
+  roleOnly('cook'),
+  uploadSingle('document'),
+  uploadBankQr
+);
+
+// Upload chat image/video (requires authentication)
+router.post(
+  '/chat-media',
+  protect,
+  uploadChatMediaSingle('media'),
+  uploadChatMedia
+);
 // Delete image (requires authentication)
 router.delete(
   '/image',
@@ -48,3 +64,4 @@ router.use((error, req, res, next) => {
 });
 
 export default router;
+

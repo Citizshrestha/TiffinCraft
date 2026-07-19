@@ -4,6 +4,9 @@ import {
     getOrCreateConversation,
     getMessages,
     sendMessage,
+    editMessage,
+    deleteMessage,
+    deleteMessages,
     markConversationRead,
     getUnreadCount,
     getChatContacts
@@ -18,6 +21,9 @@ router.get("/conversations", getConversations);
 router.post("/conversations", getOrCreateConversation);
 router.get("/conversations/:conversationId/messages", getMessages);
 router.post("/conversations/:conversationId/messages", sendMessage);
+router.put("/conversations/:conversationId/messages/:messageId", editMessage);
+router.delete("/conversations/:conversationId/messages", deleteMessages);
+router.delete("/conversations/:conversationId/messages/:messageId", deleteMessage);
 router.put("/conversations/:conversationId/read", markConversationRead);
 router.get("/unread-count", getUnreadCount);
 router.get("/contacts", getChatContacts);

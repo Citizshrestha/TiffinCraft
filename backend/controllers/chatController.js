@@ -1,4 +1,49 @@
 import db from "../config/db.js";
+import {
+    deleteFromCloudinary,
+    extractPublicId
+} from "../services/uploadService.js";
+import { createNotification } from "../utils/notificationHelper.js";
+
+/**
+ * Normalize a chat_messages row for JSON clients.
+ * MySQL BOOLEAN/TINYINT comes out as 0/1; Android Gson fails to map that onto
+ * a Java boolean, which breaks load/send even when the row was saved correctly.
+ */
+const normalizeMessage = (row) => {
+    if (!row) return row;
+    return {
+        ...row,
+        is_read: row.is_read === true || row.is_read === 1 || row.is_read === "1",
+        is_edited: !!(row.edited_at),
+        is_deleted: row.is_deleted === true || row.is_deleted === 1 || row.is_deleted === "1"
+    };
+};
+
+/**
+ * Best-effort Cloudinary cleanup for chat image/video URLs.
+ */
+const deleteChatMediaFromCloudinary = async (mediaUrl, messageType) => {
+    if (!mediaUrl || typeof mediaUrl !== "string") return;
+    if (!mediaUrl.includes("cloudinary.com")) return;
+
+    const publicId = extractPublicId(mediaUrl);
+    if (!publicId) return;
+
+    const resourceType = messageType === "video" ? "video" : "image";
+    try {
+        await deleteFromCloudinary(publicId, resourceType);
+    } catch (err) {
+        console.warn("Cloudinary chat media delete failed:", err.message);
+        // Fallback: try the other resource type once
+        try {
+            const fallback = resourceType === "video" ? "image" : "video";
+            await deleteFromCloudinary(publicId, fallback);
+        } catch (err2) {
+            console.warn("Cloudinary fallback delete failed:", err2.message);
+        }
+    }
+};
 
 /**
  * Verify the authenticated user is a participant of the conversation.
@@ -22,6 +67,8 @@ const getConversationForUser = async (conversationId, userId) => {
 export const getConversations = async (req, res) => {
     try {
         const userId = req.user.id;
+        const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+        const like = `%${search}%`;
 
         const [rows] = await db.promise().query(
             `SELECT
@@ -36,6 +83,7 @@ export const getConversations = async (req, res) => {
                 lm.message_type AS last_message_type,
                 lm.content      AS last_message_content,
                 lm.sender_id    AS last_message_sender_id,
+                lm.is_deleted   AS last_message_deleted,
                 (SELECT COUNT(*) FROM chat_messages m
                  WHERE m.conversation_id = c.id
                    AND m.is_read = FALSE
@@ -44,9 +92,10 @@ export const getConversations = async (req, res) => {
              JOIN users u
                ON u.id = IF(c.customer_id = ?, c.cook_id, c.customer_id)
              LEFT JOIN chat_messages lm ON lm.id = c.last_message_id
-             WHERE c.customer_id = ? OR c.cook_id = ?
+             WHERE (c.customer_id = ? OR c.cook_id = ?)
+               AND (? = '' OR u.full_name LIKE ?)
              ORDER BY c.last_message_at IS NULL, c.last_message_at DESC`,
-            [userId, userId, userId, userId]
+            [userId, userId, userId, userId, search, like]
         );
 
         return res.status(200).json({
@@ -162,29 +211,31 @@ export const getMessages = async (req, res) => {
             });
         }
 
-        let query =
-            `SELECT id, conversation_id, sender_id, message_type, content,
-                    call_duration_seconds, is_read, created_at
-             FROM chat_messages
+        const baseSelect =
+            `SELECT * FROM chat_messages
              WHERE conversation_id = ?`;
         const params = [conversationId];
 
+        let whereExtra = "";
         if (beforeId) {
-            query += " AND id < ?";
+            whereExtra = " AND id < ?";
             params.push(beforeId);
         }
 
-        query += " ORDER BY id DESC LIMIT ?";
+        const orderLimit = " ORDER BY id DESC LIMIT ?";
         params.push(limit);
 
-        const [rows] = await db.promise().query(query, params);
+        const [rows] = await db.promise().query(
+            baseSelect + whereExtra + orderLimit,
+            params
+        );
 
         // Return in chronological order
         rows.reverse();
 
         return res.status(200).json({
             success: true,
-            messages: rows,
+            messages: rows.map(normalizeMessage),
             has_more: rows.length === limit
         });
     } catch (error) {
@@ -195,6 +246,14 @@ export const getMessages = async (req, res) => {
             error: error.message
         });
     }
+};
+
+const fetchMessageById = async (messageId) => {
+    const [rows] = await db.promise().query(
+        `SELECT * FROM chat_messages WHERE id = ?`,
+        [messageId]
+    );
+    return rows[0] || null;
 };
 
 /**
@@ -212,7 +271,7 @@ export const sendMessage = async (req, res) => {
             ? req.body.call_duration_seconds
             : null;
 
-        const allowedTypes = ["text", "call_ended", "call_declined", "call_missed"];
+        const allowedTypes = ["text", "image", "video", "call_ended", "call_declined", "call_missed"];
         if (!allowedTypes.includes(messageType)) {
             return res.status(400).json({
                 success: false,
@@ -224,6 +283,13 @@ export const sendMessage = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Message content is required."
+            });
+        }
+
+        if ((messageType === "image" || messageType === "video") && (!content || content.length === 0)) {
+            return res.status(400).json({
+                success: false,
+                message: "Media URL is required."
             });
         }
 
@@ -258,27 +324,53 @@ export const sendMessage = async (req, res) => {
             [messageId, conversationId]
         );
 
-        const [rows] = await db.promise().query(
-            `SELECT id, conversation_id, sender_id, message_type, content,
-                    call_duration_seconds, is_read, created_at
-             FROM chat_messages WHERE id = ?`,
-            [messageId]
-        );
-
-        const message = rows[0];
+        const saved = await fetchMessageById(messageId);
+        const message = normalizeMessage(saved);
 
         // Real-time delivery to the conversation room and recipient's user room
+        const recipientId = conversation.customer_id === userId
+            ? conversation.cook_id
+            : conversation.customer_id;
+
+        const [[sender]] = await db.promise().query(
+            "SELECT full_name FROM users WHERE id = ?",
+            [userId]
+        );
+        const senderName = sender ? sender.full_name : "Someone";
+        const preview = messageType === "text"
+            ? (content.length > 80 ? content.slice(0, 80) + "…" : content)
+            : "Sent you an attachment";
+
         const io = req.app.get("io");
         if (io) {
-            const recipientId = conversation.customer_id === userId
-                ? conversation.cook_id
-                : conversation.customer_id;
             io.to(`chat_${conversationId}`).emit("newChatMessage", message);
             io.to(`user_${recipientId}`).emit("chatNotification", {
                 conversation_id: conversationId,
+                sender_name: senderName,
+                preview,
                 message
             });
         }
+
+        // Persist a notification too, so it still shows up (bell icon, badge count)
+        // if the recipient isn't connected to the socket when the message arrives.
+        // The extra.pushData enables FCM deep-link to ChatActivity on Android.
+        await createNotification(
+            recipientId,
+            `New message from ${senderName}`,
+            preview,
+            "chat_message",
+            conversationId,
+            "conversation",
+            {
+                pushData: {
+                    type: "chat_message",
+                    conversationId: String(conversationId),
+                    senderName: senderName || "",
+                    preview: preview || ""
+                }
+            }
+        );
 
         return res.status(201).json({
             success: true,
@@ -287,6 +379,316 @@ export const sendMessage = async (req, res) => {
         });
     } catch (error) {
         console.error("sendMessage error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};
+
+/**
+ * PUT /chat/conversations/:conversationId/messages/:messageId
+ * Body: { content }
+ * Edit a text message you sent.
+ */
+export const editMessage = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const conversationId = parseInt(req.params.conversationId, 10);
+        const messageId = parseInt(req.params.messageId, 10);
+        const content = typeof req.body.content === "string" ? req.body.content.trim() : "";
+
+        if (!conversationId || !messageId) {
+            return res.status(400).json({
+                success: false,
+                message: "Valid conversationId and messageId are required."
+            });
+        }
+
+        if (!content) {
+            return res.status(400).json({
+                success: false,
+                message: "Message content is required."
+            });
+        }
+
+        if (content.length > 5000) {
+            return res.status(400).json({
+                success: false,
+                message: "Message is too long (max 5000 characters)."
+            });
+        }
+
+        const conversation = await getConversationForUser(conversationId, userId);
+        if (!conversation) {
+            return res.status(403).json({
+                success: false,
+                message: "Conversation not found or access denied."
+            });
+        }
+
+        const row = await fetchMessageById(messageId);
+        if (!row || row.conversation_id !== conversationId) {
+            return res.status(404).json({
+                success: false,
+                message: "Message not found."
+            });
+        }
+
+        if (row.sender_id !== userId) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only edit your own messages."
+            });
+        }
+
+        if (row.is_deleted) {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot edit a deleted message."
+            });
+        }
+
+        if (row.message_type !== "text") {
+            return res.status(400).json({
+                success: false,
+                message: "Only text messages can be edited."
+            });
+        }
+
+        if (row.content === content) {
+            return res.status(200).json({
+                success: true,
+                message: "No changes.",
+                data: normalizeMessage(row)
+            });
+        }
+
+        try {
+            await db.promise().query(
+                `UPDATE chat_messages
+                 SET content = ?, edited_at = NOW()
+                 WHERE id = ? AND conversation_id = ? AND sender_id = ?`,
+                [content, messageId, conversationId, userId]
+            );
+        } catch (err) {
+            if (err && err.code === "ER_BAD_FIELD_ERROR") {
+                await db.promise().query(
+                    `UPDATE chat_messages
+                     SET content = ?
+                     WHERE id = ? AND conversation_id = ? AND sender_id = ?`,
+                    [content, messageId, conversationId, userId]
+                );
+            } else {
+                throw err;
+            }
+        }
+
+        const saved = await fetchMessageById(messageId);
+        const message = normalizeMessage(saved);
+        // If schema has no edited_at, still flag as edited for clients
+        if (!message.is_edited) {
+            message.is_edited = true;
+        }
+
+        const io = req.app.get("io");
+        if (io) {
+            io.to(`chat_${conversationId}`).emit("chatMessageEdited", message);
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Message updated.",
+            data: message
+        });
+    } catch (error) {
+        console.error("editMessage error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};
+
+/**
+ * DELETE /chat/conversations/:conversationId/messages/:messageId
+ * Delete a message (text/image/video) you sent. Removes Cloudinary media when applicable.
+ */
+export const deleteMessage = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const conversationId = parseInt(req.params.conversationId, 10);
+        const messageId = parseInt(req.params.messageId, 10);
+
+        if (!conversationId || !messageId) {
+            return res.status(400).json({
+                success: false,
+                message: "Valid conversationId and messageId are required."
+            });
+        }
+
+        const conversation = await getConversationForUser(conversationId, userId);
+        if (!conversation) {
+            return res.status(403).json({
+                success: false,
+                message: "Conversation not found or access denied."
+            });
+        }
+
+        const [existing] = await db.promise().query(
+            `SELECT * FROM chat_messages
+             WHERE id = ? AND conversation_id = ?`,
+            [messageId, conversationId]
+        );
+
+        if (existing.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Message not found."
+            });
+        }
+
+        const row = existing[0];
+        if (row.sender_id !== userId) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only delete your own messages."
+            });
+        }
+
+        if (row.is_deleted) {
+            return res.status(200).json({
+                success: true,
+                message: "Message already deleted.",
+                data: {
+                    conversation_id: conversationId,
+                    message_id: messageId
+                }
+            });
+        }
+
+        // Call log rows can also be deleted by the sender if desired;
+        // primarily used for text/image/video.
+        if (row.message_type === "image" || row.message_type === "video") {
+            await deleteChatMediaFromCloudinary(row.content, row.message_type);
+        }
+
+        // Soft delete: keep the row so both participants see a
+        // "This message was deleted" placeholder instead of a gap.
+        await db.promise().query(
+            `UPDATE chat_messages
+             SET is_deleted = TRUE, content = NULL
+             WHERE id = ? AND conversation_id = ? AND sender_id = ?`,
+            [messageId, conversationId, userId]
+        );
+
+        const io = req.app.get("io");
+        if (io) {
+            io.to(`chat_${conversationId}`).emit("chatMessageDeleted", {
+                conversation_id: conversationId,
+                message_id: messageId
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Message deleted.",
+            data: {
+                conversation_id: conversationId,
+                message_id: messageId
+            }
+        });
+    } catch (error) {
+        console.error("deleteMessage error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};
+
+/**
+ * DELETE /chat/conversations/:conversationId/messages
+ * Body: { message_ids: number[] }
+ * Soft-delete multiple messages you sent in one request (bulk selection UI).
+ */
+export const deleteMessages = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const conversationId = parseInt(req.params.conversationId, 10);
+        const messageIds = Array.isArray(req.body.message_ids)
+            ? req.body.message_ids
+                  .map((id) => parseInt(id, 10))
+                  .filter((id) => Number.isInteger(id) && id > 0)
+            : [];
+
+        if (!conversationId || messageIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Valid conversationId and message_ids are required."
+            });
+        }
+
+        const conversation = await getConversationForUser(conversationId, userId);
+        if (!conversation) {
+            return res.status(403).json({
+                success: false,
+                message: "Conversation not found or access denied."
+            });
+        }
+
+        const [rows] = await db.promise().query(
+            `SELECT id, message_type, content
+             FROM chat_messages
+             WHERE conversation_id = ? AND sender_id = ? AND is_deleted = FALSE AND id IN (?)`,
+            [conversationId, userId, messageIds]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "No deletable messages found."
+            });
+        }
+
+        const deletableIds = rows.map((r) => r.id);
+
+        for (const row of rows) {
+            if (row.message_type === "image" || row.message_type === "video") {
+                await deleteChatMediaFromCloudinary(row.content, row.message_type);
+            }
+        }
+
+        await db.promise().query(
+            `UPDATE chat_messages
+             SET is_deleted = TRUE, content = NULL
+             WHERE conversation_id = ? AND sender_id = ? AND id IN (?)`,
+            [conversationId, userId, deletableIds]
+        );
+
+        const io = req.app.get("io");
+        if (io) {
+            deletableIds.forEach((id) => {
+                io.to(`chat_${conversationId}`).emit("chatMessageDeleted", {
+                    conversation_id: conversationId,
+                    message_id: id
+                });
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Messages deleted.",
+            data: {
+                conversation_id: conversationId,
+                deleted_ids: deletableIds
+            }
+        });
+    } catch (error) {
+        console.error("deleteMessages error:", error);
         return res.status(500).json({
             success: false,
             message: "Server error.",
@@ -383,22 +785,39 @@ export const getChatContacts = async (req, res) => {
     try {
         const userId = req.user.id;
         const userRole = req.user.role;
+        const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+        const like = `%${search}%`;
 
         let query;
+        let params;
+
         if (userRole === "customer") {
+            // A customer can start a chat with ANY active cook, not only cooks they
+            // have already ordered from (that older rule left new customers with an
+            // empty contact list and nobody to message).
             query =
-                `SELECT DISTINCT u.id, u.full_name, u.profile_image, u.role
-                 FROM orders o
-                 JOIN users u ON u.id = o.cook_id
-                 WHERE o.customer_id = ? AND u.is_active = TRUE
-                 ORDER BY u.full_name ASC`;
+                `SELECT u.id, u.full_name, u.profile_image, u.role
+                 FROM users u
+                 WHERE u.role = 'cook' AND u.is_active = TRUE
+                   AND (? = '' OR u.full_name LIKE ?)
+                 ORDER BY u.full_name ASC
+                 LIMIT 100`;
+            params = [search, like];
         } else if (userRole === "cook") {
+            // A cook sees customers who ordered from them or already have a
+            // conversation open — union so neither source is missed.
             query =
                 `SELECT DISTINCT u.id, u.full_name, u.profile_image, u.role
-                 FROM orders o
-                 JOIN users u ON u.id = o.customer_id
-                 WHERE o.cook_id = ? AND u.is_active = TRUE
-                 ORDER BY u.full_name ASC`;
+                 FROM users u
+                 WHERE u.role = 'customer' AND u.is_active = TRUE
+                   AND (
+                        u.id IN (SELECT o.customer_id FROM orders o WHERE o.cook_id = ?)
+                     OR u.id IN (SELECT c.customer_id FROM conversations c WHERE c.cook_id = ?)
+                   )
+                   AND (? = '' OR u.full_name LIKE ?)
+                 ORDER BY u.full_name ASC
+                 LIMIT 100`;
+            params = [userId, userId, search, like];
         } else {
             return res.status(403).json({
                 success: false,
@@ -406,7 +825,7 @@ export const getChatContacts = async (req, res) => {
             });
         }
 
-        const [rows] = await db.promise().query(query, [userId]);
+        const [rows] = await db.promise().query(query, params);
 
         return res.status(200).json({
             success: true,
