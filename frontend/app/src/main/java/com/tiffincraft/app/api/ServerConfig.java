@@ -47,9 +47,12 @@ public class ServerConfig {
     // etc.), update DEFAULT_LAN_HOST here, or simply let it fail over once —
     // it will still recover automatically as long as this fallback tunnel URL
     // (or the LAN IP) is reachable at least once.
+    // IMPORTANT: The LAN host is the primary route when both phones and PC
+    // share the same WiFi — it's fast, doesn't depend on the tunnel, and is
+    // the fallback when the tunnel URL goes stale.
     private static final String DEFAULT_LAN_HOST = "192.168.100.115:5000";
-    private static final String DEFAULT_BASE_URL = "https://legal-donkeys-talk.loca.lt/api/";
-    private static final String DEFAULT_SERVER_URL = "https://legal-donkeys-talk.loca.lt";
+    private static final String DEFAULT_BASE_URL = "http://192.168.100.115:5000/api/";
+    private static final String DEFAULT_SERVER_URL = "http://192.168.100.115:5000";
 
     private static final int DISCOVERY_TIMEOUT_MS = 3000;
 

@@ -6,6 +6,7 @@ import com.tiffincraft.app.models.CartResponse;
 import com.tiffincraft.app.models.ChatContactsResponse;
 import com.tiffincraft.app.models.ChatConversationsResponse;
 import com.tiffincraft.app.models.ChatMessagesResponse;
+import com.tiffincraft.app.models.ChatUnreadCountResponse;
 import com.tiffincraft.app.models.ChangePasswordResponse;
 import com.tiffincraft.app.models.CheckoutRequest;
 import com.tiffincraft.app.models.CheckoutResponse;
@@ -39,6 +40,7 @@ import com.tiffincraft.app.models.ResetPasswordRequest;
 import com.tiffincraft.app.models.ReviewResponse;
 import com.tiffincraft.app.models.SendChatMessageRequest;
 import com.tiffincraft.app.models.SendChatMessageResponse;
+import com.tiffincraft.app.models.SubscriptionResponse;
 import com.tiffincraft.app.models.UpdateCartItemRequest;
 import com.tiffincraft.app.models.UpdateOrderStatusRequest;
 import com.tiffincraft.app.models.UploadResponse;
@@ -59,9 +61,7 @@ import retrofit2.http.Query;
 
 public interface ApiService {
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // AUTH
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @POST("auth/login")
     Call<LoginResponse> login(@Body LoginRequest request);
@@ -87,9 +87,12 @@ public interface ApiService {
     @POST("auth/logout")
     Call<RegisterResponse> logout(@Header("Authorization") String token);
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // CART
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    /** Permanently delete own account — requires current password in body: {"password": "..."} */
+    @HTTP(method = "DELETE", path = "auth/account", hasBody = true)
+    Call<RegisterResponse> deleteAccount(@Header("Authorization") String token,
+                                         @Body com.google.gson.JsonObject body);
+
+    // CART (supports multi-cook: items from Cook A + Cook B in one cart)
 
     @GET("cart")
     Call<CartResponse> getCart(@Header("Authorization") String token);
@@ -110,9 +113,12 @@ public interface ApiService {
     @DELETE("cart")
     Call<CartResponse> clearCart(@Header("Authorization") String token);
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    /** Checkout splits cart into one order per cook; each cook gets in-app + FCM. */
+    @POST("cart/checkout")
+    Call<CheckoutResponse> checkoutCart(@Header("Authorization") String token,
+                                        @Body CheckoutRequest request);
+
     // CUSTOMER DASHBOARD & PROFILE
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @GET("customer/dashboard")
     Call<CustomerDashboardResponse> getCustomerDashboard(@Header("Authorization") String token);
@@ -129,9 +135,7 @@ public interface ApiService {
     Call<UploadResponse> uploadCustomerProfileImage(@Header("Authorization") String token,
                                                     @Part MultipartBody.Part profile_image);
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // FAVORITES
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @GET("favorites")
     Call<FavoriteResponse> getFavorites(@Header("Authorization") String token);
@@ -148,9 +152,7 @@ public interface ApiService {
     Call<FavoriteResponse> checkFavoriteStatus(@Header("Authorization") String token,
                                                @Path("cookId") int cookId);
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // COOK DASHBOARD & PROFILE
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @GET("cook/dashboard")
     Call<DashboardResponse> getCookDashboard(@Header("Authorization") String token);
@@ -182,8 +184,18 @@ public interface ApiService {
     @GET("cook")
     Call<CookProfileResponse> getAllCooks();
 
+    @GET("cook")
+    Call<CookProfileResponse> getAllCooks(@Query("search") String search);
+
     @GET("cook/{cookId}")
     Call<CookProfileResponse> getCookById(@Path("cookId") int cookId);
+
+    /** Nearby approved, active, non-holiday cooks for the customer map. Maps to GET /cook/nearby */
+    @GET("cook/nearby")
+    Call<CookProfileResponse> getNearbyCooks(@Header("Authorization") String token,
+                                             @Query("lat") double lat,
+                                             @Query("lng") double lng,
+                                             @Query("radius_km") double radiusKm);
 
     @GET("orders/cook/my")
     Call<OrderResponse> getCookOrders(@Header("Authorization") String token);
@@ -209,21 +221,43 @@ public interface ApiService {
     Call<ChangePasswordResponse> changePassword(@Header("Authorization") String token,
                                                  @Body JsonObject body);
 
+    // ORDERS — Cancellation (feature 1.5)
+
+    @PUT("orders/{orderId}/cancel")
+    Call<RegisterResponse> cancelOrder(@Header("Authorization") String token,
+                                       @Path("orderId") int orderId,
+                                       @Body JsonObject body);
+
+    @PUT("orders/{orderId}/cook-cancel")
+    Call<RegisterResponse> cookCancelOrder(@Header("Authorization") String token,
+                                           @Path("orderId") int orderId,
+                                           @Body JsonObject body);
+
+    // ORDERS — Payment screenshot upload + verification (feature 1.2)
+
+    @POST("orders/{orderId}/payment-screenshot")
+    Call<RegisterResponse> uploadPaymentScreenshot(@Header("Authorization") String token,
+                                                   @Path("orderId") int orderId,
+                                                   @Body JsonObject body);
+
+    @PUT("orders/{orderId}/verify-payment")
+    Call<RegisterResponse> verifyPayment(@Header("Authorization") String token,
+                                         @Path("orderId") int orderId,
+                                         @Body JsonObject body);
+
     @Multipart
     @POST("upload/document")
     Call<UploadResponse> uploadDocumentCloudinary(@Header("Authorization") String token,
                                                   @Part MultipartBody.Part image);
 
-    /** Uploads to cook/&lt;cookName&gt;/Bank Details/&lt;Esewa|Khalti|Bank&gt;/ in Cloudinary. */
+    /** Uploads to cook/<cookName>/Bank Details/<Esewa|Khalti|Bank>/ in Cloudinary. */
     @Multipart
     @POST("upload/bank-qr")
     Call<UploadResponse> uploadBankQr(@Header("Authorization") String token,
                                       @Part("qrType") okhttp3.RequestBody qrType,
                                       @Part MultipartBody.Part document);
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // MEALS
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @GET("meals/cook/{cookId}")
     Call<MealResponse> getMealsByCook(@Path("cookId") int cookId);
@@ -258,24 +292,20 @@ public interface ApiService {
     Call<UploadResponse> uploadChatMediaCloudinary(@Header("Authorization") String token,
                                                    @Part MultipartBody.Part media);
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // ORDERS (Customer)
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @POST("orders")
     Call<CheckoutResponse> placeOrder(@Header("Authorization") String token,
                                       @Body CheckoutRequest request);
 
-    @GET("orders")
+    @GET("orders/customer/my")
     Call<OrderResponse> getCustomerOrders(@Header("Authorization") String token);
 
     @GET("orders/{orderId}")
     Call<OrderResponse> getOrderDetails(@Header("Authorization") String token,
                                         @Path("orderId") int orderId);
 
-    // ═══════════════════════════════════════════════════════════
     // EARNINGS (Cook)
-    // ═══════════════════════════════════════════════════════════
 
     /** All-time totals (total orders, total earned) for the profile stats row. */
     @GET("orders/cook/earnings")
@@ -295,10 +325,7 @@ public interface ApiService {
                                                                     @Query("limit") int limit,
                                                                     @Query("search") String search);
 
-
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // NOTIFICATIONS
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @GET("notifications")
     Call<NotificationResponse> getNotifications(@Header("Authorization") String token);
@@ -310,9 +337,7 @@ public interface ApiService {
     Call<NotificationResponse> markNotificationAsRead(@Header("Authorization") String token,
                                                       @Path("notificationId") int notificationId);
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // REVIEWS
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @GET("reviews/my")
     Call<ReviewResponse> getMyCookReviews(@Header("Authorization") String token);
@@ -326,12 +351,14 @@ public interface ApiService {
     Call<ReviewResponse> submitReview(@Header("Authorization") String token,
                                       @Body JsonObject body);
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // CHAT
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @GET("chat/conversations")
     Call<ChatConversationsResponse> getChatConversations(@Header("Authorization") String token);
+
+    @GET("chat/conversations")
+    Call<ChatConversationsResponse> getChatConversations(@Header("Authorization") String token,
+                                                         @Query("search") String search);
 
     @POST("chat/conversations")
     Call<CreateConversationResponse> createChatConversation(@Header("Authorization") String token,
@@ -339,6 +366,10 @@ public interface ApiService {
 
     @GET("chat/contacts")
     Call<ChatContactsResponse> getChatContacts(@Header("Authorization") String token);
+
+    @GET("chat/contacts")
+    Call<ChatContactsResponse> getChatContacts(@Header("Authorization") String token,
+                                               @Query("search") String search);
 
     @GET("chat/conversations/{conversationId}/messages")
     Call<ChatMessagesResponse> getChatMessages(@Header("Authorization") String token,
@@ -362,8 +393,6 @@ public interface ApiService {
                                              @Path("conversationId") int conversationId,
                                              @Path("messageId") int messageId);
 
-    // Plain @DELETE rejects a @Body at runtime ("Non-body HTTP method cannot
-    // contain @Body"), so use @HTTP with hasBody = true for the bulk delete.
     @HTTP(method = "DELETE", path = "chat/conversations/{conversationId}/messages", hasBody = true)
     Call<RegisterResponse> deleteChatMessages(@Header("Authorization") String token,
                                               @Path("conversationId") int conversationId,
@@ -372,4 +401,33 @@ public interface ApiService {
     @PUT("chat/conversations/{conversationId}/read")
     Call<RegisterResponse> markChatConversationRead(@Header("Authorization") String token,
                                                     @Path("conversationId") int conversationId);
+
+    @GET("chat/unread-count")
+    Call<ChatUnreadCountResponse> getChatUnreadCount(@Header("Authorization") String token);
+
+    // REFERRALS
+
+    @GET("referrals/my")
+    Call<com.tiffincraft.app.models.ReferralInfoResponse> getMyReferralInfo(@Header("Authorization") String token);
+
+    @POST("referrals/apply")
+    Call<com.tiffincraft.app.models.ApplyReferralResponse> applyReferralCode(@Header("Authorization") String token,
+                                                                             @Body JsonObject body);
+
+    // SUBSCRIPTIONS
+
+    @GET("subscriptions/customer/my")
+    Call<SubscriptionResponse> getMySubscriptions(@Header("Authorization") String token);
+
+    @PUT("subscriptions/{id}/pause")
+    Call<RegisterResponse> pauseSubscription(@Header("Authorization") String token,
+                                             @Path("id") int subscriptionId);
+
+    @PUT("subscriptions/{id}/resume")
+    Call<RegisterResponse> resumeSubscription(@Header("Authorization") String token,
+                                              @Path("id") int subscriptionId);
+
+    @DELETE("subscriptions/{id}")
+    Call<RegisterResponse> cancelSubscription(@Header("Authorization") String token,
+                                              @Path("id") int subscriptionId);
 }

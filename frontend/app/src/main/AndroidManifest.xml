@@ -14,6 +14,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <application
         android:name=".TiffinCraftApp"
@@ -38,6 +39,10 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"/>
         </provider>
+
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_API_KEY}"/>
 
         <activity
             android:name=".activities.onboarding.SplashActivity"
@@ -170,6 +175,10 @@
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
         <activity
+            android:name=".activities.customer.CustomerMenuActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
             android:name=".activities.customer.FavoritesActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
@@ -190,11 +199,27 @@
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
         <activity
+            android:name=".activities.customer.CustomerSettingsActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.customer.ReferEarnActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.customer.NearbyCooksMapActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
             android:name=".activities.cook.EditCookProfileActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
         <activity
             android:name=".activities.common.NotificationActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.common.MediaViewerActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
         <!-- New Cook Activities -->
@@ -230,12 +255,20 @@
             android:name=".activities.cook.NotificationPreferencesActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
-         <activity
+        <activity
      android:name=".activities.common.ChatActivity"
      android:theme="@style/Theme.TiffinCraft.NoActionBar"
      android:windowSoftInputMode="adjustResize"/>
 
+        <!-- Firebase Cloud Messaging Service -->
+        <service
+            android:name=".services.FcmService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>
-
