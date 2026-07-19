@@ -22,3 +22,5 @@ db.getConnection((err, connection) => {
 });
 
 export default db;
+
+

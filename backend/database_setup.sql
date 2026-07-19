@@ -36,12 +36,23 @@ CREATE TABLE IF NOT EXISTS cook_profiles (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Create admin_records table
+CREATE TABLE IF NOT EXISTS admin_records (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    admin_id INT NOT NULL,
+    action_type VARCHAR(100) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Verify tables were created
 SHOW TABLES;
 
 -- Check table structures
 DESCRIBE users;
 DESCRIBE cook_profiles;
+DESCRIBE admin_records;
 
 -- Success message
 SELECT 'Database setup completed successfully!' AS Status;

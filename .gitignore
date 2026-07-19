@@ -4,9 +4,6 @@
 .sixth/
 .idea/
 .vscode/
-.kombai/
-.kilo/
-
 
 # Node
 node_modules/
@@ -20,8 +17,6 @@ uploads/
 .env
 .env.local
 .env.*.local
-.venv
-.tmp
 
 # Logs
 *.log
@@ -36,10 +31,31 @@ frontend/app/build/
 frontend/.gradle/
 frontend/build/
 
-# Documentation and markdown files (exclude all .md files except docs/ and root README.md)
-*.md
-!README.md
-!docs/**/*.md
+# Documentation (ignore temporary/plan markdown files)
+*_GUIDE.md
+*_DOCUMENTATION.md
+*_IMPLEMENTATION.md
+*_REFERENCE.md
+*_SUMMARY.md
+*_STEPS.md
+*_COMPLETE.md
+*_FIX.md
+*_DEBUG.md
+CONNECT_*.md
+INSTALL_*.md
+INTEGRATION_*.md
+QUICK_*.md
+START_*.md
+VS_CODE_*.md
+CLAUDE.md
+MASTERPROMPTS.md
+MapImplementation.md
+context.md
+
+# Ignore plan directories
+**/plans/
+.claude/plans/
+Admin/plans/
 
 # Lock files (optional – keep package-lock for reproducibility)
 # package-lock.json

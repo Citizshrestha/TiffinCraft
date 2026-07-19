@@ -17,10 +17,15 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import favoritesRoutes from "./routes/favoritesRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
+import chatRoutes from "./routes/chatRoutes.js";
+import referralRoutes from "./routes/referralRoutes.js";
+import subscriptionRoutes from "./routes/subscriptionRoutes.js";
+import { startSubscriptionJob } from "./jobs/subscriptionOrderJob.js";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import fs from "fs";
 import getLanIp from "./utils/lanIp.js";
+import { initFirebase } from "./config/firebaseAdmin.js";
 
 dotenv.config();
 
@@ -54,6 +59,11 @@ io.use((socket, next) => {
 io.on("connection", (socket) => {
     console.log(`🔌 Socket connected: ${socket.id} (User: ${socket.user.id})`);
 
+    // Every authenticated socket joins its own personal room for
+    // direct notifications (e.g. chat message alerts) regardless of
+    // which screen/room it's currently viewing.
+    socket.join(`user_${socket.user.id}`);
+
     socket.on("joinOrderRoom", async (orderId) => {
         try {
             const [order] = await db.promise().query(
@@ -81,6 +91,41 @@ io.on("connection", (socket) => {
         } else {
             console.warn(`⚠️  Socket ${socket.id} denied access to cook room ${cookId}`);
         }
+    });
+
+    // ── Chat rooms ────────────────────────────────────────────────
+    socket.on("joinChatRoom", async (conversationId) => {
+        try {
+            const [rows] = await db.promise().query(
+                "SELECT customer_id, cook_id FROM conversations WHERE id = ?",
+                [conversationId]
+            );
+            if (rows.length > 0) {
+                const c = rows[0];
+                if (c.customer_id === socket.user.id || c.cook_id === socket.user.id) {
+                    socket.join(`chat_${conversationId}`);
+                    console.log(`💬 Socket ${socket.id} joined chat_${conversationId}`);
+                } else {
+                    console.warn(`⚠️  Socket ${socket.id} denied access to chat_${conversationId}`);
+                }
+            }
+        } catch (error) {
+            console.error("Error joining chat room:", error);
+        }
+    });
+
+    socket.on("leaveChatRoom", (conversationId) => {
+        socket.leave(`chat_${conversationId}`);
+        console.log(`💬 Socket ${socket.id} left chat_${conversationId}`);
+    });
+
+    socket.on("chatTyping", (data) => {
+        const conversationId = data && data.conversation_id;
+        if (!conversationId) return;
+        socket.to(`chat_${conversationId}`).emit("chatTyping", {
+            conversation_id: conversationId,
+            user_id: socket.user.id
+        });
     });
 
     socket.on("disconnect", () => {
@@ -180,6 +225,9 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/favorites", favoritesRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/referrals", referralRoutes);
+app.use("/api/subscriptions", subscriptionRoutes);
 
 app.use((_req, res) => {
     res.status(404).json({ message: "Route not found." });
@@ -202,6 +250,9 @@ db.getConnection((err, connection) => {
     connection.release();
     console.log("✅ Database connected");
 
+    // Initialize Firebase Admin SDK for FCM push notifications
+    initFirebase();
+
     transporter.verify((smtpErr) => {
         if (smtpErr) {
             console.warn(`⚠️  SMTP not ready: ${smtpErr.message}`);
@@ -209,6 +260,9 @@ db.getConnection((err, connection) => {
             console.log(`✅ SMTP ready — ${process.env.SMTP_HOST}`);
         }
     });
+
+    // Start subscription auto-order cron job (runs daily at 06:00)
+    startSubscriptionJob();
 
     server.listen(PORT, "0.0.0.0", () => {
         console.log(`\n✅ Server running on port ${PORT}`);
