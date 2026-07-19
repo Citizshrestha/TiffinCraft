@@ -94,10 +94,14 @@ export const uploadCookProfileImage = async (req, res) => {
             [imageUrl, userId]
         );
 
+        // Shape must match the Android UploadResponse model ({ data: { url } });
+        // returning image_url at the top level made getData() null and crashed
+        // the app with a NullPointerException on getData().getUrl().
         return res.status(200).json({
             success: true,
             message: "Profile image uploaded successfully.",
-            image_url: imageUrl
+            image_url: imageUrl,
+            data: { url: imageUrl }
         });
 
     } catch (error) {
@@ -114,7 +118,10 @@ export const getMyCookProfile = async (req, res) => {
         const userId = req.user.id;
 
         const [profiles] = await db.promise().query(
-            `SELECT cp.*, u.full_name, u.email, u.phone, u.profile_image, u.address
+            `SELECT cp.*, u.full_name, u.email, u.phone, u.profile_image, u.address,
+                    u.created_at AS user_created_at,
+                    (SELECT COALESCE(AVG(r.rating), 0) FROM reviews r WHERE r.cook_id = cp.user_id) AS live_rating,
+                    (SELECT COUNT(*) FROM reviews r WHERE r.cook_id = cp.user_id) AS total_reviews
              FROM cook_profiles cp
              JOIN users u ON cp.user_id = u.id
              WHERE cp.user_id = ?`,
@@ -128,10 +135,12 @@ export const getMyCookProfile = async (req, res) => {
             });
         }
 
-        // Convert DECIMAL rating to real number
+        // Convert DECIMAL rating to real number; prefer the live review average
+        const liveRating = parseFloat(profiles[0].live_rating) || 0;
         const formattedProfile = {
             ...profiles[0],
-            rating: parseFloat(profiles[0].rating)
+            rating: liveRating > 0 ? liveRating : (parseFloat(profiles[0].rating) || 0),
+            total_reviews: parseInt(profiles[0].total_reviews) || 0
         };
 
         return res.status(200).json({
@@ -225,13 +234,28 @@ export const updateCookProfile = async (req, res) => {
 
 export const getAllCooks = async (req, res) => {
     try {
-        const [cooks] = await db.promise().query(
-            `SELECT cp.*, u.full_name, u.profile_image, u.address
+        const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+
+        // u.id AS id must come after cp.* so it overrides cp.id (cook_profiles PK) —
+        // every other endpoint (getCookById, getMealsByCook, favorites) keys cooks by users.id.
+        let query = `SELECT cp.*, u.full_name, u.profile_image, u.address, u.id AS id,
+                    (SELECT COUNT(*) FROM meals m WHERE m.cook_id = u.id AND m.is_available = TRUE) AS dish_count,
+                    (SELECT COUNT(*) FROM reviews r WHERE r.cook_id = u.id) AS review_count
              FROM cook_profiles cp
              JOIN users u ON cp.user_id = u.id
-             WHERE u.is_active = TRUE AND cp.is_approved = TRUE
-             ORDER BY cp.rating DESC, cp.total_orders DESC`
-        );
+             WHERE u.is_active = TRUE AND cp.is_approved = TRUE`;
+
+        const params = [];
+        if (search) {
+            query += ` AND (u.full_name LIKE ? OR u.address LIKE ? OR cp.kitchen_name LIKE ?
+                             OR cp.food_type LIKE ? OR cp.specialties LIKE ?)`;
+            const like = `%${search}%`;
+            params.push(like, like, like, like, like);
+        }
+
+        query += ` ORDER BY cp.rating DESC, cp.total_orders DESC`;
+
+        const [cooks] = await db.promise().query(query, params);
 
         // Convert DECIMAL rating to real number
         const formattedCooks = cooks.map(cook => ({
@@ -258,7 +282,10 @@ export const getCookById = async (req, res) => {
         const { cookId } = req.params;
 
         const [cooks] = await db.promise().query(
-            `SELECT cp.*, u.full_name, u.profile_image, u.address, u.email, u.phone
+            `SELECT cp.*, u.full_name, u.profile_image, u.address, u.email, u.phone, u.id AS id,
+                    (SELECT COUNT(*) FROM meals m WHERE m.cook_id = u.id AND m.is_available = TRUE) AS dish_count,
+                    (SELECT COUNT(*) FROM reviews r WHERE r.cook_id = u.id) AS review_count,
+                    (SELECT COUNT(*) FROM reviews r WHERE r.cook_id = u.id) AS total_reviews
              FROM cook_profiles cp
              JOIN users u ON cp.user_id = u.id
              WHERE u.id = ? AND u.is_active = TRUE`,
@@ -495,12 +522,20 @@ export const updateCookCompleteProfile = async (req, res) => {
             userValues.push(address);
         }
         if (latitude !== undefined) {
+            const latNum = parseFloat(latitude);
+            if (Number.isNaN(latNum) || latNum < -90 || latNum > 90) {
+                return res.status(400).json({ success: false, message: "latitude must be a number in [-90,90]." });
+            }
             userUpdates.push("latitude = ?");
-            userValues.push(latitude);
+            userValues.push(latNum);
         }
         if (longitude !== undefined) {
+            const lngNum = parseFloat(longitude);
+            if (Number.isNaN(lngNum) || lngNum < -180 || lngNum > 180) {
+                return res.status(400).json({ success: false, message: "longitude must be a number in [-180,180]." });
+            }
             userUpdates.push("longitude = ?");
-            userValues.push(longitude);
+            userValues.push(lngNum);
         }
 
         if (userUpdates.length > 0) {
@@ -604,6 +639,16 @@ export const updateHolidayMode = async (req, res) => {
             'UPDATE cook_profiles SET is_holiday_mode = ? WHERE user_id = ?',
             [is_holiday_mode, userId]
         );
+
+        // Let any open customer map screens refresh live: a cook toggling
+        // holiday mode should appear/disappear without a manual reload.
+        const io = req.app.get("io");
+        if (io) {
+            io.emit("cookAvailabilityChanged", {
+                cook_id: userId,
+                is_holiday_mode: !!is_holiday_mode
+            });
+        }
 
         return res.status(200).json({
             success: true,
@@ -723,5 +768,87 @@ export const updateBankDetails = async (req, res) => {
             message: "Server error",
             error: error.message
         });
+    }
+};
+
+// GET /api/cook/nearby?lat=&lng=&radius_km=
+// Customer-side discovery: approved, active, non-holiday cooks with saved
+// coordinates within radius_km of the given point, nearest first.
+const MAX_RADIUS_KM = 50;       // server-side cap — prevents unbounded full-table Haversine scans
+const DEFAULT_RADIUS_KM = 10;
+
+export const getNearbyCooks = async (req, res) => {
+    try {
+        // Express query params arrive as STRINGS — explicit parseFloat + isNaN required.
+        const lat = parseFloat(req.query.lat);
+        const lng = parseFloat(req.query.lng);
+        let radiusKm = req.query.radius_km !== undefined
+            ? parseFloat(req.query.radius_km)
+            : DEFAULT_RADIUS_KM;
+
+        if (Number.isNaN(lat) || Number.isNaN(lng)) {
+            return res.status(400).json({ success: false, message: "lat and lng are required numeric query parameters." });
+        }
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+            return res.status(400).json({ success: false, message: "lat must be in [-90,90] and lng in [-180,180]." });
+        }
+        if (Number.isNaN(radiusKm) || radiusKm <= 0) {
+            return res.status(400).json({ success: false, message: "radius_km must be a positive number." });
+        }
+        radiusKm = Math.min(radiusKm, MAX_RADIUS_KM);
+
+        // Haversine (km). LEAST(1, ...) guards ACOS() domain errors from floating-point
+        // rounding when a cook sits exactly at the customer's coordinates.
+        // u.id AS id after cp.* — same aliasing rule as getAllCooks (cooks are keyed by users.id).
+        const baseQuery =
+            `SELECT cp.*, u.full_name, u.profile_image, u.address, u.id AS id,
+                    u.latitude, u.longitude,
+                    (SELECT COUNT(*) FROM meals m WHERE m.cook_id = u.id AND m.is_available = TRUE) AS dish_count,
+                    (SELECT COUNT(*) FROM reviews r WHERE r.cook_id = u.id) AS review_count,
+                    (6371 * ACOS(LEAST(1,
+                        COS(RADIANS(?)) * COS(RADIANS(u.latitude)) *
+                        COS(RADIANS(u.longitude) - RADIANS(?)) +
+                        SIN(RADIANS(?)) * SIN(RADIANS(u.latitude))
+                    ))) AS distance_km
+             FROM cook_profiles cp
+             JOIN users u ON cp.user_id = u.id
+             WHERE u.is_active = TRUE
+               AND cp.is_approved = TRUE
+               AND cp.is_holiday_mode = 0
+               AND u.latitude IS NOT NULL
+               AND u.longitude IS NOT NULL`;
+
+        let [cooks] = await db.promise().query(
+            `${baseQuery}
+             HAVING distance_km <= ?
+             ORDER BY distance_km ASC
+             LIMIT 100`,
+            [lat, lng, lat, radiusKm]
+        );
+
+        // Nobody inside the radius: fall back to the nearest cooks regardless
+        // of distance, so the map is never empty while cooks exist at all.
+        if (cooks.length === 0) {
+            [cooks] = await db.promise().query(
+                `${baseQuery}
+                 ORDER BY distance_km ASC
+                 LIMIT 5`,
+                [lat, lng, lat]
+            );
+        }
+
+        // mysql2 returns DECIMAL columns as strings — coerce to numbers for Gson.
+        const formattedCooks = cooks.map(cook => ({
+            ...cook,
+            rating: parseFloat(cook.rating),
+            latitude: parseFloat(cook.latitude),
+            longitude: parseFloat(cook.longitude),
+            distance_km: Math.round(cook.distance_km * 100) / 100
+        }));
+
+        return res.status(200).json({ success: true, cooks: formattedCooks });
+    } catch (error) {
+        console.error("getNearbyCooks error:", error);
+        return res.status(500).json({ success: false, message: "Server error.", error: error.message });
     }
 };

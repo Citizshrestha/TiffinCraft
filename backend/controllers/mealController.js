@@ -222,9 +222,10 @@ export const uploadMealImage = async (req, res) => {
 
 export const getAllMeals = async (req, res) => {
     try {
-        const { category, cuisine_type, is_vegetarian, is_vegan, max_price } = req.query;
+        const { category, cuisine_type, is_vegetarian, is_vegan, max_price, search, sort } = req.query;
 
-        let query = `SELECT m.*, u.full_name as cook_name, cp.rating as cook_rating
+        let query = `SELECT m.*, u.full_name as cook_name, u.profile_image as cook_image,
+                            cp.rating as cook_rating, cp.kitchen_name as kitchen_name
                      FROM meals m
                      JOIN users u ON m.cook_id = u.id
                      JOIN cook_profiles cp ON u.id = cp.user_id
@@ -255,7 +256,20 @@ export const getAllMeals = async (req, res) => {
             params.push(parseFloat(max_price));
         }
 
-        query += ` ORDER BY cp.rating DESC, m.created_at DESC`;
+        if (search) {
+            query += ` AND (m.name LIKE CONCAT('%', ?, '%') OR m.description LIKE CONCAT('%', ?, '%') OR u.full_name LIKE CONCAT('%', ?, '%') OR cp.kitchen_name LIKE CONCAT('%', ?, '%'))`;
+            params.push(search, search, search, search);
+        }
+
+        if (sort === 'price_asc') {
+            query += ` ORDER BY m.price ASC`;
+        } else if (sort === 'price_desc') {
+            query += ` ORDER BY m.price DESC`;
+        } else if (sort === 'rating') {
+            query += ` ORDER BY cp.rating DESC`;
+        } else {
+            query += ` ORDER BY cp.rating DESC, m.created_at DESC`;
+        }
 
         const [meals] = await db.promise().query(query, params);
 

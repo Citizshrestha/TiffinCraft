@@ -47,6 +47,10 @@ async function seedOrdersForCook(conn, cook, customerIds, addresses) {
         { customer: 2, meal: 4 % meals.length, qty: 1, status: 'delivered', days_ago: 2, address: 0 },
         { customer: 0, meal: 1 % meals.length, qty: 2, status: 'delivered', days_ago: 3, address: 1 },
         { customer: 1, meal: 0,               qty: 1, status: 'cancelled',  days_ago: 2, address: 2 },
+        { customer: 2, meal: 1 % meals.length, qty: 2, status: 'delivered', days_ago: 0, address: 3 },
+        { customer: 0, meal: 2 % meals.length, qty: 1, status: 'delivered', days_ago: 4, address: 4 },
+        { customer: 1, meal: 4 % meals.length, qty: 2, status: 'delivered', days_ago: 5, address: 0 },
+        { customer: 2, meal: 3 % meals.length, qty: 3, status: 'delivered', days_ago: 6, address: 1 },
     ];
 
     let insertedCount = 0;
