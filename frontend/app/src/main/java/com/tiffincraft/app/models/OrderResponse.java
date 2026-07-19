@@ -14,7 +14,13 @@ public class OrderResponse {
     @SerializedName("orders")
     private List<Order> orders;
 
+    // GET /orders/{orderId} (getOrderById) returns a single "order" object,
+    // not an "orders" array — this field backs that shape specifically.
+    @SerializedName("order")
+    private Order order;
+
     public boolean isSuccess() { return success; }
     public String getMessage() { return message; }
     public List<Order> getOrders() { return orders; }
+    public Order getOrder() { return order; }
 }

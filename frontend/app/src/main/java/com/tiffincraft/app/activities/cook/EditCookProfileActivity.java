@@ -181,6 +181,49 @@ public class EditCookProfileActivity extends AppCompatActivity {
         request.setFoodType(foodType);
         request.setDescription(description);
 
+        // Pin the kitchen on the map: geocode the address so customers can find
+        // this cook in nearby search. Geocoder is blocking — background thread.
+        boolean addressChanged = !address.equals(
+                currentProfile != null && currentProfile.getAddress() != null
+                        ? currentProfile.getAddress() : "");
+        boolean neverPinned = currentProfile == null || !currentProfile.hasCoordinates();
+
+        new Thread(() -> {
+            Double lat = null, lng = null;
+            try {
+                java.util.List<android.location.Address> results =
+                        new android.location.Geocoder(this, java.util.Locale.getDefault())
+                                .getFromLocationName(address, 1);
+                if (results != null && !results.isEmpty()) {
+                    lat = results.get(0).getLatitude();
+                    lng = results.get(0).getLongitude();
+                }
+            } catch (java.io.IOException ignored) {
+                // offline / geocoder unavailable — handled below
+            }
+            final Double fLat = lat;
+            final Double fLng = lng;
+            runOnUiThread(() -> {
+                if (fLat != null && fLng != null) {
+                    request.setLatitude(fLat);
+                    request.setLongitude(fLng);
+                    submitProfileUpdate(request);
+                } else if (addressChanged || neverPinned) {
+                    // The map pin would be missing or stale — block the save so
+                    // the cook stays discoverable in nearby search.
+                    showLoading(false);
+                    binding.etAddress.setError("We couldn't locate this address on the map. "
+                            + "Check the spelling or add more detail (e.g. area and city), then save again.");
+                    binding.etAddress.requestFocus();
+                } else {
+                    // Address unchanged and a valid pin already exists — keep it.
+                    submitProfileUpdate(request);
+                }
+            });
+        }).start();
+    }
+
+    private void submitProfileUpdate(CookProfileRequest request) {
         String token = "Bearer " + sessionManager.getToken();
         apiService.updateCookCompleteProfile(token, request).enqueue(new Callback<CookProfileResponse>() {
             @Override
@@ -189,7 +232,7 @@ public class EditCookProfileActivity extends AppCompatActivity {
                 showLoading(false);
 
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                    sessionManager.saveFullName(fullName);
+                    sessionManager.saveFullName(request.getFullName());
 
                     Toast.makeText(EditCookProfileActivity.this,
                             "Profile updated successfully!", Toast.LENGTH_SHORT).show();

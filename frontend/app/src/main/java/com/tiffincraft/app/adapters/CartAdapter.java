@@ -8,10 +8,10 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-import com.bumptech.glide.Glide;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.models.CartGroup;
 import com.tiffincraft.app.models.CartItem;
+import com.tiffincraft.app.utils.ImageUrlHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -92,7 +92,7 @@ public class CartAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             String name = row.group.getKitchenName() != null && !row.group.getKitchenName().isEmpty()
                     ? row.group.getKitchenName() : row.group.getCookName();
             h.tvCookName.setText(name);
-            h.tvSubtotal.setText(String.format("Rs.%.0f", row.group.getSubtotal()));
+            h.tvSubtotal.setText(String.format("₹%.0f", row.group.getSubtotal()));
         } else if (!row.isHeader && holder instanceof ItemHolder) {
             ItemHolder h = (ItemHolder) holder;
             CartItem item = row.item;
@@ -101,11 +101,7 @@ public class CartAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             h.tvPrice.setText(String.format("₹%.0f", item.getPrice()));
             h.tvQuantity.setText(String.valueOf(item.getQuantity()));
 
-            Glide.with(context)
-                    .load(item.getImageUrl())
-                    .placeholder(R.drawable.ic_food)
-                    .centerCrop()
-                    .into(h.imgMeal);
+            ImageUrlHelper.load(h.imgMeal, item.getImageUrl(), R.drawable.ic_food);
 
             if (!item.isAvailable()) {
                 h.tvUnavailable.setVisibility(View.VISIBLE);

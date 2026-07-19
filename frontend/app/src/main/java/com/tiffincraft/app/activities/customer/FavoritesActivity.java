@@ -69,8 +69,7 @@ public class FavoritesActivity extends AppCompatActivity implements FavoritesAda
     }
 
     private void setupBottomNavigation() {
-        bottomNavigation.setSelectedItemId(R.id.nav_favorites);
-
+        // Favorites is no longer a bottom-nav tab (Cart is); don't force a selected item
         bottomNavigation.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
 
@@ -82,11 +81,12 @@ public class FavoritesActivity extends AppCompatActivity implements FavoritesAda
                 startActivity(new Intent(this, CustomerMenuActivity.class));
                 finish();
                 return true;
+            } else if (itemId == R.id.nav_cart) {
+                startActivity(new Intent(this, com.tiffincraft.app.activities.common.CartActivity.class));
+                return false;
             } else if (itemId == R.id.nav_orders) {
                 startActivity(new Intent(this, com.tiffincraft.app.activities.order.OrderHistoryActivity.class));
                 finish();
-                return true;
-            } else if (itemId == R.id.nav_favorites) {
                 return true;
             } else if (itemId == R.id.nav_profile) {
                 startActivity(new Intent(this, CustomerProfileActivity.class));
@@ -177,7 +177,7 @@ public class FavoritesActivity extends AppCompatActivity implements FavoritesAda
     public void onViewMenu(int cookId) {
         // Navigate to Cook Details Activity
         Intent intent = new Intent(this, com.tiffincraft.app.activities.meal.CookDetailsActivity.class);
-        intent.putExtra("COOK_ID", cookId);
+        intent.putExtra(com.tiffincraft.app.activities.meal.CookDetailsActivity.EXTRA_COOK_ID, cookId);
         startActivity(intent);
     }
 
@@ -215,10 +215,6 @@ public class FavoritesActivity extends AppCompatActivity implements FavoritesAda
     @Override
     protected void onResume() {
         super.onResume();
-        // Set favorites tab as selected when returning to this activity
-        if (bottomNavigation != null) {
-            bottomNavigation.setSelectedItemId(R.id.nav_favorites);
-        }
         // Reload favorites when returning to this activity
         loadFavorites();
     }

@@ -9,12 +9,10 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.resource.bitmap.RoundedCorners;
-import com.bumptech.glide.request.RequestOptions;
 import com.google.android.material.card.MaterialCardView;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.models.Meal;
+import com.tiffincraft.app.utils.ImageUrlHelper;
 
 import java.util.List;
 
@@ -97,29 +95,9 @@ public class PopularMealAdapter extends RecyclerView.Adapter<PopularMealAdapter.
                 tvDeliveryTime.setText("30 min");
             }
 
-            // Load meal image
-            if (meal.getImageUrl() != null && !meal.getImageUrl().isEmpty()) {
-                Glide.with(itemView.getContext())
-                        .load(meal.getImageUrl())
-                        .apply(new RequestOptions()
-                                .transform(new RoundedCorners(48))
-                                .placeholder(R.drawable.meal_placeholder)
-                                .error(R.drawable.meal_placeholder))
-                        .into(imgMealPhoto);
-            } else {
-                imgMealPhoto.setImageResource(R.drawable.meal_placeholder);
-            }
-
-            // Load cook image
-            if (meal.getCookImage() != null && !meal.getCookImage().isEmpty()) {
-                Glide.with(itemView.getContext())
-                        .load(meal.getCookImage())
-                        .placeholder(R.drawable.avatar_cook)
-                        .error(R.drawable.avatar_cook)
-                        .into(imgCookPhoto);
-            } else {
-                imgCookPhoto.setImageResource(R.drawable.avatar_cook);
-            }
+            // Load meal + cook images (tunnel-safe + relative /uploads paths)
+            ImageUrlHelper.load(imgMealPhoto, meal.getImageUrl(), R.drawable.meal_placeholder, 48);
+            ImageUrlHelper.load(imgCookPhoto, meal.getCookImage(), R.drawable.avatar_cook);
 
             // Show best seller badge (you can add logic based on rating or sales)
             if (meal.getCookRating() != null && meal.getCookRating() >= 4.5) {

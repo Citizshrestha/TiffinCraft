@@ -439,6 +439,14 @@ public class RegisterActivity extends AppCompatActivity {
                             RegisterResponse registerResponse = response.body();
 
                             if (registerResponse.isSuccess()) {
+                                if (registerResponse.isAutoVerified()) {
+                                    // SMTP not configured — backend verified the
+                                    // account directly; no OTP will ever arrive.
+                                    Toast.makeText(RegisterActivity.this,
+                                        "Registration successful! Please log in.", Toast.LENGTH_LONG).show();
+                                    finish();
+                                    return;
+                                }
                                 Toast.makeText(RegisterActivity.this,
                                     R.string.otp_sent_to_email, Toast.LENGTH_SHORT).show();
 

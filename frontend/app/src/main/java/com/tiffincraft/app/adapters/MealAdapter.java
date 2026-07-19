@@ -10,15 +10,11 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.engine.DiskCacheStrategy;
-import com.bumptech.glide.load.model.GlideUrl;
-import com.bumptech.glide.load.model.LazyHeaders;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.tiffincraft.app.R;
-import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.Meal;
+import com.tiffincraft.app.utils.ImageUrlHelper;
 
 import java.util.List;
 
@@ -69,27 +65,7 @@ public class MealAdapter extends RecyclerView.Adapter<MealAdapter.MealViewHolder
             }
         }
         
-        if (meal.getImageUrl() != null && !meal.getImageUrl().isEmpty()) {
-            String imageUrl = meal.getImageUrl().startsWith("http")
-                    ? meal.getImageUrl()
-                    : RetrofitClient.SERVER_URL + meal.getImageUrl();
-
-            GlideUrl glideUrl = new GlideUrl(imageUrl, new LazyHeaders.Builder()
-                    .addHeader("Bypass-Tunnel-Reminder", "true")
-                    .build());
-
-            Glide.with(context)
-                .load(glideUrl)
-                .diskCacheStrategy(DiskCacheStrategy.NONE)
-                .skipMemoryCache(true)
-                .placeholder(placeholderImage)
-                .error(placeholderImage)
-                .centerCrop()
-                .into(holder.imgMeal);
-        } else {
-            // No image - show placeholder
-            holder.imgMeal.setImageResource(placeholderImage);
-        }
+        ImageUrlHelper.load(holder.imgMeal, meal.getImageUrl(), placeholderImage);
         
         // Set availability switch
         holder.switchAvailability.setOnCheckedChangeListener(null);

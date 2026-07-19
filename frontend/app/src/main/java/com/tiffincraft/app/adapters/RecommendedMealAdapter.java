@@ -9,19 +9,17 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.resource.bitmap.RoundedCorners;
-import com.bumptech.glide.request.RequestOptions;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.card.MaterialCardView;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.models.Meal;
+import com.tiffincraft.app.utils.ImageUrlHelper;
 
 import java.util.List;
 
 public class RecommendedMealAdapter extends RecyclerView.Adapter<RecommendedMealAdapter.MealViewHolder> {
     private List<Meal> meals;
     private OnMealActionListener listener;
+    private final int itemLayoutRes;
 
     public interface OnMealActionListener {
         void onMealClick(Meal meal);
@@ -29,16 +27,26 @@ public class RecommendedMealAdapter extends RecyclerView.Adapter<RecommendedMeal
         void onAddToCartClick(Meal meal);
     }
 
+    /** Uses the grid card layout (match_parent width) — for the Menu screen's grid. */
     public RecommendedMealAdapter(List<Meal> meals, OnMealActionListener listener) {
+        this(meals, listener, false);
+    }
+
+    /**
+     * @param horizontal when true, uses the fixed-width card layout meant for a
+     *                   horizontal carousel (e.g. the home screen's "Recommended For You" row).
+     */
+    public RecommendedMealAdapter(List<Meal> meals, OnMealActionListener listener, boolean horizontal) {
         this.meals = meals;
         this.listener = listener;
+        this.itemLayoutRes = horizontal ? R.layout.item_recommended_meal_horizontal : R.layout.item_recommended_meal;
     }
 
     @NonNull
     @Override
     public MealViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_recommended_meal, parent, false);
+                .inflate(itemLayoutRes, parent, false);
         return new MealViewHolder(view);
     }
 
@@ -108,18 +116,8 @@ public class RecommendedMealAdapter extends RecyclerView.Adapter<RecommendedMeal
                 tvFoodType.setVisibility(View.VISIBLE);
             }
 
-            // Load meal image
-            if (meal.getImageUrl() != null && !meal.getImageUrl().isEmpty()) {
-                Glide.with(itemView.getContext())
-                        .load(meal.getImageUrl())
-                        .apply(new RequestOptions()
-                                .transform(new RoundedCorners(48))
-                                .placeholder(R.drawable.meal_placeholder)
-                                .error(R.drawable.meal_placeholder))
-                        .into(imgMealPhoto);
-            } else {
-                imgMealPhoto.setImageResource(R.drawable.meal_placeholder);
-            }
+            // Load meal image (tunnel-safe + relative /uploads paths)
+            ImageUrlHelper.load(imgMealPhoto, meal.getImageUrl(), R.drawable.meal_placeholder, 48);
 
             // Click listeners
             itemView.setOnClickListener(v -> {

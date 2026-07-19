@@ -74,18 +74,14 @@ public class ManageOrdersActivity extends AppCompatActivity
         }
         loadOrders();
 
-        // Connect socket
+        // Connect socket and re-claim the order events for this screen
         connectSocket();
+        setupSocketListeners();
     }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        // Disconnect socket when activity is not visible
-        if (socketManager != null) {
-            socketManager.disconnect();
-        }
-    }
+    // Note: no socket disconnect in onPause — SocketManager is an app-wide
+    // singleton, so disconnecting here killed real-time chat/order updates for
+    // every other screen. The socket now lives until logout.
 
     // ─────────────────────────────────────────────────────────────────────────
     // Setup

@@ -45,6 +45,7 @@ import com.tiffincraft.app.models.SendChatMessageRequest;
 import com.tiffincraft.app.models.SendChatMessageResponse;
 import com.tiffincraft.app.models.UploadResponse;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.ChatNotifier;
 import com.tiffincraft.app.utils.SocketManager;
 import com.tiffincraft.app.utils.ImageUploadHelper;
 
@@ -164,6 +165,10 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // Suppress system notifications for the conversation on screen and
+        // clear any that fired for it while we were away.
+        ChatNotifier.setActiveConversation(conversationId);
+        ChatNotifier.cancel(this, conversationId);
         if (skipNextResumeReload) {
             skipNextResumeReload = false;
             return;
@@ -171,6 +176,12 @@ public class ChatActivity extends AppCompatActivity {
         if (conversationId > 0) {
             loadMessages();
         }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        ChatNotifier.clearActiveConversation();
     }
 
     private void initViews() {

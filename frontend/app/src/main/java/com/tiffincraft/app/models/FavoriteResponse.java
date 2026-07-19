@@ -69,7 +69,13 @@ public class FavoriteResponse {
         @SerializedName("totalMeals")
         private int totalMeals;
 
-        @SerializedName("addedAt")
+        @SerializedName("totalOrders")
+        private int totalOrders;
+
+        @SerializedName("isVerified")
+        private boolean isVerified;
+
+        @SerializedName("favoritedAt")
         private String addedAt;
 
         // Getters
@@ -119,6 +125,14 @@ public class FavoriteResponse {
 
         public int getTotalMeals() {
             return totalMeals;
+        }
+
+        public int getTotalOrders() {
+            return totalOrders;
+        }
+
+        public boolean isVerified() {
+            return isVerified;
         }
 
         public String getAddedAt() {

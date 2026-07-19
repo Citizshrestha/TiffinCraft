@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.common.MediaViewerActivity;
 import com.tiffincraft.app.models.ChatMessage;
 
 import java.util.ArrayList;
@@ -195,7 +196,11 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
             bindMessageActions(vh.itemView, msg, () -> {
                 if (url == null || url.trim().isEmpty()) return;
-                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                // Open in-app full-screen (Instagram/Facebook style) instead of
+                // launching the raw Cloudinary URL in an external browser.
+                Intent intent = new Intent(context, MediaViewerActivity.class);
+                intent.putExtra(MediaViewerActivity.EXTRA_MEDIA_URL, url);
+                intent.putExtra(MediaViewerActivity.EXTRA_IS_VIDEO, isVideo);
                 context.startActivity(intent);
             });
 

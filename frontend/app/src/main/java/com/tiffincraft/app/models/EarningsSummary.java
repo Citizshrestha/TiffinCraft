@@ -9,6 +9,7 @@ public class EarningsSummary {
     private double todayTotal;
     private List<EarningsTransaction> recentTransactions;
     private List<WeeklyBreakdown> weeklyBreakdown;
+    private List<WeeklyBreakdown> dailyBreakdown;
     private List<MonthlyBreakdown> monthlyBreakdown;
 
     public EarningsSummary() {
@@ -60,6 +61,14 @@ public class EarningsSummary {
 
     public void setWeeklyBreakdown(List<WeeklyBreakdown> weeklyBreakdown) {
         this.weeklyBreakdown = weeklyBreakdown;
+    }
+
+    public List<WeeklyBreakdown> getDailyBreakdown() {
+        return dailyBreakdown;
+    }
+
+    public void setDailyBreakdown(List<WeeklyBreakdown> dailyBreakdown) {
+        this.dailyBreakdown = dailyBreakdown;
     }
 
     public List<MonthlyBreakdown> getMonthlyBreakdown() {

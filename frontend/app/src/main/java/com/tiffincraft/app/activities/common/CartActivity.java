@@ -61,7 +61,10 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartA
         btnCheckout.setOnClickListener(v -> goToCheckout());
 
         if (btnBrowseCooks != null) {
-            btnBrowseCooks.setOnClickListener(v -> finish());
+            btnBrowseCooks.setOnClickListener(v -> {
+                startActivity(new Intent(this, com.tiffincraft.app.activities.customer.CustomerMenuActivity.class));
+                finish();
+            });
         }
 
         if (tvClearCart != null) {
@@ -91,6 +94,7 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartA
 
                     layoutEmptyCart.setVisibility(View.GONE);
                     rvCart.setVisibility(View.VISIBLE);
+                    if (checkoutPanel != null) checkoutPanel.setVisibility(View.VISIBLE);
                     btnCheckout.setEnabled(true);
                     if (tvClearCart != null) tvClearCart.setVisibility(View.VISIBLE);
 
@@ -102,8 +106,13 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartA
                     }
 
                     int count = body.getItemCount();
-                    tvGrandTotal.setText(String.format("Rs.%.0f", body.getGrandTotal()));
-                    tvItemCount.setText(count + (count == 1 ? " item" : " items"));
+                    int cookCount = body.getCartGroups() != null ? body.getCartGroups().size() : 0;
+                    tvGrandTotal.setText(String.format("₹%.0f", body.getGrandTotal()));
+                    String countLabel = count + (count == 1 ? " item" : " items");
+                    if (cookCount > 1) {
+                        countLabel += " · " + cookCount + " cooks";
+                    }
+                    tvItemCount.setText(countLabel);
                 } else {
                     showEmptyState();
                 }
@@ -120,7 +129,8 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartA
     private void showEmptyState() {
         rvCart.setVisibility(View.GONE);
         layoutEmptyCart.setVisibility(View.VISIBLE);
-        tvGrandTotal.setText("Rs.0");
+        if (checkoutPanel != null) checkoutPanel.setVisibility(View.GONE);
+        tvGrandTotal.setText("₹0");
         tvItemCount.setText("0 items");
         btnCheckout.setEnabled(false);
         if (tvClearCart != null) tvClearCart.setVisibility(View.GONE);

@@ -94,6 +94,8 @@ public class CookSettingsActivity extends AppCompatActivity {
         binding.btnLogout.setOnClickListener(v -> {
             showLogoutConfirmation();
         });
+
+        binding.btnDeleteAccount.setOnClickListener(v -> showDeleteAccountConfirmation());
     }
 
     private void loadCurrentSettings() {
@@ -241,19 +243,77 @@ public class CookSettingsActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void showLogoutConfirmation() {
+    private void showDeleteAccountConfirmation() {
         new AlertDialog.Builder(this)
-                .setTitle("Logout")
-                .setMessage("Are you sure you want to logout?")
-                .setPositiveButton("Logout", (dialog, which) -> {
-                    performLogout();
+                .setTitle("Delete Account")
+                .setMessage("This will permanently delete your account and all associated data. " +
+                        "This action cannot be undone.\n\n" +
+                        "Enter your password to confirm:")
+                .setView(getLayoutInflater().inflate(R.layout.dialog_password_confirm, null))
+                .setPositiveButton("Delete", (dialog, which) -> {
+                    android.widget.EditText etPassword =
+                            ((androidx.appcompat.app.AlertDialog) dialog).findViewById(R.id.etPassword);
+                    String password = etPassword != null ? etPassword.getText().toString() : "";
+                    if (password.isEmpty()) {
+                        com.google.android.material.snackbar.Snackbar.make(
+                                binding.getRoot(), "Password is required", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show();
+                        return;
+                    }
+                    performAccountDeletion(password);
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
     }
 
+    private void performAccountDeletion(String password) {
+        showLoading(true);
+
+        com.google.gson.JsonObject body = new com.google.gson.JsonObject();
+        body.addProperty("password", password);
+
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.deleteAccount(token, body).enqueue(new Callback<com.tiffincraft.app.models.RegisterResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<com.tiffincraft.app.models.RegisterResponse> call,
+                                   @NonNull Response<com.tiffincraft.app.models.RegisterResponse> response) {
+                showLoading(false);
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    com.tiffincraft.app.utils.SocketManager.getInstance(CookSettingsActivity.this).disconnect();
+                    sessionManager.logout();
+                    Intent intent = new Intent(CookSettingsActivity.this, LoginActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    finish();
+                } else {
+                    String msg = "Failed to delete account";
+                    if (response.body() != null && response.body().getMessage() != null) {
+                        msg = response.body().getMessage();
+                    } else if (response.code() == 401) {
+                        msg = "Password is incorrect";
+                    }
+                    com.google.android.material.snackbar.Snackbar.make(
+                            binding.getRoot(), msg, com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<com.tiffincraft.app.models.RegisterResponse> call, @NonNull Throwable t) {
+                showLoading(false);
+                com.google.android.material.snackbar.Snackbar.make(
+                        binding.getRoot(), "Network error: " + t.getMessage(),
+                        com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void showLogoutConfirmation() {
+        com.tiffincraft.app.utils.DialogUtils.showLogoutConfirmation(this, this::performLogout);
+    }
+
     private void performLogout() {
         showLoading(true);
+
+        com.tiffincraft.app.utils.SocketManager.getInstance(this).disconnect();
 
         String token = "Bearer " + sessionManager.getToken();
 

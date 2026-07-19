@@ -74,6 +74,10 @@ public class CookProfileActivity extends AppCompatActivity {
             binding.btnEditAvatar.setOnClickListener(v -> checkPermissionAndOpenPicker());
         }
 
+        if (binding.btnRotateAvatar != null) {
+            binding.btnRotateAvatar.setOnClickListener(v -> rotateSavedPhoto());
+        }
+
         // Settings button (account/support/logout live in Settings now)
         if (binding.btnSettings != null) {
             binding.btnSettings.setOnClickListener(v -> {
@@ -344,87 +348,105 @@ public class CookProfileActivity extends AppCompatActivity {
   
     private void uploadProfileImage(Uri imageUri) {
         showUploadProgress(true);
-        binding.btnEditAvatar.setEnabled(false);
+        setAvatarButtonsEnabled(false);
 
         new Thread(() -> {
-            compressedFile = ImageUtils.compressImage(CookProfileActivity.this, imageUri);
-
-            if (compressedFile == null) {
-                runOnUiThread(() -> {
-                    showUploadProgress(false);
-                    binding.btnEditAvatar.setEnabled(true);
-                    Toast.makeText(CookProfileActivity.this,
-                            "Failed to process image",
-                            Toast.LENGTH_SHORT).show();
-                });
-                return;
-            }
-
-            // Prepare multipart
-            MultipartBody.Part imagePart = ImageUtils.prepareFilePart("profile_image", compressedFile);
-
-            // Get auth token
-            String token = "Bearer " + sessionManager.getToken();
-
-            // Make API call on main thread
+            File file = ImageUtils.compressImage(CookProfileActivity.this, imageUri);
             runOnUiThread(() -> {
-                ApiService apiService = RetrofitClient.getInstance(CookProfileActivity.this)
-                        .getApiService();
-
-                apiService.uploadCookProfileImage(token, imagePart)
-                        .enqueue(new Callback<UploadResponse>() {
-                            @Override
-                            public void onResponse(@NonNull Call<UploadResponse> call,
-                                                   @NonNull Response<UploadResponse> response) {
-                                showUploadProgress(false);
-                                binding.btnEditAvatar.setEnabled(true);
-
-                                // Clean up temp file
-                                ImageUtils.deleteFile(compressedFile);
-
-                                if (response.isSuccessful() && response.body() != null
-                                        && response.body().isSuccess()) {
-
-                                    String newImageUrl = response.body().getData().getUrl();
-                                    Log.d(TAG, "Upload successful: " + newImageUrl);
-
-                                    // Save to session
-                                    sessionManager.saveProfileImage(newImageUrl);
-
-                                    // Show success message
-                                    Toast.makeText(CookProfileActivity.this,
-                                            "Profile photo updated!",
-                                            Toast.LENGTH_SHORT).show();
-
-                                } else {
-                                    Log.e(TAG, "Upload failed: " + response.code());
-                                    Toast.makeText(CookProfileActivity.this,
-                                            "Upload failed. Try again.",
-                                            Toast.LENGTH_SHORT).show();
-
-                                    loadProfileImage();
-                                }
-                            }
-
-                            @Override
-                            public void onFailure(@NonNull Call<UploadResponse> call,
-                                                  @NonNull Throwable t) {
-                                showUploadProgress(false);
-                                binding.btnEditAvatar.setEnabled(true);
-
-                                ImageUtils.deleteFile(compressedFile);
-
-                                Log.e(TAG, "Upload failed", t);
-                                Toast.makeText(CookProfileActivity.this,
-                                        "Network error. Try again.",
-                                        Toast.LENGTH_SHORT).show();
-
-                                // Reload previous image
-                                loadProfileImage();
-                            }
-                        });
+                if (file == null) {
+                    showUploadProgress(false);
+                    setAvatarButtonsEnabled(true);
+                    Toast.makeText(CookProfileActivity.this, "Failed to process image", Toast.LENGTH_SHORT).show();
+                } else {
+                    uploadFile(file);
+                }
             });
         }).start();
+    }
+
+    /**
+     * Manual rotate control: some source photos (downloaded/forwarded images,
+     * screenshots re-saved by another app) carry no usable orientation
+     * metadata at all, so no decoder — Glide included — can auto-detect that
+     * they're sideways. This lets the cook fix an already-saved profile photo
+     * directly, without re-picking it from their gallery.
+     */
+    private void rotateSavedPhoto() {
+        String imageUrl = sessionManager.getProfileImage();
+        if (imageUrl == null || imageUrl.isEmpty()) {
+            Toast.makeText(this, "Add a profile photo first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        showUploadProgress(true);
+        setAvatarButtonsEnabled(false);
+
+        new Thread(() -> {
+            File file = ImageUtils.rotateRemoteImage(CookProfileActivity.this, imageUrl, 90);
+            runOnUiThread(() -> {
+                if (file == null) {
+                    showUploadProgress(false);
+                    setAvatarButtonsEnabled(true);
+                    Toast.makeText(CookProfileActivity.this, "Couldn't rotate photo. Try again.", Toast.LENGTH_SHORT).show();
+                } else {
+                    uploadFile(file);
+                }
+            });
+        }).start();
+    }
+
+    /** Shared upload path for both a freshly-picked photo and a rotated existing one. */
+    private void uploadFile(File file) {
+        compressedFile = file;
+        MultipartBody.Part imagePart = ImageUtils.prepareFilePart("profile_image", file);
+        String token = "Bearer " + sessionManager.getToken();
+        ApiService apiService = RetrofitClient.getInstance(this).getApiService();
+
+        apiService.uploadCookProfileImage(token, imagePart)
+                .enqueue(new Callback<UploadResponse>() {
+                    @Override
+                    public void onResponse(@NonNull Call<UploadResponse> call,
+                                           @NonNull Response<UploadResponse> response) {
+                        showUploadProgress(false);
+                        setAvatarButtonsEnabled(true);
+                        ImageUtils.deleteFile(file);
+
+                        if (response.isSuccessful() && response.body() != null
+                                && response.body().isSuccess() && response.body().getData() != null) {
+
+                            String newImageUrl = response.body().getData().getUrl();
+                            Log.d(TAG, "Upload successful: " + newImageUrl);
+
+                            sessionManager.saveProfileImage(newImageUrl);
+                            loadProfileImage();
+
+                            Toast.makeText(CookProfileActivity.this,
+                                    "Profile photo updated!", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Log.e(TAG, "Upload failed: " + response.code());
+                            Toast.makeText(CookProfileActivity.this,
+                                    "Upload failed. Try again.", Toast.LENGTH_SHORT).show();
+                            loadProfileImage();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull Call<UploadResponse> call, @NonNull Throwable t) {
+                        showUploadProgress(false);
+                        setAvatarButtonsEnabled(true);
+                        ImageUtils.deleteFile(file);
+
+                        Log.e(TAG, "Upload failed", t);
+                        Toast.makeText(CookProfileActivity.this,
+                                "Network error. Try again.", Toast.LENGTH_SHORT).show();
+                        loadProfileImage();
+                    }
+                });
+    }
+
+    private void setAvatarButtonsEnabled(boolean enabled) {
+        if (binding.btnEditAvatar != null) binding.btnEditAvatar.setEnabled(enabled);
+        if (binding.btnRotateAvatar != null) binding.btnRotateAvatar.setEnabled(enabled);
     }
 
     /**
@@ -451,10 +473,12 @@ public class CookProfileActivity extends AppCompatActivity {
                     finish();
                     return true;
                 } else if (itemId == R.id.nav_meals) {
-                    startActivity(new Intent(CookProfileActivity.this, AddMenuActivity.class));
+                    startActivity(new Intent(CookProfileActivity.this, CookMealActivity.class));
+                    finish();
                     return true;
                 } else if (itemId == R.id.nav_orders) {
                     startActivity(new Intent(CookProfileActivity.this, ManageOrdersActivity.class));
+                    finish();
                     return true;
                 } else if (itemId == R.id.nav_profile) {
                     return true;

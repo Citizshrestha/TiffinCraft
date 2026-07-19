@@ -77,6 +77,10 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                 holder.ivIcon.setImageResource(R.drawable.ic_cook);
                 holder.iconContainer.setBackgroundResource(R.drawable.circle_icon_green);
                 break;
+            case "chat_message":
+                holder.ivIcon.setImageResource(R.drawable.ic_chat);
+                holder.iconContainer.setBackgroundResource(R.drawable.circle_icon_blue);
+                break;
             case "system":
             default:
                 holder.ivIcon.setImageResource(R.drawable.ic_notifications);

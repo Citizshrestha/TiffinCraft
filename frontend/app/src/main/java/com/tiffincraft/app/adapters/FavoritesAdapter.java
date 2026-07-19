@@ -114,17 +114,16 @@ public class FavoritesAdapter extends RecyclerView.Adapter<FavoritesAdapter.Favo
 
             // Set stats
             tvTotalMeals.setText(String.valueOf(cook.getTotalMeals()));
-            
+
             // Show orders as "150+" if more than 150
-            int totalOrders = cook.getTotalReviews(); // Using reviews as proxy for orders
+            int totalOrders = cook.getTotalOrders();
             if (totalOrders > 150) {
                 tvTotalOrders.setText("150+");
             } else {
                 tvTotalOrders.setText(String.valueOf(totalOrders));
             }
 
-            // Default delivery time
-            tvResponseTime.setText("30 min");
+            tvResponseTime.setText(cook.isVerified() ? "Verified" : "Pending");
 
             // Load cook profile image
             if (cook.getProfileImage() != null && !cook.getProfileImage().isEmpty()) {

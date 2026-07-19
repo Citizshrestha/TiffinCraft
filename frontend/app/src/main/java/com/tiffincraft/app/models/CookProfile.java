@@ -31,6 +31,12 @@ public class CookProfile {
     @SerializedName("total_reviews")
     private int totalReviews;
 
+    @SerializedName("review_count")
+    private int reviewCount;
+
+    @SerializedName("dish_count")
+    private int dishCount;
+
     @SerializedName("user_created_at")
     private String userCreatedAt;
 
@@ -50,6 +56,14 @@ public class CookProfile {
     private String address;
     private String email;
     private String phone;
+
+    // Nearby-cook discovery (customer map). Boxed so a missing field
+    // deserializes to null rather than 0.0 — (0,0) is a real coordinate
+    // (Gulf of Guinea), not a safe "no location" sentinel.
+    private Double latitude;
+    private Double longitude;
+    @SerializedName("distance_km")
+    private Double distanceKm;
 
     public int getId() {
         return id;
@@ -211,12 +225,44 @@ public class CookProfile {
         return totalReviews;
     }
 
+    public int getReviewCount() {
+        return reviewCount;
+    }
+
+    public int getDishCount() {
+        return dishCount;
+    }
+
     public String getUserCreatedAt() {
         return userCreatedAt;
     }
 
     public boolean isHolidayMode() {
         return coerceBoolean(isHolidayModeRaw);
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
+    public Double getDistanceKm() {
+        return distanceKm;
+    }
+
+    public boolean hasCoordinates() {
+        return latitude != null && longitude != null;
     }
 
     public java.util.Map<String, DayHours> getOperatingHours() {

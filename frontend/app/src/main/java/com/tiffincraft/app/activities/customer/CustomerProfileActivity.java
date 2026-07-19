@@ -25,9 +25,11 @@ import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.databinding.ActivityCustomerProfileBinding;
 import com.tiffincraft.app.models.CustomerProfile;
 import com.tiffincraft.app.models.CustomerProfileResponse;
+import com.tiffincraft.app.models.RegisterResponse;
+import com.tiffincraft.app.models.SubscriptionResponse;
 import com.tiffincraft.app.models.UploadResponse;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.tiffincraft.app.session.SessionManager;
-import com.tiffincraft.app.activities.onboarding.SelectRoleActivity;
 import com.tiffincraft.app.activities.order.OrderHistoryActivity;
 import com.tiffincraft.app.utils.ImageUtils;
 
@@ -35,6 +37,7 @@ import java.io.File;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 import okhttp3.MultipartBody;
@@ -53,12 +56,17 @@ public class CustomerProfileActivity extends AppCompatActivity {
     private Uri selectedImageUri;
     private File compressedFile;
     private CustomerProfile currentProfile;
+    private SubscriptionResponse.Subscription activeSubscription;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivityCustomerProfileBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+        // Deep-green status bar to blend with the immersive header
+        getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.forest_deep));
+        getWindow().getDecorView().setSystemUiVisibility(0);
 
         sessionManager = new SessionManager(this);
 
@@ -73,16 +81,30 @@ public class CustomerProfileActivity extends AppCompatActivity {
         }
 
         loadProfileData();
+        loadSubscription();
+
+        if (binding.cardSubscription != null) {
+            binding.cardSubscription.setVisibility(View.GONE);
+        }
+
+        if (binding.btnManageSubscription != null) {
+            binding.btnManageSubscription.setOnClickListener(v -> showManageSubscriptionDialog());
+        }
 
         if (binding.btnEditAvatar != null) {
             binding.btnEditAvatar.setOnClickListener(v -> checkPermissionAndOpenPicker());
         }
 
+        if (binding.btnRotateAvatar != null) {
+            binding.btnRotateAvatar.setOnClickListener(v -> rotateSavedPhoto());
+        }
+
         setupBottomNavigation();
 
+        // Settings button (account/preferences/support/logout live in Settings now)
         if (binding.btnSettings != null) {
             binding.btnSettings.setOnClickListener(v ->
-                Toast.makeText(this, "Settings — coming soon", Toast.LENGTH_SHORT).show()
+                startActivity(new Intent(this, CustomerSettingsActivity.class))
             );
         }
 
@@ -100,50 +122,8 @@ public class CustomerProfileActivity extends AppCompatActivity {
 
         if (binding.btnReferEarn != null) {
             binding.btnReferEarn.setOnClickListener(v ->
-                Toast.makeText(this, "Refer & Earn — coming soon", Toast.LENGTH_SHORT).show()
+                startActivity(new Intent(this, ReferEarnActivity.class))
             );
-        }
-
-        if (binding.menuEditProfile != null) {
-            binding.menuEditProfile.setOnClickListener(v -> {
-                Intent intent = new Intent(this, EditCustomerProfileActivity.class);
-                startActivityForResult(intent, 1001);
-            });
-        }
-
-        if (binding.menuSavedAddresses != null) {
-            binding.menuSavedAddresses.setOnClickListener(v ->
-                Toast.makeText(this, "Saved Addresses — coming soon", Toast.LENGTH_SHORT).show()
-            );
-        }
-
-        if (binding.menuPaymentMethods != null) {
-            binding.menuPaymentMethods.setOnClickListener(v ->
-                Toast.makeText(this, "Payment Methods — coming soon", Toast.LENGTH_SHORT).show()
-            );
-        }
-
-        if (binding.menuDietaryPreferences != null) {
-            binding.menuDietaryPreferences.setOnClickListener(v ->
-                Toast.makeText(this, "Dietary Preferences — coming soon", Toast.LENGTH_SHORT).show()
-            );
-        }
-
-        if (binding.btnLogoutCustomer != null) {
-            binding.btnLogoutCustomer.setOnClickListener(v -> {
-                new android.app.AlertDialog.Builder(this)
-                    .setTitle("Logout")
-                    .setMessage("Are you sure you want to logout?")
-                    .setPositiveButton("Logout", (dialog, which) -> {
-                        sessionManager.logout();
-                        Intent intent = new Intent(this, SelectRoleActivity.class);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        startActivity(intent);
-                        finish();
-                    })
-                    .setNegativeButton("Cancel", null)
-                    .show();
-            });
         }
     }
 
@@ -163,12 +143,11 @@ public class CustomerProfileActivity extends AppCompatActivity {
                     startActivity(new Intent(this, CustomerMenuActivity.class));
                     finish();
                     return true;
+                } else if (itemId == R.id.nav_cart) {
+                    startActivity(new Intent(this, com.tiffincraft.app.activities.common.CartActivity.class));
+                    return false;
                 } else if (itemId == R.id.nav_orders) {
                     startActivity(new Intent(this, OrderHistoryActivity.class));
-                    finish();
-                    return true;
-                } else if (itemId == R.id.nav_favorites) {
-                    startActivity(new Intent(this, FavoritesActivity.class));
                     finish();
                     return true;
                 } else if (itemId == R.id.nav_profile) {
@@ -287,10 +266,165 @@ public class CustomerProfileActivity extends AppCompatActivity {
             }
         }
 
-        // Address count (placeholder)
-        if (binding.tvAddressCount != null) {
-            binding.tvAddressCount.setText(profile.getAddress() != null && !profile.getAddress().isEmpty() ? "1" : "0");
+        // Account Details card
+        if (binding.tvProfilePhoneCustomer != null) {
+            binding.tvProfilePhoneCustomer.setText(orDash(profile.getPhone()));
         }
+        if (binding.tvProfileEmailCustomer != null) {
+            binding.tvProfileEmailCustomer.setText(orDash(profile.getEmail()));
+        }
+        if (binding.tvProfileAddressCustomer != null) {
+            binding.tvProfileAddressCustomer.setText(orDash(profile.getAddress()));
+        }
+    }
+
+    private static String orDash(String value) {
+        return value != null && !value.trim().isEmpty() ? value : "—";
+    }
+
+    /**
+     * Load the customer's active/paused subscription (if any) and bind it to the
+     * subscription card. The card stays hidden — there is no fake fallback — when
+     * the customer has no subscription row in the backend.
+     */
+    private void loadSubscription() {
+        String token = "Bearer " + sessionManager.getToken();
+        ApiService apiService = RetrofitClient.getInstance(this).getApiService();
+
+        apiService.getMySubscriptions(token).enqueue(new Callback<SubscriptionResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<SubscriptionResponse> call,
+                                   @NonNull Response<SubscriptionResponse> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().isSuccess()) {
+                    List<SubscriptionResponse.Subscription> subs = response.body().getSubscriptions();
+                    activeSubscription = null;
+                    if (subs != null) {
+                        for (SubscriptionResponse.Subscription sub : subs) {
+                            if (!"cancelled".equals(sub.getStatus())) {
+                                activeSubscription = sub;
+                                break;
+                            }
+                        }
+                    }
+                    populateSubscriptionCard(activeSubscription);
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<SubscriptionResponse> call, @NonNull Throwable t) {
+                Log.e(TAG, "Failed to load subscription", t);
+            }
+        });
+    }
+
+    private void populateSubscriptionCard(SubscriptionResponse.Subscription sub) {
+        if (binding.cardSubscription == null) return;
+
+        if (sub == null) {
+            binding.cardSubscription.setVisibility(View.GONE);
+            return;
+        }
+
+        binding.cardSubscription.setVisibility(View.VISIBLE);
+
+        String statusLabel = "paused".equals(sub.getStatus()) ? "Paused" : "Active";
+        binding.tvSubscriptionStatus.setText(sub.getMealName() + " Subscription " + statusLabel);
+
+        String kitchen = sub.getKitchenName() != null && !sub.getKitchenName().isEmpty()
+                ? sub.getKitchenName() : sub.getCookName();
+        String renewLabel = "paused".equals(sub.getStatus()) ? "Paused" : "Renews " + formatShortDate(sub.getNextDeliveryDate());
+        binding.tvSubscriptionDetail.setText("From " + kitchen + " · " + renewLabel);
+    }
+
+    private String formatShortDate(String isoDate) {
+        if (isoDate == null || isoDate.isEmpty()) return "—";
+        try {
+            SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+            SimpleDateFormat outputFormat = new SimpleDateFormat("d MMM", Locale.US);
+            Date date = inputFormat.parse(isoDate.substring(0, 10));
+            return date != null ? outputFormat.format(date) : isoDate;
+        } catch (Exception e) {
+            return isoDate;
+        }
+    }
+
+    private void showManageSubscriptionDialog() {
+        if (activeSubscription == null) return;
+
+        boolean isPaused = "paused".equals(activeSubscription.getStatus());
+        String[] options = { isPaused ? "Resume subscription" : "Pause subscription", "Cancel subscription" };
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Manage Subscription")
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        if (isPaused) resumeSubscription(); else pauseSubscription();
+                    } else {
+                        confirmCancelSubscription();
+                    }
+                })
+                .show();
+    }
+
+    private void pauseSubscription() {
+        String token = "Bearer " + sessionManager.getToken();
+        ApiService apiService = RetrofitClient.getInstance(this).getApiService();
+        apiService.pauseSubscription(token, activeSubscription.getId()).enqueue(new Callback<RegisterResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<RegisterResponse> call, @NonNull Response<RegisterResponse> response) {
+                Toast.makeText(CustomerProfileActivity.this, "Subscription paused", Toast.LENGTH_SHORT).show();
+                loadSubscription();
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<RegisterResponse> call, @NonNull Throwable t) {
+                Toast.makeText(CustomerProfileActivity.this, "Network error. Try again.", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void resumeSubscription() {
+        String token = "Bearer " + sessionManager.getToken();
+        ApiService apiService = RetrofitClient.getInstance(this).getApiService();
+        apiService.resumeSubscription(token, activeSubscription.getId()).enqueue(new Callback<RegisterResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<RegisterResponse> call, @NonNull Response<RegisterResponse> response) {
+                Toast.makeText(CustomerProfileActivity.this, "Subscription resumed", Toast.LENGTH_SHORT).show();
+                loadSubscription();
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<RegisterResponse> call, @NonNull Throwable t) {
+                Toast.makeText(CustomerProfileActivity.this, "Network error. Try again.", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void confirmCancelSubscription() {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Cancel Subscription")
+                .setMessage("Are you sure you want to cancel this subscription? This cannot be undone.")
+                .setPositiveButton("Cancel Subscription", (dialog, which) -> cancelSubscription())
+                .setNegativeButton("Keep it", null)
+                .show();
+    }
+
+    private void cancelSubscription() {
+        String token = "Bearer " + sessionManager.getToken();
+        ApiService apiService = RetrofitClient.getInstance(this).getApiService();
+        apiService.cancelSubscription(token, activeSubscription.getId()).enqueue(new Callback<RegisterResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<RegisterResponse> call, @NonNull Response<RegisterResponse> response) {
+                Toast.makeText(CustomerProfileActivity.this, "Subscription cancelled", Toast.LENGTH_SHORT).show();
+                loadSubscription();
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<RegisterResponse> call, @NonNull Throwable t) {
+                Toast.makeText(CustomerProfileActivity.this, "Network error. Try again.", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     /**
@@ -411,9 +545,6 @@ public class CustomerProfileActivity extends AppCompatActivity {
                 // Start upload
                 uploadProfileImage(selectedImageUri);
             }
-        } else if (requestCode == 1001 && resultCode == RESULT_OK) {
-            // Profile was updated, reload data
-            loadProfileData();
         }
     }
 
@@ -422,77 +553,109 @@ public class CustomerProfileActivity extends AppCompatActivity {
      */
     private void uploadProfileImage(Uri imageUri) {
         showUploadProgress(true);
-        binding.btnEditAvatar.setEnabled(false);
+        setAvatarButtonsEnabled(false);
 
         new Thread(() -> {
-            compressedFile = ImageUtils.compressImage(CustomerProfileActivity.this, imageUri);
-
-            if (compressedFile == null) {
-                runOnUiThread(() -> {
-                    showUploadProgress(false);
-                    binding.btnEditAvatar.setEnabled(true);
-                    Toast.makeText(CustomerProfileActivity.this,
-                            "Failed to process image",
-                            Toast.LENGTH_SHORT).show();
-                });
-                return;
-            }
-
-            MultipartBody.Part imagePart = ImageUtils.prepareFilePart("profile_image", compressedFile);
-            String token = "Bearer " + sessionManager.getToken();
-
+            File file = ImageUtils.compressImage(CustomerProfileActivity.this, imageUri);
             runOnUiThread(() -> {
-                ApiService apiService = RetrofitClient.getInstance(CustomerProfileActivity.this)
-                        .getApiService();
-
-                apiService.uploadCustomerProfileImage(token, imagePart)
-                        .enqueue(new Callback<UploadResponse>() {
-                            @Override
-                            public void onResponse(@NonNull Call<UploadResponse> call,
-                                                   @NonNull Response<UploadResponse> response) {
-                                showUploadProgress(false);
-                                binding.btnEditAvatar.setEnabled(true);
-                                ImageUtils.deleteFile(compressedFile);
-
-                                if (response.isSuccessful() && response.body() != null
-                                        && response.body().isSuccess()) {
-
-                                    String newImageUrl = response.body().getData().getUrl();
-                                    Log.d(TAG, "Upload successful: " + newImageUrl);
-
-                                    sessionManager.saveProfileImage(newImageUrl);
-
-                                    Toast.makeText(CustomerProfileActivity.this,
-                                            "Profile photo updated!",
-                                            Toast.LENGTH_SHORT).show();
-
-                                } else {
-                                    Log.e(TAG, "Upload failed: " + response.code());
-                                    Toast.makeText(CustomerProfileActivity.this,
-                                            "Upload failed. Try again.",
-                                            Toast.LENGTH_SHORT).show();
-                                    loadProfileImage(currentProfile != null ?
-                                            currentProfile.getProfileImage() : null);
-                                }
-                            }
-
-                            @Override
-                            public void onFailure(@NonNull Call<UploadResponse> call,
-                                                  @NonNull Throwable t) {
-                                showUploadProgress(false);
-                                binding.btnEditAvatar.setEnabled(true);
-                                ImageUtils.deleteFile(compressedFile);
-
-                                Log.e(TAG, "Upload failed", t);
-                                Toast.makeText(CustomerProfileActivity.this,
-                                        "Network error. Try again.",
-                                        Toast.LENGTH_SHORT).show();
-                                loadProfileImage(currentProfile != null ?
-                                        currentProfile.getProfileImage() : null);
-                            }
-                        });
+                if (file == null) {
+                    showUploadProgress(false);
+                    setAvatarButtonsEnabled(true);
+                    Toast.makeText(CustomerProfileActivity.this, "Failed to process image", Toast.LENGTH_SHORT).show();
+                } else {
+                    uploadFile(file);
+                }
             });
         }).start();
+    }
+
+    /**
+     * Manual rotate control: some source photos (downloaded/forwarded images,
+     * screenshots re-saved by another app) carry no usable orientation
+     * metadata at all, so no decoder — Glide included — can auto-detect that
+     * they're sideways. This lets the user fix an already-saved profile photo
+     * directly, without re-picking it from their gallery.
+     */
+    private void rotateSavedPhoto() {
+        String imageUrl = currentProfile != null ? currentProfile.getProfileImage() : sessionManager.getProfileImage();
+        String fullUrl = getFullImageUrl(imageUrl);
+        if (fullUrl == null) {
+            Toast.makeText(this, "Add a profile photo first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        showUploadProgress(true);
+        setAvatarButtonsEnabled(false);
+
+        new Thread(() -> {
+            File file = ImageUtils.rotateRemoteImage(CustomerProfileActivity.this, fullUrl, 90);
+            runOnUiThread(() -> {
+                if (file == null) {
+                    showUploadProgress(false);
+                    setAvatarButtonsEnabled(true);
+                    Toast.makeText(CustomerProfileActivity.this, "Couldn't rotate photo. Try again.", Toast.LENGTH_SHORT).show();
+                } else {
+                    uploadFile(file);
+                }
+            });
+        }).start();
+    }
+
+    /** Shared upload path for both a freshly-picked photo and a rotated existing one. */
+    private void uploadFile(File file) {
+        compressedFile = file;
+        MultipartBody.Part imagePart = ImageUtils.prepareFilePart("profile_image", file);
+        String token = "Bearer " + sessionManager.getToken();
+        ApiService apiService = RetrofitClient.getInstance(this).getApiService();
+
+        apiService.uploadCustomerProfileImage(token, imagePart)
+                .enqueue(new Callback<UploadResponse>() {
+                    @Override
+                    public void onResponse(@NonNull Call<UploadResponse> call,
+                                           @NonNull Response<UploadResponse> response) {
+                        showUploadProgress(false);
+                        setAvatarButtonsEnabled(true);
+                        ImageUtils.deleteFile(file);
+
+                        if (response.isSuccessful() && response.body() != null
+                                && response.body().isSuccess() && response.body().getData() != null) {
+
+                            String newImageUrl = response.body().getData().getUrl();
+                            Log.d(TAG, "Upload successful: " + newImageUrl);
+
+                            sessionManager.saveProfileImage(newImageUrl);
+                            if (currentProfile != null) {
+                                currentProfile.setProfileImage(newImageUrl);
+                            }
+                            loadProfileImage(newImageUrl);
+
+                            Toast.makeText(CustomerProfileActivity.this,
+                                    "Profile photo updated!", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Log.e(TAG, "Upload failed: " + response.code());
+                            Toast.makeText(CustomerProfileActivity.this,
+                                    "Upload failed. Try again.", Toast.LENGTH_SHORT).show();
+                            loadProfileImage(currentProfile != null ? currentProfile.getProfileImage() : null);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull Call<UploadResponse> call, @NonNull Throwable t) {
+                        showUploadProgress(false);
+                        setAvatarButtonsEnabled(true);
+                        ImageUtils.deleteFile(file);
+
+                        Log.e(TAG, "Upload failed", t);
+                        Toast.makeText(CustomerProfileActivity.this,
+                                "Network error. Try again.", Toast.LENGTH_SHORT).show();
+                        loadProfileImage(currentProfile != null ? currentProfile.getProfileImage() : null);
+                    }
+                });
+    }
+
+    private void setAvatarButtonsEnabled(boolean enabled) {
+        if (binding.btnEditAvatar != null) binding.btnEditAvatar.setEnabled(enabled);
+        if (binding.btnRotateAvatar != null) binding.btnRotateAvatar.setEnabled(enabled);
     }
 
     private void showLoading(boolean show) {

@@ -1,6 +1,8 @@
 package com.tiffincraft.app.activities.cook;
 
 import android.content.Intent;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -11,12 +13,20 @@ import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.model.GlideUrl;
 import com.bumptech.glide.load.model.LazyHeaders;
+import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.components.YAxis;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.activities.common.NotificationActivity;
@@ -25,11 +35,13 @@ import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.DashboardResponse;
 import com.tiffincraft.app.models.DashboardStats;
 import com.tiffincraft.app.models.EarningsSummaryResponse;
+import com.tiffincraft.app.models.MonthlyBreakdown;
 import com.tiffincraft.app.models.NotificationResponse;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.ChatPanelManager;
 import com.tiffincraft.app.utils.CurrencyUtils;
 import com.tiffincraft.app.utils.SocketManager;
+import com.tiffincraft.app.views.EarningsMarkerView;
 
 import org.json.JSONObject;
 
@@ -43,23 +55,17 @@ import retrofit2.Response;
 public class CookHomeActivity extends AppCompatActivity {
 
     private static final String TAG = "CookHomeActivity";
-    private static final String[] MONTH_NAMES = {
-            "January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December"
-    };
 
     private ImageView imgCookProfilePic;
     private TextView tvKitchenName, tvWelcome;
     private TextView tvTodayOrders, tvTodayEarnings, tvActiveSubscriptions, tvAvgRating;
     private TextView tvNotificationBadge, tvEarningsPeriod;
-    private TextView tvOverviewTotalEarnings, tvOverviewSubtitle, tvViewAllOrders, tvNoOrdersToday;
-    private com.tiffincraft.app.views.SparklineView sparklineHome;
-    private android.widget.LinearLayout layoutChartDates;
+    private TextView tvViewAllOrders, tvNoOrdersToday;
+    private LineChart chartEarningsTrend;
     private androidx.recyclerview.widget.RecyclerView rvTodayOrders;
     private com.tiffincraft.app.adapters.TodayOrderAdapter todayOrderAdapter;
     private final java.util.List<com.tiffincraft.app.models.Order> todayOrders = new java.util.ArrayList<>();
-    private View btnAddMeal, btnManageMeals, btnViewOrders, btnSubscriptions, btnThisWeek;
-    private TextView tvOverviewPeriodLabel;
+    private View btnAddMeal, btnManageMeals, btnViewOrders, btnSubscriptions;
     private BottomNavigationView bottomNavigation;
     private SessionManager sessionManager;
     private SocketManager socketManager;
@@ -71,9 +77,12 @@ public class CookHomeActivity extends AppCompatActivity {
     private double thisMonthEarnings = 0;
     private int currentEarningsPeriod = 1; // 0=Today, 1=This Week, 2=This Month
 
-    // Overview card month selection (defaults to current month)
-    private int selectedOverviewMonth;
-    private int selectedOverviewYear;
+    // Earnings Trend chart range toggle
+    private TextView tvTrendRange, tvTrendSubtitle;
+    private int trendRange = 2; // 0=Week (7d), 1=Month (30d), 2=Year (12mo)
+    private java.util.List<com.tiffincraft.app.models.WeeklyBreakdown> trendWeekly;
+    private java.util.List<com.tiffincraft.app.models.WeeklyBreakdown> trendDaily30;
+    private java.util.List<MonthlyBreakdown> trendMonthly;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -88,10 +97,6 @@ public class CookHomeActivity extends AppCompatActivity {
 
             sessionManager = new SessionManager(this);
             socketManager = SocketManager.getInstance(this);
-
-            java.util.Calendar now = java.util.Calendar.getInstance();
-            selectedOverviewMonth = now.get(java.util.Calendar.MONTH) + 1;
-            selectedOverviewYear = now.get(java.util.Calendar.YEAR);
 
             initViews();
             loadUserData();
@@ -112,10 +117,29 @@ public class CookHomeActivity extends AppCompatActivity {
             chatPanelManager = ChatPanelManager.attach(this, false);
             findViewById(R.id.fabChat).setOnClickListener(v -> chatPanelManager.open());
 
+            // Check if launched via FCM notification with approval intent
+            if (getIntent().getBooleanExtra("show_approval_dialog", false)) {
+                getIntent().removeExtra("show_approval_dialog");
+                // Post to the end of the queue so all views are laid out
+                findViewById(android.R.id.content).post(() -> showApprovalDialog(true));
+            }
+
+            requestNotificationPermissionIfNeeded();
+
             Log.d(TAG, "CookHomeActivity onCreate completed successfully");
         } catch (Exception e) {
             Log.e(TAG, "Error in onCreate", e);
             finish();
+        }
+    }
+
+    /** Android 13+ requires runtime consent before chat notifications can be shown. */
+    private void requestNotificationPermissionIfNeeded() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU
+                && ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
+                   != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            androidx.core.app.ActivityCompat.requestPermissions(this,
+                    new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 9001);
         }
     }
 
@@ -134,16 +158,18 @@ public class CookHomeActivity extends AppCompatActivity {
 
         // Connect socket and join cook room
         connectSocket();
-    }
+        // Re-claim the order events for this screen (SocketManager keeps one
+        // listener per event; another screen may have taken them over).
+        setupSocketListeners();
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        // Disconnect socket when activity is not visible
-        if (socketManager != null) {
-            socketManager.disconnect();
+        if (chatPanelManager != null) {
+            chatPanelManager.refreshUnreadBadge();
         }
     }
+
+    // Note: no socket disconnect in onPause — SocketManager is an app-wide
+    // singleton, so disconnecting here killed real-time chat/order updates for
+    // every other screen. The socket now lives until logout.
 
     private void initViews() {
         imgCookProfilePic = findViewById(R.id.imgCookProfilePic);
@@ -155,13 +181,24 @@ public class CookHomeActivity extends AppCompatActivity {
         tvAvgRating = findViewById(R.id.tvAvgRating);
         tvEarningsPeriod = findViewById(R.id.tvEarningsPeriod);
         btnAddMeal = findViewById(R.id.btnAddMeal);
+        View fabAddTodayMeal = findViewById(R.id.fabAddTodayMeal);
+        if (fabAddTodayMeal != null) {
+            fabAddTodayMeal.setOnClickListener(v ->
+                    startActivity(new Intent(CookHomeActivity.this, AddMenuActivity.class)));
+        }
         bottomNavigation = findViewById(R.id.bottomNavigation);
         tvNotificationBadge = findViewById(R.id.tvNotificationBadge);
 
-        tvOverviewTotalEarnings = findViewById(R.id.tvTotalEarnings);
-        tvOverviewSubtitle = findViewById(R.id.tvOverviewSubtitle);
-        sparklineHome = findViewById(R.id.sparklineHome);
-        layoutChartDates = findViewById(R.id.layoutChartDates);
+        chartEarningsTrend = findViewById(R.id.chartEarningsTrend);
+        tvTrendRange = findViewById(R.id.tvTrendRange);
+        tvTrendSubtitle = findViewById(R.id.tvTrendSubtitle);
+        if (tvTrendRange != null) {
+            tvTrendRange.setOnClickListener(v -> {
+                trendRange = (trendRange + 1) % 3;
+                renderTrendChart();
+            });
+        }
+        setupEarningsTrendChart();
         tvViewAllOrders = findViewById(R.id.tvViewAllOrders);
         tvNoOrdersToday = findViewById(R.id.tvNoOrdersToday);
         rvTodayOrders = findViewById(R.id.rvTodayOrders);
@@ -180,8 +217,6 @@ public class CookHomeActivity extends AppCompatActivity {
         btnManageMeals = findViewById(R.id.btnManageMeals);
         btnViewOrders = findViewById(R.id.btnViewOrders);
         btnSubscriptions = findViewById(R.id.btnSubscriptions);
-        btnThisWeek = findViewById(R.id.btnThisWeek);
-        tvOverviewPeriodLabel = findViewById(R.id.tvOverviewPeriodLabel);
 
         btnManageMeals.setOnClickListener(v ->
                 startActivity(new Intent(this, CookMealActivity.class)));
@@ -189,7 +224,6 @@ public class CookHomeActivity extends AppCompatActivity {
                 startActivity(new Intent(this, ManageOrdersActivity.class)));
         btnSubscriptions.setOnClickListener(v ->
                 startActivity(new Intent(this, CookSubscriptionsActivity.class)));
-        btnThisWeek.setOnClickListener(v -> showOverviewMonthPicker());
     }
 
     private void loadUserData() {
@@ -494,8 +528,11 @@ public class CookHomeActivity extends AppCompatActivity {
                         // Update display with current period
                         updateEarningsDisplay();
 
-                        // Overview card: figure for the selected month + 7-day chart
-                        updateOverviewChart(earnings.getWeeklyBreakdown(), earnings.getThisMonthOrderCount());
+                        // Earnings Trend card: store all ranges, render current one
+                        trendWeekly = earnings.getWeeklyBreakdown();
+                        trendDaily30 = earnings.getDailyBreakdown();
+                        trendMonthly = earnings.getMonthlyBreakdown();
+                        renderTrendChart();
 
                         Log.d(TAG, "✅ Earnings data fetched: Today=₹" + todayEarnings +
                               ", Week=₹" + thisWeekEarnings + ", Month=₹" + thisMonthEarnings);
@@ -518,128 +555,150 @@ public class CookHomeActivity extends AppCompatActivity {
             }
         };
 
-        if (isCurrentOverviewMonthSelected()) {
-            apiService.getCookEarningsSummary(token).enqueue(callback);
+        apiService.getCookEarningsSummary(token).enqueue(callback);
+    }
+
+    /** One-time visual styling for the Earnings Trend chart (white card, dashed grid, green line). */
+    private void setupEarningsTrendChart() {
+        if (chartEarningsTrend == null) return;
+
+        chartEarningsTrend.getDescription().setEnabled(false);
+        chartEarningsTrend.getLegend().setEnabled(false);
+        chartEarningsTrend.setNoDataText("No earnings yet");
+        chartEarningsTrend.setNoDataTextColor(ContextCompat.getColor(this, R.color.text_hint));
+        chartEarningsTrend.setExtraBottomOffset(6f);
+        chartEarningsTrend.setDrawGridBackground(false);
+        chartEarningsTrend.setDoubleTapToZoomEnabled(false);
+        chartEarningsTrend.setScaleEnabled(false);
+        chartEarningsTrend.setPinchZoom(false);
+
+        // Tap-and-drag shows the tooltip, like hovering on the point
+        chartEarningsTrend.setHighlightPerTapEnabled(true);
+        chartEarningsTrend.setHighlightPerDragEnabled(true);
+        EarningsMarkerView marker = new EarningsMarkerView(this);
+        // Without this the marker can't see the chart bounds, so its edge
+        // clamping never runs and the tooltip clips on the last data point.
+        marker.setChartView(chartEarningsTrend);
+        chartEarningsTrend.setMarker(marker);
+
+        int axisLabelColor = ContextCompat.getColor(this, R.color.text_hint);
+        int gridColor = ContextCompat.getColor(this, R.color.divider);
+
+        XAxis xAxis = chartEarningsTrend.getXAxis();
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setDrawGridLines(false);
+        xAxis.setDrawAxisLine(false);
+        xAxis.setTextColor(axisLabelColor);
+        xAxis.setTextSize(11f);
+        xAxis.setGranularity(1f);
+
+        YAxis leftAxis = chartEarningsTrend.getAxisLeft();
+        leftAxis.setDrawAxisLine(false);
+        leftAxis.setTextColor(axisLabelColor);
+        leftAxis.setTextSize(11f);
+        leftAxis.setGridColor(gridColor);
+        leftAxis.enableGridDashedLine(6f, 6f, 0f);
+        leftAxis.setAxisMinimum(0f);
+        leftAxis.setSpaceTop(20f);
+        leftAxis.setLabelCount(5, false);
+        leftAxis.setValueFormatter(new com.github.mikephil.charting.formatter.ValueFormatter() {
+            private final java.text.DecimalFormat format = new java.text.DecimalFormat("#,##0");
+            @Override
+            public String getFormattedValue(float value) {
+                return "₹" + format.format(value);
+            }
+        });
+
+        chartEarningsTrend.getAxisRight().setEnabled(false);
+    }
+
+    /** Re-bind the trend chart for the currently selected range (Week/Month/Year). */
+    private void renderTrendChart() {
+        if (chartEarningsTrend == null) return;
+
+        java.util.List<Entry> entries = new java.util.ArrayList<>();
+        java.util.List<String> monthLabels = new java.util.ArrayList<>();
+
+        if (trendRange == 2) {
+            // Year: last 12 months, "Jul" labels
+            if (tvTrendRange != null) tvTrendRange.setText("Year ▾");
+            if (tvTrendSubtitle != null) tvTrendSubtitle.setText("Last 12 months");
+            java.text.SimpleDateFormat parseFmt = new java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.US);
+            java.text.SimpleDateFormat labelFmt = new java.text.SimpleDateFormat("MMM", java.util.Locale.getDefault());
+            if (trendMonthly != null) {
+                for (int i = 0; i < trendMonthly.size(); i++) {
+                    MonthlyBreakdown m = trendMonthly.get(i);
+                    String label = formatTrendLabel(m.getMonth(), parseFmt, labelFmt);
+                    monthLabels.add(label);
+                    Entry entry = new Entry(i, (float) m.getAmount());
+                    entry.setData(label);
+                    entries.add(entry);
+                }
+            }
         } else {
-            apiService.getCookEarningsSummaryByMonth(token, selectedOverviewMonth, selectedOverviewYear)
-                    .enqueue(callback);
+            // Week: last 7 days ("Mon"); Month: last 30 days ("12 Jul")
+            java.util.List<com.tiffincraft.app.models.WeeklyBreakdown> days =
+                    trendRange == 0 ? trendWeekly : trendDaily30;
+            if (tvTrendRange != null) tvTrendRange.setText(trendRange == 0 ? "Week ▾" : "Month ▾");
+            if (tvTrendSubtitle != null) tvTrendSubtitle.setText(trendRange == 0 ? "Last 7 days" : "Last 30 days");
+            java.text.SimpleDateFormat parseFmt = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+            java.text.SimpleDateFormat labelFmt = new java.text.SimpleDateFormat(
+                    trendRange == 0 ? "EEE" : "d MMM", java.util.Locale.getDefault());
+            if (days != null) {
+                for (int i = 0; i < days.size(); i++) {
+                    com.tiffincraft.app.models.WeeklyBreakdown d = days.get(i);
+                    String label = formatTrendLabel(d.getDate(), parseFmt, labelFmt);
+                    monthLabels.add(label);
+                    Entry entry = new Entry(i, (float) d.getAmount());
+                    entry.setData(label);
+                    entries.add(entry);
+                }
+            }
         }
+
+        if (entries.isEmpty()) {
+            chartEarningsTrend.clear();
+            chartEarningsTrend.invalidate();
+            return;
+        }
+
+        // Dense 30-point view: thin out X labels so they don't overlap
+        chartEarningsTrend.getXAxis().setLabelCount(
+                Math.min(entries.size(), trendRange == 1 ? 6 : entries.size()), false);
+
+        int green = ContextCompat.getColor(this, R.color.green_primary);
+
+        LineDataSet dataSet = new LineDataSet(entries, "Earnings");
+        dataSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+        dataSet.setColor(green);
+        dataSet.setLineWidth(2.5f);
+        dataSet.setDrawCircles(true);
+        dataSet.setCircleColor(green);
+        dataSet.setCircleRadius(trendRange == 1 ? 2.5f : 4f); // smaller dots on the dense 30-day view
+        dataSet.setCircleHoleColor(0xFFFFFFFF);
+        dataSet.setCircleHoleRadius(2f);
+        dataSet.setDrawValues(false);
+        dataSet.setDrawFilled(true);
+        dataSet.setFillColor(green);
+        dataSet.setFillAlpha(40);
+        dataSet.setHighLightColor(green);
+        dataSet.setDrawHorizontalHighlightIndicator(false);
+
+        chartEarningsTrend.getXAxis().setValueFormatter(new IndexAxisValueFormatter(monthLabels));
+        chartEarningsTrend.setData(new LineData(dataSet));
+        chartEarningsTrend.highlightValue(null);
+        chartEarningsTrend.animateX(400);
+        chartEarningsTrend.invalidate();
     }
 
-    private boolean isCurrentOverviewMonthSelected() {
-        java.util.Calendar now = java.util.Calendar.getInstance();
-        return selectedOverviewMonth == now.get(java.util.Calendar.MONTH) + 1
-                && selectedOverviewYear == now.get(java.util.Calendar.YEAR);
-    }
-
-    /** Opens the same month/year picker used on the Earnings screen, scoped to the overview card. */
-    private void showOverviewMonthPicker() {
-        View dialogView = getLayoutInflater().inflate(R.layout.dialog_month_picker, null);
-        TextView tvYear = dialogView.findViewById(R.id.tvPickerYear);
-        android.widget.GridLayout grid = dialogView.findViewById(R.id.gridMonths);
-
-        final int[] pickerYear = {selectedOverviewYear};
-        tvYear.setText(String.valueOf(pickerYear[0]));
-
-        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Select month")
-                .setView(dialogView)
-                .setNegativeButton("Cancel", null)
-                .create();
-
-        dialogView.findViewById(R.id.btnPrevYear).setOnClickListener(v -> {
-            pickerYear[0]--;
-            tvYear.setText(String.valueOf(pickerYear[0]));
-        });
-        dialogView.findViewById(R.id.btnNextYear).setOnClickListener(v -> {
-            pickerYear[0]++;
-            tvYear.setText(String.valueOf(pickerYear[0]));
-        });
-
-        float density = getResources().getDisplayMetrics().density;
-        for (int m = 1; m <= 12; m++) {
-            final int month = m;
-            TextView cell = new TextView(this);
-            cell.setText(MONTH_NAMES[m - 1].substring(0, 3));
-            cell.setTextSize(14);
-            cell.setTextColor(0xFF111111);
-            cell.setGravity(android.view.Gravity.CENTER);
-            int pad = (int) (12 * density);
-            cell.setPadding(pad, pad, pad, pad);
-            cell.setBackgroundResource(android.R.drawable.list_selector_background);
-
-            android.widget.GridLayout.LayoutParams lp = new android.widget.GridLayout.LayoutParams();
-            lp.width = 0;
-            lp.columnSpec = android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f);
-            cell.setLayoutParams(lp);
-
-            cell.setOnClickListener(v -> {
-                selectedOverviewMonth = month;
-                selectedOverviewYear = pickerYear[0];
-                dialog.dismiss();
-                fetchEarningsData();
-            });
-            grid.addView(cell);
-        }
-
-        dialog.show();
-    }
-
-    /**
-     * Fill the green overview card with the real 7-day earnings line and date labels.
-     * Shows the total + order count for whichever month is currently selected via the
-     * pill dropdown (defaults to the current month, same figure as the Earnings screen).
-     */
-    private void updateOverviewChart(java.util.List<com.tiffincraft.app.models.WeeklyBreakdown> weeklyBreakdown,
-                                      int monthOrderCount) {
-        if (tvOverviewTotalEarnings != null) {
-            tvOverviewTotalEarnings.setText(CurrencyUtils.formatRupees(thisMonthEarnings));
-        }
-        if (tvOverviewSubtitle != null) {
-            tvOverviewSubtitle.setText(monthOrderCount == 1
-                    ? "Total Earnings · 1 order"
-                    : "Total Earnings · " + monthOrderCount + " orders");
-        }
-        if (tvOverviewPeriodLabel != null) {
-            tvOverviewPeriodLabel.setText(isCurrentOverviewMonthSelected()
-                    ? "This Month"
-                    : MONTH_NAMES[selectedOverviewMonth - 1].substring(0, 3) + " " + selectedOverviewYear);
-        }
-        if (sparklineHome == null || layoutChartDates == null) return;
-
-        java.util.List<Double> values = new java.util.ArrayList<>();
-        layoutChartDates.removeAllViews();
-
-        int count = weeklyBreakdown != null ? weeklyBreakdown.size() : 0;
-        java.text.SimpleDateFormat parseFmt =
-                new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
-        java.text.SimpleDateFormat labelFmt =
-                new java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault());
-
-        for (int i = 0; i < count; i++) {
-            com.tiffincraft.app.models.WeeklyBreakdown day = weeklyBreakdown.get(i);
-            values.add(day.getAmount());
-
-            String label = day.getDate() != null ? day.getDate() : "";
-            try {
-                java.util.Date d = parseFmt.parse(label);
-                if (d != null) label = labelFmt.format(d);
-            } catch (java.text.ParseException ignored) { }
-
-            TextView tv = new TextView(this);
-            tv.setText(label);
-            tv.setTextColor(0xFFC8E6C9);
-            tv.setTextSize(9.5f);
-            tv.setGravity(i == 0 ? android.view.Gravity.START
-                    : (i == count - 1 ? android.view.Gravity.END : android.view.Gravity.CENTER));
-            android.widget.LinearLayout.LayoutParams lp =
-                    new android.widget.LinearLayout.LayoutParams(0,
-                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            tv.setLayoutParams(lp);
-            layoutChartDates.addView(tv);
-        }
-
-        sparklineHome.setValues(values);
+    private String formatTrendLabel(String raw, java.text.SimpleDateFormat parseFmt,
+                                    java.text.SimpleDateFormat labelFmt) {
+        if (raw == null) return "";
+        try {
+            java.util.Date d = parseFmt.parse(raw);
+            if (d != null) return labelFmt.format(d);
+        } catch (java.text.ParseException ignored) { }
+        return raw;
     }
 
     /** Load the cook's real orders and show the ones placed today. */
@@ -813,6 +872,47 @@ public class CookHomeActivity extends AppCompatActivity {
                 });
             }
         });
+
+        // Listen for cook approval/rejection from admin
+        socketManager.onCookApprovalUpdate(new Emitter.Listener() {
+            @Override
+            public void call(Object... args) {
+                runOnUiThread(() -> {
+                    try {
+                        if (args.length > 0 && args[0] != null) {
+                            JSONObject data = (JSONObject) args[0];
+                            boolean approved = data.optBoolean("approved", false);
+                            showApprovalDialog(approved);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error handling cook approval update", e);
+                    }
+                });
+            }
+        });
+    }
+
+    /**
+     * Show a celebratory or informational dialog when admin approves/rejects the kitchen.
+     */
+    private void showApprovalDialog(boolean approved) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setCancelable(false);
+
+        if (approved) {
+            builder.setTitle("🎉 Kitchen Approved!")
+                    .setMessage("Congratulations! Your kitchen has been approved. You can now start receiving orders and serving customers. 🚀")
+                    .setPositiveButton("Get Cooking!", (dialog, which) -> {
+                        dialog.dismiss();
+                        fetchDashboardData();
+                    });
+        } else {
+            builder.setTitle("Application Update")
+                    .setMessage("Your TiffinCraft kitchen application needs some changes. Please check your profile and contact support for details.")
+                    .setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
+        }
+
+        builder.show();
     }
 
     private void handleNewOrder(JSONObject data) {
@@ -823,16 +923,38 @@ public class CookHomeActivity extends AppCompatActivity {
 
             Log.d(TAG, "🔔 New Order Received! Order #" + orderId);
 
-            // Show toast notification
-            Toast.makeText(this,
-                    "🔔 New Order: ₹" + String.format("%.0f", totalAmount),
-                    Toast.LENGTH_LONG).show();
-
-            // Play notification sound and vibrate
+            // Play notification sound (RingtoneManager) and vibrate
             playNotificationSound();
 
-            // Refresh dashboard data
+            // Show in-app Snackbar banner with order details
+            com.google.android.material.snackbar.Snackbar snackbar = com.google.android.material.snackbar.Snackbar
+                    .make(findViewById(android.R.id.content),
+                            "New Order #" + orderId + " — ₹" + String.format("%.0f", totalAmount),
+                            com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
+                    .setAction("View", v -> {
+                        Intent intent = new Intent(this,
+                                com.tiffincraft.app.activities.order.OrderDetailsCookActivity.class);
+                        intent.putExtra("order_id", orderId);
+                        startActivity(intent);
+                    })
+                    .setAnchorView(bottomNavigation);
+            snackbar.show();
+
+            // Increment notification badge
+            TextView badge = findViewById(R.id.tvNotificationBadge);
+            if (badge != null) {
+                String currentText = badge.getVisibility() == View.VISIBLE
+                        ? badge.getText().toString() : "0";
+                try {
+                    int newCount = Integer.parseInt(currentText) + 1;
+                    badge.setVisibility(View.VISIBLE);
+                    badge.setText(newCount > 99 ? "99+" : String.valueOf(newCount));
+                } catch (NumberFormatException ignored) { }
+            }
+
+            // Refresh all data from server (source of truth)
             fetchDashboardData();
+            fetchTodayOrders();
             fetchUnreadNotifications();
 
         } catch (Exception e) {

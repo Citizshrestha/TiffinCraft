@@ -2,6 +2,8 @@ package com.tiffincraft.app.utils;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
@@ -26,6 +28,7 @@ import com.tiffincraft.app.models.ChatContact;
 import com.tiffincraft.app.models.ChatContactsResponse;
 import com.tiffincraft.app.models.ChatConversation;
 import com.tiffincraft.app.models.ChatConversationsResponse;
+import com.tiffincraft.app.models.ChatUnreadCountResponse;
 import com.tiffincraft.app.models.CreateConversationRequest;
 import com.tiffincraft.app.models.CreateConversationResponse;
 import com.tiffincraft.app.session.SessionManager;
@@ -57,11 +60,18 @@ public class ChatPanelManager {
     private RecyclerView    rvChatList;
     private TextView        tvContactCount;
     private TextView        tabChats, tabContacts, tabChannels;
+    private TextView        chatFabBadge;
 
     private ApiService     apiService;
     private SessionManager sessionManager;
+    private SocketManager  socketManager;
 
     private boolean showingContactsTab = false;
+
+    private static final int SEARCH_DEBOUNCE_MS = 300;
+    private final Handler searchHandler = new Handler(Looper.getMainLooper());
+    private Runnable      pendingSearch;
+    private String        currentQuery = "";
 
     private ChatPanelManager(Activity activity) {
         this.activity = activity;
@@ -87,6 +97,7 @@ public class ChatPanelManager {
     private void setup(boolean inflateOwnFab) {
         apiService     = RetrofitClient.getInstance(activity).getApiService();
         sessionManager = new SessionManager(activity);
+        socketManager  = SocketManager.getInstance(activity);
 
         ViewGroup root = activity.getWindow().getDecorView().findViewById(android.R.id.content);
 
@@ -98,6 +109,15 @@ public class ChatPanelManager {
             FrameLayout fab = fabView.findViewById(R.id.fabChat);
             fab.setOnClickListener(v -> togglePanel());
         }
+
+        // Both fabChat layouts (inflated or already in the host screen) declare a
+        // sibling tvChatFabBadge for the unread-message count.
+        chatFabBadge = root.findViewById(R.id.tvChatFabBadge);
+
+        // Unread badge: initial load + live updates via socket while this screen is open.
+        socketManager.connect();
+        socketManager.onChatNotification(args -> activity.runOnUiThread(this::refreshUnreadBadge));
+        refreshUnreadBadge();
 
         // --- Inflate Panel ---
         panelView = LayoutInflater.from(activity).inflate(R.layout.panel_chat_list, root, false);
@@ -125,12 +145,27 @@ public class ChatPanelManager {
         rvChatList.setLayoutManager(new LinearLayoutManager(activity));
         rvChatList.setAdapter(adapter);
 
-        // Search filter
+        // Customers usually have zero existing conversations, which left the panel
+        // opening on an empty "Chats" tab with no way to see who they can message.
+        // Default customers straight to the Contacts tab (all cooks) for now so the
+        // chat list isn't empty on first use.
+        if ("customer".equalsIgnoreCase(sessionManager.getRole())) {
+            showingContactsTab = true;
+            tabChats.setBackground(null);
+            tabChats.setTextColor(0xCCFFFFFF);
+            tabChats.setTypeface(null, android.graphics.Typeface.NORMAL);
+            tabContacts.setBackgroundResource(R.drawable.bg_chat_tab_selected);
+            tabContacts.setTextColor(0xFFFFFFFF);
+            tabContacts.setTypeface(null, android.graphics.Typeface.BOLD);
+        }
+
+        // Search — debounced, hits the backend so results aren't limited to
+        // whatever page of contacts/conversations happened to already be loaded.
         EditText etSearch = panelView.findViewById(R.id.etChatSearch);
         etSearch.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                filterContacts(s.toString());
+                scheduleSearch(s.toString());
             }
             @Override public void afterTextChanged(Editable s) {}
         });
@@ -157,14 +192,18 @@ public class ChatPanelManager {
             tabChats.setTypeface(null, android.graphics.Typeface.BOLD);
         }
 
-        if (contactsTab) loadContacts(); else loadConversations();
+        if (contactsTab) loadContacts(currentQuery); else loadConversations(currentQuery);
     }
 
     // ==================== Data loading ====================
 
     private void loadConversations() {
+        loadConversations(currentQuery);
+    }
+
+    private void loadConversations(String search) {
         String token = "Bearer " + sessionManager.getToken();
-        apiService.getChatConversations(token).enqueue(new Callback<ChatConversationsResponse>() {
+        apiService.getChatConversations(token, search).enqueue(new Callback<ChatConversationsResponse>() {
             @Override
             public void onResponse(@NonNull Call<ChatConversationsResponse> call,
                                    @NonNull Response<ChatConversationsResponse> response) {
@@ -194,8 +233,12 @@ public class ChatPanelManager {
     }
 
     private void loadContacts() {
+        loadContacts(currentQuery);
+    }
+
+    private void loadContacts(String search) {
         String token = "Bearer " + sessionManager.getToken();
-        apiService.getChatContacts(token).enqueue(new Callback<ChatContactsResponse>() {
+        apiService.getChatContacts(token, search).enqueue(new Callback<ChatContactsResponse>() {
             @Override
             public void onResponse(@NonNull Call<ChatContactsResponse> call,
                                    @NonNull Response<ChatContactsResponse> response) {
@@ -227,6 +270,44 @@ public class ChatPanelManager {
     private void updateContactCount(int count) {
         if (tvContactCount != null) {
             tvContactCount.setText(count + (count == 1 ? " contact" : " contacts"));
+        }
+    }
+
+    // ==================== Unread badge ====================
+
+    /**
+     * Re-fetches the total unread message count and updates the FAB badge.
+     * Public so host screens can call it (e.g. in onResume, after returning
+     * from a chat where messages were just marked read) to bring the count
+     * down without waiting for a live socket event.
+     */
+    public void refreshUnreadBadge() {
+        if (chatFabBadge == null) return;
+
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.getChatUnreadCount(token).enqueue(new Callback<ChatUnreadCountResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<ChatUnreadCountResponse> call,
+                                   @NonNull Response<ChatUnreadCountResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    setBadgeCount(response.body().getUnreadCount());
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<ChatUnreadCountResponse> call, @NonNull Throwable t) {
+                Log.e(TAG, "refreshUnreadBadge failed", t);
+            }
+        });
+    }
+
+    private void setBadgeCount(int count) {
+        if (chatFabBadge == null) return;
+        if (count <= 0) {
+            chatFabBadge.setVisibility(View.GONE);
+        } else {
+            chatFabBadge.setVisibility(View.VISIBLE);
+            chatFabBadge.setText(count > 99 ? "99+" : String.valueOf(count));
         }
     }
 
@@ -279,17 +360,15 @@ public class ChatPanelManager {
 
     // ==================== Search ====================
 
-    private void filterContacts(String query) {
-        List<ChatContact> filtered = new ArrayList<>();
-        for (ChatContact c : allContacts) {
-            if (c.getName() != null
-                    && c.getName().toLowerCase().contains(query.toLowerCase())) {
-                filtered.add(c);
-            }
+    private void scheduleSearch(String query) {
+        currentQuery = query == null ? "" : query.trim();
+        if (pendingSearch != null) {
+            searchHandler.removeCallbacks(pendingSearch);
         }
-        ChatListAdapter filteredAdapter =
-                new ChatListAdapter(activity, filtered, this::openConversation);
-        rvChatList.setAdapter(filteredAdapter);
+        pendingSearch = () -> {
+            if (showingContactsTab) loadContacts(currentQuery); else loadConversations(currentQuery);
+        };
+        searchHandler.postDelayed(pendingSearch, SEARCH_DEBOUNCE_MS);
     }
 
     // ==================== Panel visibility ====================
