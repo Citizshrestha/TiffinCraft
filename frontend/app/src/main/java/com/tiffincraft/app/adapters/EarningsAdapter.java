@@ -67,6 +67,10 @@ public class EarningsAdapter extends RecyclerView.Adapter<EarningsAdapter.Transa
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) listener.onTransactionClick(t);
         });
+
+        if (holder.divider != null) {
+            holder.divider.setVisibility(position == transactions.size() - 1 ? View.GONE : View.VISIBLE);
+        }
     }
 
     @Override
@@ -76,6 +80,7 @@ public class EarningsAdapter extends RecyclerView.Adapter<EarningsAdapter.Transa
 
     static class TransactionViewHolder extends RecyclerView.ViewHolder {
         TextView tvTitle, tvSubtitle, tvAmount, tvPaymentMethod;
+        View divider;
 
         TransactionViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -83,6 +88,7 @@ public class EarningsAdapter extends RecyclerView.Adapter<EarningsAdapter.Transa
             tvSubtitle       = itemView.findViewById(R.id.tvTransactionSubtitle);
             tvAmount         = itemView.findViewById(R.id.tvTransactionAmount);
             tvPaymentMethod  = itemView.findViewById(R.id.tvTransactionPaymentMethod);
+            divider          = itemView.findViewById(R.id.viewTransactionDivider);
         }
     }
 }

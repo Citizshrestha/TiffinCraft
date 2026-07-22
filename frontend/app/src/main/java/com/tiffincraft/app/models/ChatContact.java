@@ -14,9 +14,18 @@ public class ChatContact {
     private boolean isOnline;
     private String  avatarUrl;      // Cloudinary URL, null = initials placeholder
     private int     unreadCount;
+    private String  role;           // "cook" or "customer" — the OTHER participant's role
+    private String  phone;
 
     public ChatContact(int conversationId, int otherUserId, String name, String lastMessage,
                        String timestamp, boolean isOnline, String avatarUrl, int unreadCount) {
+        this(conversationId, otherUserId, name, lastMessage, timestamp, isOnline, avatarUrl,
+                unreadCount, null, null);
+    }
+
+    public ChatContact(int conversationId, int otherUserId, String name, String lastMessage,
+                       String timestamp, boolean isOnline, String avatarUrl, int unreadCount,
+                       String role, String phone) {
         this.conversationId = conversationId;
         this.otherUserId    = otherUserId;
         this.name           = name;
@@ -25,6 +34,8 @@ public class ChatContact {
         this.isOnline       = isOnline;
         this.avatarUrl      = avatarUrl;
         this.unreadCount    = unreadCount;
+        this.role           = role;
+        this.phone          = phone;
     }
 
     /** Build from a conversation returned by GET /chat/conversations */
@@ -56,7 +67,9 @@ public class ChatContact {
                 time,
                 false,
                 c.getOtherUserImage(),
-                c.getUnreadCount()
+                c.getUnreadCount(),
+                c.getOtherUserRole(),
+                c.getOtherUserPhone()
         );
     }
 
@@ -70,7 +83,9 @@ public class ChatContact {
                 "",
                 false,
                 c.getProfileImage(),
-                0
+                0,
+                c.getRole(),
+                c.getPhone()
         );
     }
 
@@ -82,6 +97,8 @@ public class ChatContact {
     public boolean isOnline()      { return isOnline; }
     public String getAvatarUrl()   { return avatarUrl; }
     public int getUnreadCount()    { return unreadCount; }
+    public String getRole()        { return role; }
+    public String getPhone()       { return phone; }
 
     public void setConversationId(int conversationId) { this.conversationId = conversationId; }
     public void setOnline(boolean online) { this.isOnline = online; }

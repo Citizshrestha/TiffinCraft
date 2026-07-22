@@ -28,6 +28,9 @@ public class ChatConversation {
     @SerializedName("other_user_role")
     private String otherUserRole;
 
+    @SerializedName("other_user_phone")
+    private String otherUserPhone;
+
     @SerializedName("last_message_type")
     private String lastMessageType;
 
@@ -52,6 +55,7 @@ public class ChatConversation {
     public String getOtherUserName() { return otherUserName; }
     public String getOtherUserImage() { return otherUserImage; }
     public String getOtherUserRole() { return otherUserRole; }
+    public String getOtherUserPhone() { return otherUserPhone; }
     public String getLastMessageType() { return lastMessageType; }
     public String getLastMessageContent() { return lastMessageContent; }
     public int getLastMessageSenderId() { return lastMessageSenderId; }

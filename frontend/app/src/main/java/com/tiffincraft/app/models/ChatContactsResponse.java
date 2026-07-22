@@ -31,9 +31,13 @@ public class ChatContactsResponse {
         @SerializedName("role")
         private String role;
 
+        @SerializedName("phone")
+        private String phone;
+
         public int getId() { return id; }
         public String getFullName() { return fullName; }
         public String getProfileImage() { return profileImage; }
         public String getRole() { return role; }
+        public String getPhone() { return phone; }
     }
 }

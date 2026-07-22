@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "3418276906",
+    "project_id": "tiffincraft-4865b",
+    "storage_bucket": "tiffincraft-4865b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:3418276906:android:59c9dd11c634e4cc516f53",
+        "android_client_info": {
+          "package_name": "com.tiffincraft.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBSv2EgGD25OEHx32Yq_rASQIM2-JxIxwc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

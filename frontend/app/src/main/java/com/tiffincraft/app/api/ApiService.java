@@ -16,6 +16,7 @@ import com.tiffincraft.app.models.CookProfileResponse;
 import com.tiffincraft.app.models.CreateConversationRequest;
 import com.tiffincraft.app.models.CreateConversationResponse;
 import com.tiffincraft.app.models.CustomerDashboardResponse;
+import com.tiffincraft.app.models.CustomerDetailsResponse;
 import com.tiffincraft.app.models.CustomerProfileRequest;
 import com.tiffincraft.app.models.CustomerProfileResponse;
 import com.tiffincraft.app.models.DashboardResponse;
@@ -129,6 +130,11 @@ public interface ApiService {
     @PUT("customer/profile")
     Call<CustomerProfileResponse> updateCustomerProfile(@Header("Authorization") String token,
                                                         @Body CustomerProfileRequest body);
+
+    /** Read-only customer profile for a cook viewing a customer from a shared order/chat. */
+    @GET("customer/{customerId}")
+    Call<CustomerDetailsResponse> getCustomerById(@Header("Authorization") String token,
+                                                   @Path("customerId") int customerId);
 
     @Multipart
     @POST("customer/profile/image")

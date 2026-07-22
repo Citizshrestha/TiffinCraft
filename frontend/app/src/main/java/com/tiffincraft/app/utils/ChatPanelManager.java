@@ -355,6 +355,10 @@ public class ChatPanelManager {
         intent.putExtra(ChatActivity.EXTRA_CONVERSATION_ID, conversationId);
         intent.putExtra(ChatActivity.EXTRA_CONTACT_NAME, contact.getName());
         intent.putExtra(ChatActivity.EXTRA_IS_ONLINE, contact.isOnline());
+        intent.putExtra(ChatActivity.EXTRA_CONTACT_ID, contact.getOtherUserId());
+        intent.putExtra(ChatActivity.EXTRA_CONTACT_ROLE, contact.getRole());
+        intent.putExtra(ChatActivity.EXTRA_CONTACT_PHONE, contact.getPhone());
+        intent.putExtra(ChatActivity.EXTRA_CONTACT_AVATAR, contact.getAvatarUrl());
         activity.startActivity(intent);
     }
 
