@@ -133,6 +133,9 @@
         <activity
             android:name=".activities.meal.CookDetailsActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+        <activity
+            android:name=".activities.customer.CustomerDetailsActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
         <activity
             android:name=".activities.meal.MealSelectionActivity"

@@ -85,7 +85,11 @@ public class OrderHistoryActivity extends AppCompatActivity {
     private void setupRecyclerView() {
         rvOrderHistory.setLayoutManager(new LinearLayoutManager(this));
         adapter = new CustomerOrderAdapter(displayedOrders,
-                order -> Toast.makeText(this, "Order details coming soon", Toast.LENGTH_SHORT).show(),
+                order -> {
+                    Intent intent = new Intent(this, OrderDetailsCustomerActivity.class);
+                    intent.putExtra("order_id", order.getId());
+                    startActivity(intent);
+                },
                 order -> {
                     Intent intent = new Intent(this, TrackOrderActivity.class);
                     intent.putExtra("order_id", order.getId());

@@ -68,11 +68,15 @@ public class ChatActivity extends AppCompatActivity {
     public static final String EXTRA_CONTACT_NAME    = "contact_name";
     public static final String EXTRA_CONTACT_PHONE   = "contact_phone";
     public static final String EXTRA_IS_ONLINE       = "is_online";
+    public static final String EXTRA_CONTACT_ID      = "contact_id";
+    public static final String EXTRA_CONTACT_ROLE    = "contact_role";
+    public static final String EXTRA_CONTACT_AVATAR  = "contact_avatar";
 
     private RecyclerView  rvMessages;
     private EditText      etMessage;
     private FrameLayout   btnSend;
     private ImageView     btnBack, btnAttachment, btnCall;
+    private ImageView     ivChatAvatar;
     private TextView      tvChatName, tvChatStatus;
 
     private View      chatHeader;
@@ -97,6 +101,9 @@ public class ChatActivity extends AppCompatActivity {
     private String contactName;
     private String contactPhone;
     private boolean isOnline;
+    private int    contactId;
+    private String contactRole;
+    private String contactAvatar;
 
     private String lastDateLabel = null;
     private long   lastTypingEmit = 0;
@@ -115,6 +122,9 @@ public class ChatActivity extends AppCompatActivity {
         contactName    = getIntent().getStringExtra(EXTRA_CONTACT_NAME);
         contactPhone   = getIntent().getStringExtra(EXTRA_CONTACT_PHONE);
         isOnline       = getIntent().getBooleanExtra(EXTRA_IS_ONLINE, false);
+        contactId      = getIntent().getIntExtra(EXTRA_CONTACT_ID, -1);
+        contactRole    = getIntent().getStringExtra(EXTRA_CONTACT_ROLE);
+        contactAvatar  = getIntent().getStringExtra(EXTRA_CONTACT_AVATAR);
 
         if (conversationId <= 0) {
             Toast.makeText(this, "Conversation not found.", Toast.LENGTH_SHORT).show();
@@ -191,6 +201,7 @@ public class ChatActivity extends AppCompatActivity {
         btnBack      = findViewById(R.id.btnBack);
         btnAttachment = findViewById(R.id.btnAttachment);
         btnCall      = findViewById(R.id.btnCall);
+        ivChatAvatar = findViewById(R.id.ivChatAvatar);
         tvChatName   = findViewById(R.id.tvChatName);
         tvChatStatus = findViewById(R.id.tvChatStatus);
 
@@ -213,6 +224,27 @@ public class ChatActivity extends AppCompatActivity {
                 : getColor(R.color.text_hint);
         tvChatStatus.setTextColor(statusColor);
         findViewById(R.id.viewStatusDot).setVisibility(online ? View.VISIBLE : View.GONE);
+
+        com.tiffincraft.app.utils.ImageUrlHelper.load(ivChatAvatar, contactAvatar, R.drawable.avatar_customer);
+
+        boolean canOpenProfile = contactId > 0 && contactRole != null;
+        View.OnClickListener openProfile = canOpenProfile ? v -> openContactProfile() : null;
+        chatHeader.findViewById(R.id.ivChatAvatar).setOnClickListener(openProfile);
+        chatHeader.findViewById(R.id.tvChatName).setOnClickListener(openProfile);
+    }
+
+    /** Tapping the header opens the other participant's profile — a cook's public
+     *  menu page for a customer, or a read-only customer detail page for a cook. */
+    private void openContactProfile() {
+        if ("cook".equals(contactRole)) {
+            Intent intent = new Intent(this, com.tiffincraft.app.activities.meal.CookDetailsActivity.class);
+            intent.putExtra(com.tiffincraft.app.activities.meal.CookDetailsActivity.EXTRA_COOK_ID, contactId);
+            startActivity(intent);
+        } else if ("customer".equals(contactRole)) {
+            Intent intent = new Intent(this, com.tiffincraft.app.activities.customer.CustomerDetailsActivity.class);
+            intent.putExtra(com.tiffincraft.app.activities.customer.CustomerDetailsActivity.EXTRA_CUSTOMER_ID, contactId);
+            startActivity(intent);
+        }
     }
 
     private void setupRecyclerView() {
