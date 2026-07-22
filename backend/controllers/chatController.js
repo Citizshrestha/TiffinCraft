@@ -80,6 +80,7 @@ export const getConversations = async (req, res) => {
                 u.full_name     AS other_user_name,
                 u.profile_image AS other_user_image,
                 u.role          AS other_user_role,
+                u.phone         AS other_user_phone,
                 lm.message_type AS last_message_type,
                 lm.content      AS last_message_content,
                 lm.sender_id    AS last_message_sender_id,
@@ -171,7 +172,8 @@ export const getOrCreateConversation = async (req, res) => {
         const [rows] = await db.promise().query(
             `SELECT c.id, c.customer_id, c.cook_id, c.last_message_at,
                     u.id AS other_user_id, u.full_name AS other_user_name,
-                    u.profile_image AS other_user_image, u.role AS other_user_role
+                    u.profile_image AS other_user_image, u.role AS other_user_role,
+                    u.phone AS other_user_phone
              FROM conversations c
              JOIN users u ON u.id = ?
              WHERE c.customer_id = ? AND c.cook_id = ?`,
@@ -796,7 +798,7 @@ export const getChatContacts = async (req, res) => {
             // have already ordered from (that older rule left new customers with an
             // empty contact list and nobody to message).
             query =
-                `SELECT u.id, u.full_name, u.profile_image, u.role
+                `SELECT u.id, u.full_name, u.profile_image, u.role, u.phone
                  FROM users u
                  WHERE u.role = 'cook' AND u.is_active = TRUE
                    AND (? = '' OR u.full_name LIKE ?)
@@ -807,7 +809,7 @@ export const getChatContacts = async (req, res) => {
             // A cook sees customers who ordered from them or already have a
             // conversation open — union so neither source is missed.
             query =
-                `SELECT DISTINCT u.id, u.full_name, u.profile_image, u.role
+                `SELECT DISTINCT u.id, u.full_name, u.profile_image, u.role, u.phone
                  FROM users u
                  WHERE u.role = 'customer' AND u.is_active = TRUE
                    AND (

@@ -138,6 +138,54 @@ export const getCustomerDashboard = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/customer/:customerId
+ * Public-to-cooks profile for a single customer (mirrors getCookById for cooks).
+ * Restricted to cooks (see route) since it exposes phone/address.
+ */
+export const getCustomerById = async (req, res) => {
+    try {
+        const { customerId } = req.params;
+
+        const [users] = await db.promise().query(
+            `SELECT id, full_name, phone, profile_image, address, created_at
+             FROM users
+             WHERE id = ? AND role = 'customer' AND is_active = TRUE`,
+            [customerId]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Customer not found."
+            });
+        }
+
+        const [orderStats] = await db.promise().query(
+            `SELECT COUNT(*) as total_orders
+             FROM orders
+             WHERE customer_id = ?`,
+            [customerId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            customer: {
+                ...users[0],
+                total_orders: orderStats[0]?.total_orders || 0
+            }
+        });
+
+    } catch (error) {
+        console.error("getCustomerById error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};
+
 export const getNotifications = async (req, res) => {
     try {
         const userId = req.user.id;

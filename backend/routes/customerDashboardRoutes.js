@@ -1,6 +1,7 @@
 import express from "express";
 import {
     getCustomerDashboard,
+    getCustomerById,
     getNotifications,
     markNotificationAsRead,
     markAllNotificationsAsRead
@@ -10,7 +11,7 @@ import {
     updateCustomerProfile,
     uploadCustomerProfileImage
 } from "../controllers/authController.js";
-import authMiddleware from "../middleware/authMiddleware.js";
+import authMiddleware, { roleOnly } from "../middleware/authMiddleware.js";
 import { uploadSingle } from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
@@ -27,5 +28,9 @@ router.get("/dashboard", authMiddleware, getCustomerDashboard);
 router.get("/notifications", authMiddleware, getNotifications);
 router.put("/notifications/:id/read", authMiddleware, markNotificationAsRead);
 router.put("/notifications/read-all", authMiddleware, markAllNotificationsAsRead);
+
+// A cook viewing a customer's details from a shared order/chat — must come after the
+// literal routes above, or Express would match "profile"/"dashboard" as :customerId.
+router.get("/:customerId", authMiddleware, roleOnly("cook"), getCustomerById);
 
 export default router;
