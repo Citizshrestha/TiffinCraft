@@ -28,6 +28,8 @@ import com.tiffincraft.app.models.RegisterResponse;
 import com.tiffincraft.app.models.UploadResponse;
 import com.tiffincraft.app.session.SessionManager;
 
+import org.json.JSONObject;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -45,6 +47,8 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
     private ApiService apiService;
     private SessionManager sessionManager;
     private int orderId = -1;
+    private int cookId = -1;
+    private String kitchenName;
     private String paymentMethod, paymentStatus, paymentScreenshotUrl;
 
     private static final int PICK_IMAGE_REQUEST = 9001;
@@ -63,9 +67,14 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
         binding.btnBack.setOnClickListener(v -> finish());
 
         try {
-            binding.btnRateReview.setOnClickListener(v ->
-                startActivity(new Intent(this, RateReviewActivity.class))
-            );
+            binding.btnRateReview.setVisibility(android.view.View.GONE);
+            binding.btnRateReview.setOnClickListener(v -> {
+                Intent intent = new Intent(this, RateReviewActivity.class);
+                intent.putExtra(RateReviewActivity.EXTRA_ORDER_ID, orderId);
+                intent.putExtra(RateReviewActivity.EXTRA_COOK_ID, cookId);
+                intent.putExtra(RateReviewActivity.EXTRA_KITCHEN_NAME, kitchenName);
+                startActivity(intent);
+            });
         } catch (NullPointerException ignored) {}
 
         try {
@@ -117,6 +126,15 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
             String items = order.getItemsSummary();
             binding.tvOrderItems.setText(items != null && !items.isEmpty() ? items : "No item details available.");
         }
+
+        cookId = order.getCookId();
+        kitchenName = order.getKitchenName() != null && !order.getKitchenName().isEmpty()
+                ? order.getKitchenName() : order.getCookName();
+
+        try {
+            binding.btnRateReview.setVisibility(
+                    "delivered".equals(order.getStatus()) ? android.view.View.VISIBLE : android.view.View.GONE);
+        } catch (NullPointerException ignored) {}
 
         paymentMethod = order.getPaymentMethod();
         paymentStatus = order.getPaymentStatus();
@@ -194,10 +212,19 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
             outputStream.close();
             inputStream.close();
 
-            // Upload to Cloudinary via the existing document upload endpoint
+            // Upload to Cloudinary via the existing document upload endpoint.
+            // The backend's fileFilter whitelists exact mimetypes (image/jpeg,
+            // image/png, ...) and rejects the literal wildcard "image/*" that
+            // was hardcoded here before — resolve the picked file's real type.
+            String mimeType = getContentResolver().getType(imageUri);
+            if (mimeType == null) mimeType = "image/jpeg";
+
             String token = "Bearer " + sessionManager.getToken();
-            RequestBody requestBody = RequestBody.create(MediaType.parse("image/*"), tempFile);
-            MultipartBody.Part part = MultipartBody.Part.createFormData("image", tempFile.getName(), requestBody);
+            RequestBody requestBody = RequestBody.create(MediaType.parse(mimeType), tempFile);
+            // Backend's /upload/document route is configured with multer's
+            // uploadSingle('document') — any other field name is rejected with
+            // "Unexpected field" (was "image", which always 400'd here).
+            MultipartBody.Part part = MultipartBody.Part.createFormData("document", tempFile.getName(), requestBody);
 
             binding.btnUploadPayment.setEnabled(false);
             binding.btnUploadPayment.setText("Uploading...");
@@ -214,7 +241,8 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
                         String uploadedUrl = response.body().getData().getUrl();
                         submitPaymentScreenshot(uploadedUrl);
                     } else {
-                        Toast.makeText(OrderDetailsCustomerActivity.this, "Upload failed", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(OrderDetailsCustomerActivity.this,
+                                extractErrorMessage(response.errorBody(), "Upload failed"), Toast.LENGTH_LONG).show();
                     }
                 }
 
@@ -245,8 +273,9 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
                     // Refresh to show updated status
                     loadOrderDetails();
                 } else {
-                    String msg = response.body() != null ? response.body().getMessage() : "Failed to submit";
-                    Toast.makeText(OrderDetailsCustomerActivity.this, msg, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(OrderDetailsCustomerActivity.this,
+                            extractErrorMessage(response.errorBody(), "Failed to submit payment screenshot"),
+                            Toast.LENGTH_LONG).show();
                 }
             }
 
@@ -255,6 +284,21 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
                 Toast.makeText(OrderDetailsCustomerActivity.this, "Network error", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    // Retrofit leaves response.body() null on non-2xx responses — the real
+    // reason (e.g. "Invalid file type...") lives in errorBody() and was
+    // previously discarded in favor of generic toasts.
+    private String extractErrorMessage(okhttp3.ResponseBody errorBody, String fallback) {
+        if (errorBody != null) {
+            try {
+                JSONObject json = new JSONObject(errorBody.string());
+                if (json.has("message")) {
+                    return json.getString("message");
+                }
+            } catch (Exception ignored) {}
+        }
+        return fallback;
     }
 
     // ── Payment status helpers ────────────────────────────

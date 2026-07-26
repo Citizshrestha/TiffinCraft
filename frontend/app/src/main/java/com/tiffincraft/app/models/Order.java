@@ -87,6 +87,21 @@ public class Order {
     @SerializedName("refund_status")
     private String refundStatus;
 
+    // Tracking-map coordinates — only populated by GET /orders/{orderId}.
+    // map_customer_* falls back to the customer's profile location server-side
+    // when the order itself has no captured delivery coords.
+    @SerializedName("cook_latitude")
+    private Double cookLatitude;
+
+    @SerializedName("cook_longitude")
+    private Double cookLongitude;
+
+    @SerializedName("map_customer_latitude")
+    private Double customerLatitude;
+
+    @SerializedName("map_customer_longitude")
+    private Double customerLongitude;
+
     // Per-item breakdown — only populated by GET /orders/{orderId} (getOrderById),
     // which attaches the real order_items rows. List-returning endpoints
     // (customer/cook order history) instead pre-aggregate itemsSummary.
@@ -144,6 +159,15 @@ public class Order {
     public String getCancelledBy() { return cancelledBy; }
     public String getCancellationReason() { return cancellationReason; }
     public String getRefundStatus() { return refundStatus; }
+    public Double getCookLatitude() { return cookLatitude; }
+    public Double getCookLongitude() { return cookLongitude; }
+    public Double getCustomerLatitude() { return customerLatitude; }
+    public Double getCustomerLongitude() { return customerLongitude; }
+
+    public boolean hasMapCoordinates() {
+        return cookLatitude != null && cookLongitude != null
+                && customerLatitude != null && customerLongitude != null;
+    }
 
     // Setters
     public void setId(int id) { this.id = id; }

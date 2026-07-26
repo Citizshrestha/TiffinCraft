@@ -1,6 +1,7 @@
 package com.tiffincraft.app.adapters;
 
 import android.content.Context;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,7 +17,7 @@ import com.tiffincraft.app.models.ChatContact;
 
 import java.util.List;
 
-public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.ContactViewHolder> {
+public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.ViewHolder> {
 
     public interface OnContactClickListener {
         void onContactClick(ChatContact contact);
@@ -27,42 +28,50 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.Contac
     private final OnContactClickListener listener;
 
     public ChatListAdapter(Context context, List<ChatContact> contacts, OnContactClickListener listener) {
-        this.context  = context;
-        this.contacts = contacts;
-        this.listener = listener;
+        this.context   = context;
+        this.contacts  = contacts;
+        this.listener  = listener;
     }
 
     @NonNull
     @Override
-    public ContactViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(context)
-                .inflate(R.layout.item_chat_contact, parent, false);
-        return new ContactViewHolder(view);
+    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        View view = LayoutInflater.from(context).inflate(R.layout.item_chat_contact, parent, false);
+        return new ViewHolder(view);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull ContactViewHolder holder, int position) {
+    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         ChatContact contact = contacts.get(position);
 
         holder.tvName.setText(contact.getName());
-        holder.tvLastMessage.setText(contact.getLastMessage());
-        holder.tvTimestamp.setText(contact.getTimestamp());
 
-        holder.viewOnlineDot.setVisibility(contact.isOnline() ? View.VISIBLE : View.GONE);
-
-        int unread = contact.getUnreadCount();
-        if (unread > 0) {
-            holder.tvUnreadCount.setVisibility(View.VISIBLE);
-            holder.tvUnreadCount.setText(unread > 99 ? "99+" : String.valueOf(unread));
+        // Unread messages take precedence in the preview line
+        if (contact.getUnreadCount() > 0) {
+            holder.tvLastMessage.setText(contact.getUnreadCount() + " new message"
+                    + (contact.getUnreadCount() > 1 ? "s" : ""));
+            holder.tvLastMessage.setTextColor(context.getResources().getColor(R.color.purple_primary, null));
         } else {
-            holder.tvUnreadCount.setVisibility(View.GONE);
+            holder.tvLastMessage.setText(contact.getLastMessage());
+            holder.tvLastMessage.setTextColor(context.getResources().getColor(R.color.text_hint, null));
         }
 
-        Glide.with(context)
-                .load(contact.getAvatarUrl())
-                .placeholder(R.drawable.ic_default_avatar)
-                .circleCrop()
-                .into(holder.ivAvatar);
+        holder.tvTimestamp.setText(contact.getTimestamp());
+
+        // Online indicator
+        holder.viewOnlineDot.setVisibility(contact.isOnline() ? View.VISIBLE : View.GONE);
+
+        // Avatar: Cloudinary URL via Glide, fallback to circle placeholder
+        if (!TextUtils.isEmpty(contact.getAvatarUrl())) {
+            Glide.with(context)
+                    .load(contact.getAvatarUrl())
+                    .placeholder(R.drawable.bg_avatar_circle)
+                    .error(R.drawable.bg_avatar_circle)
+                    .circleCrop()
+                    .into(holder.ivAvatar);
+        } else {
+            holder.ivAvatar.setImageResource(R.drawable.bg_avatar_circle);
+        }
 
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) listener.onContactClick(contact);
@@ -74,19 +83,18 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.Contac
         return contacts == null ? 0 : contacts.size();
     }
 
-    static class ContactViewHolder extends RecyclerView.ViewHolder {
+    public static class ViewHolder extends RecyclerView.ViewHolder {
         ImageView ivAvatar;
         View      viewOnlineDot;
-        TextView  tvName, tvLastMessage, tvTimestamp, tvUnreadCount;
+        TextView  tvName, tvLastMessage, tvTimestamp;
 
-        ContactViewHolder(@NonNull View itemView) {
+        public ViewHolder(@NonNull View itemView) {
             super(itemView);
-            ivAvatar      = itemView.findViewById(R.id.ivContactAvatar);
-            viewOnlineDot = itemView.findViewById(R.id.viewOnlineDot);
-            tvName        = itemView.findViewById(R.id.tvContactName);
-            tvLastMessage = itemView.findViewById(R.id.tvLastMessage);
-            tvTimestamp   = itemView.findViewById(R.id.tvContactTimestamp);
-            tvUnreadCount = itemView.findViewById(R.id.tvUnreadCount);
+            ivAvatar       = itemView.findViewById(R.id.ivContactAvatar);
+            viewOnlineDot  = itemView.findViewById(R.id.viewOnlineDot);
+            tvName         = itemView.findViewById(R.id.tvContactName);
+            tvLastMessage  = itemView.findViewById(R.id.tvLastMessage);
+            tvTimestamp    = itemView.findViewById(R.id.tvTimestamp);
         }
     }
 }

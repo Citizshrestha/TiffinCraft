@@ -3,7 +3,6 @@ package com.tiffincraft.app.utils;
 import android.content.ContentValues;
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.Matrix;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -29,12 +28,7 @@ public class ImageUtils {
      * Compress image from Uri to a temporary File.
      *
      * Decoding goes through Glide rather than BitmapFactory. Glide auto-corrects
-     * standard EXIF rotation tags, which fixes most camera photos. It cannot
-     * help when the source image has no usable orientation metadata at all
-     * (e.g. downloaded/forwarded images, screenshots re-saved by another app) —
-     * in that case the pixel data itself is stored sideways and no decoder can
-     * know to rotate it. That case is handled separately: see
-     * {@link #rotateAndCompress(Context, Uri, int)} for user-driven correction.
+     * standard EXIF rotation tags, which fixes most camera photos.
      *
      * Must be called off the main thread — this blocks on Glide's synchronous
      * FutureTarget (both current callers already run this inside a background
@@ -45,19 +39,6 @@ public class ImageUtils {
      * @return Compressed File or null if error
      */
     public static File compressImage(Context context, Uri imageUri) {
-        return rotateAndCompress(context, imageUri, 0);
-    }
-
-    /**
-     * Same as {@link #compressImage(Context, Uri)}, but applies an additional
-     * user-chosen rotation on top of whatever Glide's own EXIF handling
-     * produces. Used by the profile screens' manual "Rotate" control, which
-     * exists specifically for source images with no orientation metadata to
-     * auto-detect from.
-     *
-     * @param extraDegrees clockwise rotation to apply (0/90/180/270)
-     */
-    public static File rotateAndCompress(Context context, Uri imageUri, int extraDegrees) {
         try {
             FutureTarget<Bitmap> futureTarget = Glide.with(context)
                     .asBitmap()
@@ -66,52 +47,12 @@ public class ImageUtils {
                     .submit(800, 800);
 
             Bitmap bitmap = futureTarget.get();
-            return finishRotateAndCompress(context, bitmap, extraDegrees);
-        } catch (ExecutionException | InterruptedException e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    /**
-     * Fetches an already-uploaded remote photo, rotates it, and re-saves it as
-     * a local temp file ready for re-upload. Lets a user fix a profile photo
-     * that saved sideways without having to re-pick it from their gallery.
-     *
-     * @param imageUrl full URL of the currently saved profile photo
-     * @param degrees clockwise rotation to apply (0/90/180/270)
-     */
-    public static File rotateRemoteImage(Context context, String imageUrl, int degrees) {
-        try {
-            FutureTarget<Bitmap> futureTarget = Glide.with(context)
-                    .asBitmap()
-                    .load(imageUrl)
-                    .apply(RequestOptions.fitCenterTransform())
-                    .submit(800, 800);
-
-            Bitmap bitmap = futureTarget.get();
-            return finishRotateAndCompress(context, bitmap, degrees);
-        } catch (ExecutionException | InterruptedException e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    private static File finishRotateAndCompress(Context context, Bitmap bitmap, int degrees) {
-        if (bitmap == null) {
-            return null;
-        }
-        try {
-            Bitmap output = bitmap;
-            int normalizedDegrees = ((degrees % 360) + 360) % 360;
-            if (normalizedDegrees != 0) {
-                Matrix matrix = new Matrix();
-                matrix.postRotate(normalizedDegrees);
-                output = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+            if (bitmap == null) {
+                return null;
             }
 
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            output.compress(Bitmap.CompressFormat.JPEG, 80, baos);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, baos);
 
             File tempFile = File.createTempFile("profile_", ".jpg", context.getCacheDir());
             FileOutputStream fos = new FileOutputStream(tempFile);
@@ -121,7 +62,7 @@ public class ImageUtils {
             baos.close();
 
             return tempFile;
-        } catch (IOException e) {
+        } catch (ExecutionException | InterruptedException | IOException e) {
             e.printStackTrace();
             return null;
         }

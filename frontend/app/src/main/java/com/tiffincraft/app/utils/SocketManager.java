@@ -316,6 +316,11 @@ public class SocketManager {
         attachListener("chatMessageDeleted", listener);
     }
 
+    /** Fired globally whenever any user's online/offline status changes. */
+    public void onPresenceChanged(Emitter.Listener listener) {
+        attachListener("presenceChanged", listener);
+    }
+
     /** Remove chat listeners registered by a screen (call in onDestroy). */
     /** Unregisters a single screen-owned listener (e.g. in onDestroy) so a finished Activity is never retained via a stale callback. */
     public void off(String event) {
@@ -327,7 +332,7 @@ public class SocketManager {
 
     public void offChatListeners() {
         String[] events = {"newChatMessage", "chatMessagesRead", "chatTyping",
-                "chatMessageEdited", "chatMessageDeleted"};
+                "chatMessageEdited", "chatMessageDeleted", "presenceChanged"};
         for (String event : events) {
             screenListeners.remove(event);
             if (socket != null) {

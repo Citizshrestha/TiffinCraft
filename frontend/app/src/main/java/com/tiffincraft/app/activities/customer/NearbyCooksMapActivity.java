@@ -49,12 +49,16 @@ import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.adapters.MapCookCarouselAdapter;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.CookProfile;
 import com.tiffincraft.app.models.CookProfileResponse;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.SocketManager;
+
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import io.socket.emitter.Emitter;
 
@@ -98,6 +102,7 @@ public class NearbyCooksMapActivity extends AppCompatActivity implements OnMapRe
     private MaterialCardView cardLegend;
     private TextView tvResultCount;
     private ChipGroup chipGroupRadius;
+    private RecyclerView rvCookCarousel;
 
     private final Emitter.Listener availabilityListener = args -> runOnUiThread(() -> {
         // A cook toggled holiday mode somewhere — silently refresh the pins if
@@ -185,6 +190,8 @@ public class NearbyCooksMapActivity extends AppCompatActivity implements OnMapRe
         cardLegend = findViewById(R.id.cardLegend);
         tvResultCount = findViewById(R.id.tvResultCount);
         chipGroupRadius = findViewById(R.id.chipGroupRadius);
+        rvCookCarousel = findViewById(R.id.rvCookCarousel);
+        rvCookCarousel.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
 
         ImageView btnBack = findViewById(R.id.btnBack);
         btnBack.setOnClickListener(v -> finish());
@@ -381,10 +388,20 @@ public class NearbyCooksMapActivity extends AppCompatActivity implements OnMapRe
         if (cooks == null || cooks.isEmpty()) {
             // Backend already falls back to the nearest cooks regardless of
             // radius — an empty list means no cooks exist anywhere yet.
+            rvCookCarousel.setVisibility(View.GONE);
             map.animateCamera(CameraUpdateFactory.newLatLngZoom(myPosition, 13f));
             showEmptyState();
             return;
         }
+
+        rvCookCarousel.setVisibility(View.VISIBLE);
+        rvCookCarousel.setAdapter(new MapCookCarouselAdapter(cooks, cook -> {
+            if (cook.hasCoordinates()) {
+                map.animateCamera(CameraUpdateFactory.newLatLngZoom(
+                        new LatLng(cook.getLatitude(), cook.getLongitude()), 16f));
+            }
+            CookMapBottomSheet.newInstance(cook).show(getSupportFragmentManager(), "cook_map_sheet");
+        }));
 
         LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
         boundsBuilder.include(myPosition);
@@ -463,6 +480,7 @@ public class NearbyCooksMapActivity extends AppCompatActivity implements OnMapRe
         layoutState.setVisibility(View.GONE);
         cardResultCount.setVisibility(View.GONE);
         cardLegend.setVisibility(View.GONE);
+        rvCookCarousel.setVisibility(View.GONE);
         tvLoadingMessage.setText(message);
         layoutLoading.setVisibility(View.VISIBLE);
     }

@@ -34,10 +34,14 @@ public class ChatContactsResponse {
         @SerializedName("phone")
         private String phone;
 
+        @SerializedName("is_online")
+        private boolean isOnline;
+
         public int getId() { return id; }
         public String getFullName() { return fullName; }
         public String getProfileImage() { return profileImage; }
         public String getRole() { return role; }
         public String getPhone() { return phone; }
+        public boolean isOnline() { return isOnline; }
     }
 }

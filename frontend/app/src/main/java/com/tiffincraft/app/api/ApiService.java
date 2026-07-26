@@ -35,8 +35,19 @@ import com.tiffincraft.app.models.SendChatMessageRequest;
 import com.tiffincraft.app.models.SendChatMessageResponse;
 import com.tiffincraft.app.models.EditChatMessageRequest;
 import com.tiffincraft.app.models.DeleteChatMessagesRequest;
+import com.tiffincraft.app.models.ReviewResponse;
+import com.tiffincraft.app.models.EarningsSummaryResponse;
+import com.tiffincraft.app.models.EarningsTransactionsResponse;
+import com.tiffincraft.app.models.CookEarningsTotalsResponse;
+import com.tiffincraft.app.models.ChangePasswordResponse;
+import com.tiffincraft.app.models.ChatUnreadCountResponse;
+import com.tiffincraft.app.models.CustomerDetailsResponse;
+import com.tiffincraft.app.models.SubscriptionResponse;
+import com.tiffincraft.app.models.ReferralInfoResponse;
+import com.tiffincraft.app.models.ApplyReferralResponse;
 
 import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.DELETE;
@@ -93,8 +104,20 @@ public interface ApiService {
     @GET("cook")
     Call<CookProfileResponse> getAllCooks();
 
+    @GET("cook")
+    Call<CookProfileResponse> getAllCooks(@Query("search") String search);
+
     @GET("cook/{cookId}")
     Call<CookProfileResponse> getCookById(@Path("cookId") int cookId);
+
+    @GET("cook/profile")
+    Call<CookProfileResponse> getCookProfile(@Header("Authorization") String token);
+
+    @GET("cook/nearby")
+    Call<CookProfileResponse> getNearbyCooks(@Header("Authorization") String token,
+                                              @Query("lat") double lat,
+                                              @Query("lng") double lng,
+                                              @Query("radius_km") double radiusKm);
 
     @GET("meals")
     Call<MealResponse> getAllMeals(@Query("category") String category, @Query("cuisine_type") String cuisineType, @Query("is_vegetarian") String isVegetarian, @Query("is_vegan") String isVegan, @Query("max_price") String maxPrice);
@@ -189,6 +212,21 @@ public interface ApiService {
     @GET("reviews/cook/my")
     Call<com.tiffincraft.app.models.ReviewResponse> getMyCookReviews(@Header("Authorization") String token);
 
+    /** Public — reviews for a cook's profile page. No auth required. */
+    @GET("reviews/cook/{cookId}")
+    Call<ReviewResponse> getCookReviews(@Path("cookId") int cookId);
+
+    @POST("reviews")
+    Call<ReviewResponse> submitReview(@Header("Authorization") String token, @Body com.google.gson.JsonObject requestBody);
+
+    /** Customer edits their own review. */
+    @PUT("reviews/{reviewId}")
+    Call<ReviewResponse> updateReview(@Header("Authorization") String token, @Path("reviewId") int reviewId, @Body com.google.gson.JsonObject requestBody);
+
+    /** Customer deletes their own review. */
+    @DELETE("reviews/{reviewId}")
+    Call<RegisterResponse> deleteReview(@Header("Authorization") String token, @Path("reviewId") int reviewId);
+
     @PUT("reviews/{reviewId}/reply")
     Call<RegisterResponse> replyToReview(@Header("Authorization") String token, @Path("reviewId") int reviewId, @Body com.google.gson.JsonObject requestBody);
 
@@ -198,14 +236,35 @@ public interface ApiService {
     @GET("orders/cook/my")
     Call<OrderResponse> getCookOrdersByStatus(@Header("Authorization") String token, @Query("status") String status);
 
+    @GET("orders/customer/my")
+    Call<OrderResponse> getCustomerOrders(@Header("Authorization") String token);
+
+    @GET("orders/{orderId}")
+    Call<OrderResponse> getOrderDetails(@Header("Authorization") String token, @Path("orderId") int orderId);
+
+    @PUT("orders/{orderId}/cancel")
+    Call<RegisterResponse> cancelOrder(@Header("Authorization") String token, @Path("orderId") int orderId, @Body com.google.gson.JsonObject requestBody);
+
     @PUT("orders/{orderId}/status")
     Call<OrderResponse> updateOrderStatus(@Header("Authorization") String token, @Path("orderId") int orderId, @Body UpdateOrderStatusRequest request);
 
     @POST("orders/{orderId}/payment-screenshot")
-    Call<OrderResponse> uploadPaymentScreenshot(@Header("Authorization") String token, @Path("orderId") int orderId, @Body com.google.gson.JsonObject requestBody);
+    Call<RegisterResponse> uploadPaymentScreenshot(@Header("Authorization") String token, @Path("orderId") int orderId, @Body com.google.gson.JsonObject requestBody);
 
     @PUT("orders/{orderId}/verify-payment")
-    Call<OrderResponse> verifyPayment(@Header("Authorization") String token, @Path("orderId") int orderId, @Body com.google.gson.JsonObject requestBody);
+    Call<RegisterResponse> verifyPayment(@Header("Authorization") String token, @Path("orderId") int orderId, @Body com.google.gson.JsonObject requestBody);
+
+    @GET("orders/cook/earnings")
+    Call<CookEarningsTotalsResponse> getCookEarningsTotals(@Header("Authorization") String token);
+
+    @GET("orders/cook/earnings/summary")
+    Call<EarningsSummaryResponse> getCookEarningsSummary(@Header("Authorization") String token);
+
+    @GET("orders/cook/earnings/summary")
+    Call<EarningsSummaryResponse> getCookEarningsSummaryByMonth(@Header("Authorization") String token, @Query("month") int month, @Query("year") int year);
+
+    @GET("orders/cook/earnings/transactions")
+    Call<EarningsTransactionsResponse> getCookEarningsTransactions(@Header("Authorization") String token, @Query("page") int page, @Query("limit") int limit, @Query("search") String search);
 
     @GET("favorites")
     Call<com.tiffincraft.app.models.FavoriteResponse> getFavorites(@Header("Authorization") String token);
@@ -238,7 +297,10 @@ public interface ApiService {
     Call<CheckoutResponse> checkoutCart(@Header("Authorization") String token, @Body CheckoutRequest request);
 
     @GET("chat/conversations")
-    Call<ChatConversationsResponse> getChatConversations(@Header("Authorization") String token);
+    Call<ChatConversationsResponse> getChatConversations(@Header("Authorization") String token, @Query("search") String search);
+
+    @GET("chat/unread-count")
+    Call<ChatUnreadCountResponse> getChatUnreadCount(@Header("Authorization") String token);
 
     @POST("chat/conversations")
     Call<CreateConversationResponse> createChatConversation(@Header("Authorization") String token, @Body CreateConversationRequest request);
@@ -253,7 +315,7 @@ public interface ApiService {
     Call<RegisterResponse> markChatConversationRead(@Header("Authorization") String token, @Path("conversationId") int conversationId);
 
     @GET("chat/contacts")
-    Call<ChatContactsResponse> getChatContacts(@Header("Authorization") String token);
+    Call<ChatContactsResponse> getChatContacts(@Header("Authorization") String token, @Query("search") String search);
 
     @PUT("chat/conversations/{conversationId}/messages/{messageId}")
     Call<SendChatMessageResponse> editChatMessage(@Header("Authorization") String token, @Path("conversationId") int conversationId, @Path("messageId") int messageId, @Body EditChatMessageRequest request);
@@ -264,4 +326,37 @@ public interface ApiService {
     @Multipart
     @POST("upload/chat-media")
     Call<UploadResponse> uploadChatMediaCloudinary(@Header("Authorization") String token, @Part MultipartBody.Part media);
+
+    /** Cook's payment QR upload — backend reads the type from a "qrType" text field. */
+    @Multipart
+    @POST("upload/bank-qr")
+    Call<UploadResponse> uploadBankQr(@Header("Authorization") String token, @Part("qrType") RequestBody qrType, @Part MultipartBody.Part document);
+
+    @PUT("auth/change-password")
+    Call<ChangePasswordResponse> changePassword(@Header("Authorization") String token, @Body com.google.gson.JsonObject requestBody);
+
+    @DELETE("auth/account")
+    Call<RegisterResponse> deleteAccount(@Header("Authorization") String token, @Body com.google.gson.JsonObject requestBody);
+
+    /** Cook-only — read-only view of a customer's profile (e.g. from a chat header). */
+    @GET("customer/{customerId}")
+    Call<CustomerDetailsResponse> getCustomerById(@Header("Authorization") String token, @Path("customerId") int customerId);
+
+    @GET("subscriptions/customer/my")
+    Call<SubscriptionResponse> getMySubscriptions(@Header("Authorization") String token);
+
+    @PUT("subscriptions/{id}/pause")
+    Call<RegisterResponse> pauseSubscription(@Header("Authorization") String token, @Path("id") int subscriptionId);
+
+    @PUT("subscriptions/{id}/resume")
+    Call<RegisterResponse> resumeSubscription(@Header("Authorization") String token, @Path("id") int subscriptionId);
+
+    @DELETE("subscriptions/{id}")
+    Call<RegisterResponse> cancelSubscription(@Header("Authorization") String token, @Path("id") int subscriptionId);
+
+    @GET("referrals/my")
+    Call<ReferralInfoResponse> getMyReferralInfo(@Header("Authorization") String token);
+
+    @POST("referrals/apply")
+    Call<ApplyReferralResponse> applyReferralCode(@Header("Authorization") String token, @Body com.google.gson.JsonObject requestBody);
 }

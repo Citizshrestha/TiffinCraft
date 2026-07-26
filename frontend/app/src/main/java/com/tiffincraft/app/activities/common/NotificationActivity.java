@@ -1,5 +1,6 @@
 package com.tiffincraft.app.activities.common;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -13,6 +14,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.cook.CookProfileActivity;
+import com.tiffincraft.app.activities.cook.CookReviewsActivity;
+import com.tiffincraft.app.activities.order.OrderDetailsCookActivity;
+import com.tiffincraft.app.activities.order.OrderDetailsCustomerActivity;
 import com.tiffincraft.app.adapters.NotificationAdapter;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
@@ -69,9 +74,56 @@ public class NotificationActivity extends AppCompatActivity {
             if (!notification.isRead()) {
                 markAsRead(notification.getId(), position);
             }
-            // In a real app, clicking might also navigate to order details, etc. based on type.
+            navigateForNotification(notification);
         });
         rvNotifications.setAdapter(adapter);
+    }
+
+    /** Routes to wherever this notification is actually about — mirrors how
+     *  Gmail/most professional apps behave (tap a notification, land on the
+     *  thing it describes, not just a flat list). */
+    private void navigateForNotification(Notification notification) {
+        String type = notification.getType() != null ? notification.getType() : "";
+        Integer refId = notification.getReferenceId();
+        boolean isCook = "cook".equals(sessionManager.getRole());
+
+        Intent intent = null;
+
+        switch (type) {
+            case "new_order":
+            case "order_status":
+            case "payment_verified":
+            case "payment_verification":
+            case "payment_rejected":
+                if (refId != null) {
+                    intent = new Intent(this, isCook ? OrderDetailsCookActivity.class : OrderDetailsCustomerActivity.class);
+                    intent.putExtra("order_id", refId);
+                }
+                break;
+            case "review":
+                if (isCook) {
+                    intent = new Intent(this, CookReviewsActivity.class);
+                }
+                // No single-review view exists on the customer side yet — a
+                // "reply" notification just stays on this list for them.
+                break;
+            case "cook_approved":
+            case "cook_rejected":
+                intent = new Intent(this, CookProfileActivity.class);
+                break;
+            case "chat_message":
+                if (refId != null) {
+                    intent = new Intent(this, ChatActivity.class);
+                    intent.putExtra(ChatActivity.EXTRA_CONVERSATION_ID, refId);
+                }
+                break;
+            default:
+                break; // system/unrecognized — nothing to navigate to
+        }
+
+        if (intent != null) {
+            startActivity(intent);
+        }
     }
 
     private void fetchNotifications() {

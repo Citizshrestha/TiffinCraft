@@ -47,6 +47,9 @@ public class ChatConversation {
     @SerializedName("unread_count")
     private int unreadCount;
 
+    @SerializedName("is_online")
+    private boolean isOnline;
+
     public int getId() { return id; }
     public int getCustomerId() { return customerId; }
     public int getCookId() { return cookId; }
@@ -60,6 +63,7 @@ public class ChatConversation {
     public String getLastMessageContent() { return lastMessageContent; }
     public int getLastMessageSenderId() { return lastMessageSenderId; }
     public int getUnreadCount() { return unreadCount; }
+    public boolean isOnline() { return isOnline; }
 
     public boolean isLastMessageDeleted() {
         if (lastMessageDeletedRaw == null) return false;

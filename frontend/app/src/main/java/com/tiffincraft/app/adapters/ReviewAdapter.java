@@ -24,15 +24,31 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
     private final Context context;
     private List<Review> reviews;
     private final OnReviewActionListener listener;
+    private final boolean readOnly;
+    private final int currentUserId;
 
     public interface OnReviewActionListener {
         void onReplyClick(Review review);
+        default void onEditClick(Review review) {}
+        default void onDeleteClick(Review review) {}
     }
 
     public ReviewAdapter(Context context, List<Review> reviews, OnReviewActionListener listener) {
+        this(context, reviews, listener, false, -1);
+    }
+
+    /** readOnly hides the reply button — for customer-facing review lists (e.g. cook profile page). */
+    public ReviewAdapter(Context context, List<Review> reviews, OnReviewActionListener listener, boolean readOnly) {
+        this(context, reviews, listener, readOnly, -1);
+    }
+
+    /** currentUserId enables Edit/Delete on the row belonging to the logged-in customer (readOnly lists only). */
+    public ReviewAdapter(Context context, List<Review> reviews, OnReviewActionListener listener, boolean readOnly, int currentUserId) {
         this.context = context;
         this.reviews = reviews;
         this.listener = listener;
+        this.readOnly = readOnly;
+        this.currentUserId = currentUserId;
     }
 
     public void updateReviews(List<Review> newReviews) {
@@ -68,6 +84,9 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
         private final TextView tvCookReply;
         private final View layoutCookReply;
         private final Button btnReply;
+        private final View layoutOwnReviewActions;
+        private final Button btnEditReview;
+        private final Button btnDeleteReview;
 
         public ReviewViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -80,6 +99,9 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
             tvCookReply = itemView.findViewById(R.id.tvCookReply);
             layoutCookReply = itemView.findViewById(R.id.layoutCookReply);
             btnReply = itemView.findViewById(R.id.btnReply);
+            layoutOwnReviewActions = itemView.findViewById(R.id.layoutOwnReviewActions);
+            btnEditReview = itemView.findViewById(R.id.btnEditReview);
+            btnDeleteReview = itemView.findViewById(R.id.btnDeleteReview);
         }
 
         public void bind(Review review) {
@@ -95,20 +117,7 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
                 tvMealName.setVisibility(View.GONE);
             }
 
-            // Format date
-            try {
-                String createdAt = review.getCreatedAt();
-                if (createdAt != null) {
-                    SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-                    SimpleDateFormat outputFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
-                    Date date = inputFormat.parse(createdAt);
-                    if (date != null) {
-                        tvDate.setText(outputFormat.format(date));
-                    }
-                }
-            } catch (Exception e) {
-                tvDate.setText(review.getCreatedAt());
-            }
+            tvDate.setText(formatDate(review.getCreatedAt()));
 
             // Show cook reply if exists
             if (review.getCookReply() != null && !review.getCookReply().isEmpty()) {
@@ -120,12 +129,52 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
                 btnReply.setText("Reply");
             }
 
-            // Reply button click
-            btnReply.setOnClickListener(v -> {
-                if (listener != null) {
-                    listener.onReplyClick(review);
-                }
-            });
+            if (readOnly) {
+                btnReply.setVisibility(View.GONE);
+            } else {
+                btnReply.setVisibility(View.VISIBLE);
+                btnReply.setOnClickListener(v -> {
+                    if (listener != null) {
+                        listener.onReplyClick(review);
+                    }
+                });
+            }
+
+            // Edit/Delete — only on the row belonging to the logged-in customer,
+            // and only in read-only (customer-facing) lists; a cook never owns a review.
+            boolean isOwnReview = readOnly && currentUserId > 0 && review.getCustomerId() == currentUserId;
+            layoutOwnReviewActions.setVisibility(isOwnReview ? View.VISIBLE : View.GONE);
+            if (isOwnReview) {
+                btnEditReview.setOnClickListener(v -> {
+                    if (listener != null) listener.onEditClick(review);
+                });
+                btnDeleteReview.setOnClickListener(v -> {
+                    if (listener != null) listener.onDeleteClick(review);
+                });
+            }
+        }
+
+        private String formatDate(String rawDate) {
+            if (rawDate == null || rawDate.isEmpty()) return "";
+            String[] patterns = {
+                    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                    "yyyy-MM-dd'T'HH:mm:ss'Z'",
+                    "yyyy-MM-dd HH:mm:ss",
+                    "yyyy-MM-dd'T'HH:mm:ss"
+            };
+            for (String pattern : patterns) {
+                try {
+                    SimpleDateFormat inputFormat = new SimpleDateFormat(pattern, Locale.US);
+                    if (pattern.endsWith("'Z'")) {
+                        inputFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+                    }
+                    Date date = inputFormat.parse(rawDate);
+                    if (date != null) {
+                        return new SimpleDateFormat("MMM dd, yyyy • h:mm a", Locale.getDefault()).format(date);
+                    }
+                } catch (Exception ignored) {}
+            }
+            return rawDate;
         }
     }
 }

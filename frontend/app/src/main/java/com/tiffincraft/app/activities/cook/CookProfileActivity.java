@@ -74,10 +74,6 @@ public class CookProfileActivity extends AppCompatActivity {
             binding.btnEditAvatar.setOnClickListener(v -> checkPermissionAndOpenPicker());
         }
 
-        if (binding.btnRotateAvatar != null) {
-            binding.btnRotateAvatar.setOnClickListener(v -> rotateSavedPhoto());
-        }
-
         // Settings button (account/support/logout live in Settings now)
         if (binding.btnSettings != null) {
             binding.btnSettings.setOnClickListener(v -> {
@@ -364,38 +360,7 @@ public class CookProfileActivity extends AppCompatActivity {
         }).start();
     }
 
-    /**
-     * Manual rotate control: some source photos (downloaded/forwarded images,
-     * screenshots re-saved by another app) carry no usable orientation
-     * metadata at all, so no decoder — Glide included — can auto-detect that
-     * they're sideways. This lets the cook fix an already-saved profile photo
-     * directly, without re-picking it from their gallery.
-     */
-    private void rotateSavedPhoto() {
-        String imageUrl = sessionManager.getProfileImage();
-        if (imageUrl == null || imageUrl.isEmpty()) {
-            Toast.makeText(this, "Add a profile photo first", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        showUploadProgress(true);
-        setAvatarButtonsEnabled(false);
-
-        new Thread(() -> {
-            File file = ImageUtils.rotateRemoteImage(CookProfileActivity.this, imageUrl, 90);
-            runOnUiThread(() -> {
-                if (file == null) {
-                    showUploadProgress(false);
-                    setAvatarButtonsEnabled(true);
-                    Toast.makeText(CookProfileActivity.this, "Couldn't rotate photo. Try again.", Toast.LENGTH_SHORT).show();
-                } else {
-                    uploadFile(file);
-                }
-            });
-        }).start();
-    }
-
-    /** Shared upload path for both a freshly-picked photo and a rotated existing one. */
+    /** Shared upload path for a freshly-picked photo. */
     private void uploadFile(File file) {
         compressedFile = file;
         MultipartBody.Part imagePart = ImageUtils.prepareFilePart("profile_image", file);
@@ -446,7 +411,6 @@ public class CookProfileActivity extends AppCompatActivity {
 
     private void setAvatarButtonsEnabled(boolean enabled) {
         if (binding.btnEditAvatar != null) binding.btnEditAvatar.setEnabled(enabled);
-        if (binding.btnRotateAvatar != null) binding.btnRotateAvatar.setEnabled(enabled);
     }
 
     /**

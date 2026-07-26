@@ -62,31 +62,94 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
             holder.unreadDot.setVisibility(View.GONE);
         }
 
-        // Set icon and background based on type
+        // Set icon, tint and background based on the notification's real type
+        // (and, for the generic "order_status" type, the specific status word
+        // in its message — one DB type covers confirmed/preparing/ready/
+        // delivered/cancelled alike). The icon's tint is hardcoded green in
+        // item_notification.xml and RecyclerView reuses views, so every case
+        // below must explicitly set the tint — never rely on the XML default.
         String type = notification.getType() != null ? notification.getType().toLowerCase() : "system";
+        String haystack = ((notification.getTitle() != null ? notification.getTitle() : "")
+                + " " + (notification.getMessage() != null ? notification.getMessage() : "")).toLowerCase();
+
+        int iconRes;
+        int bgRes;
+        int tintColor;
+
         switch (type) {
-            case "order":
-                holder.ivIcon.setImageResource(R.drawable.ic_orders);
-                holder.iconContainer.setBackgroundResource(R.drawable.circle_icon_orange);
+            case "new_order":
+                iconRes = R.drawable.ic_orders;
+                bgRes = R.drawable.circle_icon_orange;
+                tintColor = 0xFFF57C00;
                 break;
-            case "promo":
-                holder.ivIcon.setImageResource(R.drawable.ic_offers);
-                holder.iconContainer.setBackgroundResource(R.drawable.circle_icon_purple);
+            case "order_status":
+                if (haystack.contains("cancel")) {
+                    iconRes = R.drawable.ic_close;
+                    bgRes = R.drawable.circle_icon_red;
+                    tintColor = 0xFFE53935;
+                } else if (haystack.contains("delivered")) {
+                    iconRes = R.drawable.ic_check_circle;
+                    bgRes = R.drawable.circle_icon_green;
+                    tintColor = 0xFF388E3C;
+                } else if (haystack.contains("ready")) {
+                    iconRes = R.drawable.ic_delivery;
+                    bgRes = R.drawable.circle_icon_blue;
+                    tintColor = 0xFF1976D2;
+                } else {
+                    // confirmed / preparing — order accepted, being cooked
+                    iconRes = R.drawable.ic_cook;
+                    bgRes = R.drawable.circle_icon_orange;
+                    tintColor = 0xFFF57C00;
+                }
                 break;
-            case "cook":
-                holder.ivIcon.setImageResource(R.drawable.ic_cook);
-                holder.iconContainer.setBackgroundResource(R.drawable.circle_icon_green);
+            case "payment_verified":
+                iconRes = R.drawable.ic_check_circle;
+                bgRes = R.drawable.circle_icon_green;
+                tintColor = 0xFF388E3C;
+                break;
+            case "payment_verification":
+                // Cook-side: a customer just submitted proof, awaiting the cook's review.
+                iconRes = R.drawable.ic_receipt;
+                bgRes = R.drawable.circle_icon_orange;
+                tintColor = 0xFFF57C00;
+                break;
+            case "payment_rejected":
+                // Customer-side: needs to resubmit — same red treatment as a cancellation.
+                iconRes = R.drawable.ic_close;
+                bgRes = R.drawable.circle_icon_red;
+                tintColor = 0xFFE53935;
+                break;
+            case "review":
+                iconRes = R.drawable.ic_star;
+                bgRes = R.drawable.circle_icon_purple;
+                tintColor = 0xFFFFB300;
+                break;
+            case "cook_approved":
+                iconRes = R.drawable.ic_check_circle;
+                bgRes = R.drawable.circle_icon_green;
+                tintColor = 0xFF388E3C;
+                break;
+            case "cook_rejected":
+                iconRes = R.drawable.ic_info;
+                bgRes = R.drawable.circle_icon_red;
+                tintColor = 0xFFE53935;
                 break;
             case "chat_message":
-                holder.ivIcon.setImageResource(R.drawable.ic_chat);
-                holder.iconContainer.setBackgroundResource(R.drawable.circle_icon_blue);
+                iconRes = R.drawable.ic_chat;
+                bgRes = R.drawable.circle_icon_blue;
+                tintColor = 0xFF1976D2;
                 break;
             case "system":
             default:
-                holder.ivIcon.setImageResource(R.drawable.ic_notifications);
-                holder.iconContainer.setBackgroundResource(R.drawable.circle_icon_blue);
+                iconRes = R.drawable.ic_notifications;
+                bgRes = R.drawable.circle_icon_blue;
+                tintColor = 0xFF1976D2;
                 break;
         }
+
+        holder.ivIcon.setImageResource(iconRes);
+        holder.ivIcon.setColorFilter(tintColor);
+        holder.iconContainer.setBackgroundResource(bgRes);
 
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {

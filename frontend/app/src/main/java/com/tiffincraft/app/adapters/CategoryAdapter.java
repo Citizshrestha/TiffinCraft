@@ -77,8 +77,12 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
                 tvCategoryName.setTextColor(itemView.getContext().getColor(android.R.color.white));
                 categoryCard.setStrokeWidth(0);
             } else {
-                categoryCard.setCardBackgroundColor(itemView.getContext().getColor(android.R.color.transparent));
-                categoryCard.setBackgroundColor(0xFFF8F8F8);
+                // setCardBackgroundColor only (not setBackgroundColor) — MaterialCardView
+                // renders its own background drawable for the rounded shape; calling plain
+                // View.setBackgroundColor on a recycled holder replaced that drawable and
+                // left the next-selected state's green background not actually showing,
+                // so the white selected text had nothing to contrast against.
+                categoryCard.setCardBackgroundColor(0xFFF8F8F8);
                 tvCategoryName.setTextColor(itemView.getContext().getColor(R.color.text_secondary));
                 categoryCard.setStrokeWidth(0);
             }

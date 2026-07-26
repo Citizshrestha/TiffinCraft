@@ -166,6 +166,38 @@ public class EditCustomerProfileActivity extends AppCompatActivity {
         request.setPhone(phone);
         request.setAddress(address);
 
+        // Geocode the delivery address so the order tracking map has a real
+        // customer pin (mirrors EditCookProfileActivity's kitchen pin). Unlike
+        // the cook flow this never blocks the save — a missing pin only means
+        // the tracking map falls back to "unavailable" for this address, it
+        // doesn't affect discoverability the way an unpinned kitchen would.
+        if (TextUtils.isEmpty(address)) {
+            submitProfileUpdate(request);
+            return;
+        }
+
+        new Thread(() -> {
+            Double lat = null, lng = null;
+            try {
+                java.util.List<android.location.Address> results =
+                        new android.location.Geocoder(this, java.util.Locale.getDefault())
+                                .getFromLocationName(address, 1);
+                if (results != null && !results.isEmpty()) {
+                    lat = results.get(0).getLatitude();
+                    lng = results.get(0).getLongitude();
+                }
+            } catch (java.io.IOException ignored) {
+                // offline / geocoder unavailable — save without coordinates
+            }
+            if (lat != null && lng != null) {
+                request.setLatitude(lat);
+                request.setLongitude(lng);
+            }
+            runOnUiThread(() -> submitProfileUpdate(request));
+        }).start();
+    }
+
+    private void submitProfileUpdate(CustomerProfileRequest request) {
         String token = "Bearer " + sessionManager.getToken();
         apiService.updateCustomerProfile(token, request).enqueue(new Callback<CustomerProfileResponse>() {
             @Override
@@ -175,7 +207,7 @@ public class EditCustomerProfileActivity extends AppCompatActivity {
 
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
                     // Update session with new name and phone
-                    sessionManager.saveFullName(fullName);
+                    sessionManager.saveFullName(request.getFullName());
                     
                     Toast.makeText(EditCustomerProfileActivity.this,
                             "Profile updated successfully!", Toast.LENGTH_SHORT).show();

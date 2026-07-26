@@ -17,6 +17,7 @@ import com.tiffincraft.app.R;
 import com.tiffincraft.app.adapters.OrderAdapter;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
+import com.tiffincraft.app.activities.order.OrderDetailsCookActivity;
 import com.tiffincraft.app.databinding.ActivityManageOrdersBinding;
 import com.tiffincraft.app.models.Order;
 import com.tiffincraft.app.models.OrderResponse;
@@ -272,8 +273,11 @@ public class ManageOrdersActivity extends AppCompatActivity
                                     Toast.LENGTH_SHORT).show();
                             loadOrders(); // Refresh
                         } else {
+                            // Retrofit leaves response.body() null on non-2xx — the real reason
+                            // (e.g. "Cannot mark as delivered until payment is verified") lives in
+                            // errorBody() and was previously discarded in favor of a generic toast.
                             Toast.makeText(ManageOrdersActivity.this,
-                                    "Failed to update order", Toast.LENGTH_SHORT).show();
+                                    extractErrorMessage(response.errorBody()), Toast.LENGTH_LONG).show();
                         }
                     }
 
@@ -283,6 +287,28 @@ public class ManageOrdersActivity extends AppCompatActivity
                                 "Network error", Toast.LENGTH_SHORT).show();
                     }
                 });
+    }
+
+    private String extractErrorMessage(okhttp3.ResponseBody errorBody) {
+        if (errorBody != null) {
+            try {
+                JSONObject json = new JSONObject(errorBody.string());
+                if (json.has("message")) {
+                    return json.getString("message");
+                }
+            } catch (Exception ignored) {}
+        }
+        return "Failed to update order";
+    }
+
+    @Override
+    public void onVerifyPaymentClick(Order order) {
+        // Opens the full order details screen, where the cook can actually see
+        // the uploaded screenshot before confirming it's genuine — verifying
+        // blind from the list row would defeat the point of the check.
+        Intent intent = new Intent(this, OrderDetailsCookActivity.class);
+        intent.putExtra("order_id", order.getId());
+        startActivity(intent);
     }
 
     private String statusLabel(String status) {

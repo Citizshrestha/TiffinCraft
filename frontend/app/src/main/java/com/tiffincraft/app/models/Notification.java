@@ -24,6 +24,12 @@ public class Notification {
     @SerializedName("created_at")
     private String createdAt;
 
+    @SerializedName("reference_id")
+    private Integer referenceId;
+
+    @SerializedName("reference_type")
+    private String referenceType;
+
     // Getters
     public int getId() { return id; }
     public int getUserId() { return userId; }
@@ -32,6 +38,8 @@ public class Notification {
     public String getType() { return type; }
     public boolean isRead() { return isReadInt == 1; }
     public String getCreatedAt() { return createdAt; }
+    public Integer getReferenceId() { return referenceId; }
+    public String getReferenceType() { return referenceType; }
 
     // Setters
     public void setId(int id) { this.id = id; }

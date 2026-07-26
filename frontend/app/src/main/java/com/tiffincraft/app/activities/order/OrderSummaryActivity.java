@@ -223,8 +223,34 @@ public class OrderSummaryActivity extends AppCompatActivity {
         btnPlaceOrder.setEnabled(false);
         btnPlaceOrder.setText("Placing order…");
 
+        // Pin the delivery address so the order-tracking map can draw the
+        // cook → customer route. Geocoder blocks — run it off the main thread.
+        // Unlike the cook's kitchen address, a failure here is non-fatal: the
+        // order still goes through, the tracking map just falls back to
+        // "route unavailable" rather than blocking a paying customer.
+        final String fNotes = notes;
+        new Thread(() -> {
+            Double lat = null, lng = null;
+            try {
+                java.util.List<android.location.Address> results =
+                        new android.location.Geocoder(this, Locale.getDefault())
+                                .getFromLocationName(address, 1);
+                if (results != null && !results.isEmpty()) {
+                    lat = results.get(0).getLatitude();
+                    lng = results.get(0).getLongitude();
+                }
+            } catch (java.io.IOException ignored) {
+                // offline / geocoder unavailable — order proceeds without coords
+            }
+            final Double fLat = lat;
+            final Double fLng = lng;
+            runOnUiThread(() -> submitCheckout(address, fLat, fLng, fNotes, payment));
+        }).start();
+    }
+
+    private void submitCheckout(String address, Double lat, Double lng, String notes, String payment) {
         String token = "Bearer " + sessionManager.getToken();
-        CheckoutRequest request = new CheckoutRequest(address, null, null, notes, payment);
+        CheckoutRequest request = new CheckoutRequest(address, lat, lng, notes, payment);
 
         apiService.checkoutCart(token, request).enqueue(new Callback<CheckoutResponse>() {
             @Override

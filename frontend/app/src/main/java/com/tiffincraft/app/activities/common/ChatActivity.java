@@ -36,6 +36,8 @@ import com.tiffincraft.app.adapters.MessageAdapter;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.ChatApiMessage;
+import com.tiffincraft.app.models.ChatConversation;
+import com.tiffincraft.app.models.ChatConversationsResponse;
 import com.tiffincraft.app.models.ChatMessage;
 import com.tiffincraft.app.models.ChatMessagesResponse;
 import com.tiffincraft.app.models.DeleteChatMessagesRequest;
@@ -147,6 +149,9 @@ public class ChatActivity extends AppCompatActivity {
 
         initViews();
         setupHeader(contactName, isOnline);
+        if (TextUtils.isEmpty(contactName)) {
+            resolveContactDetails();
+        }
         setupRecyclerView();
         setupListeners();
         setupSocket();
@@ -231,6 +236,41 @@ public class ChatActivity extends AppCompatActivity {
         View.OnClickListener openProfile = canOpenProfile ? v -> openContactProfile() : null;
         chatHeader.findViewById(R.id.ivChatAvatar).setOnClickListener(openProfile);
         chatHeader.findViewById(R.id.tvChatName).setOnClickListener(openProfile);
+    }
+
+    /** Called when this screen is opened with only a conversation ID and no
+     *  contact extras (e.g. tapping a "New message" notification) — fetches
+     *  the conversations list and fills in the header from the matching row,
+     *  instead of leaving it on the generic "Chat" / placeholder-avatar state. */
+    private void resolveContactDetails() {
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.getChatConversations(token, "").enqueue(new Callback<ChatConversationsResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<ChatConversationsResponse> call,
+                                    @NonNull Response<ChatConversationsResponse> response) {
+                if (!response.isSuccessful() || response.body() == null
+                        || response.body().getConversations() == null) {
+                    return;
+                }
+                for (ChatConversation c : response.body().getConversations()) {
+                    if (c.getId() == conversationId) {
+                        contactName = c.getOtherUserName();
+                        contactPhone = c.getOtherUserPhone();
+                        contactAvatar = c.getOtherUserImage();
+                        contactId = c.getOtherUserId();
+                        contactRole = c.getOtherUserRole();
+                        isOnline = c.isOnline();
+                        setupHeader(contactName, isOnline);
+                        break;
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<ChatConversationsResponse> call, @NonNull Throwable t) {
+                // Header stays on its generic fallback — not worth surfacing an error for this.
+            }
+        });
     }
 
     /** Tapping the header opens the other participant's profile — a cook's public
@@ -345,6 +385,23 @@ public class ChatActivity extends AppCompatActivity {
                     tvChatStatus.setText(isOnline ? "Online" : "Offline"), 3000);
         }));
 
+        socketManager.onPresenceChanged(args -> {
+            if (args.length == 0) return;
+            try {
+                JSONObject json = (JSONObject) args[0];
+                if (json.optInt("user_id", -1) != contactId) return;
+                boolean nowOnline = json.optBoolean("is_online", false);
+                runOnUiThread(() -> {
+                    isOnline = nowOnline;
+                    tvChatStatus.setText(nowOnline ? "Online" : "Offline");
+                    tvChatStatus.setTextColor(getColor(nowOnline ? R.color.green_primary : R.color.text_hint));
+                    findViewById(R.id.viewStatusDot).setVisibility(nowOnline ? View.VISIBLE : View.GONE);
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error handling presenceChanged", e);
+            }
+        });
+
         socketManager.onChatMessageEdited(args -> {
             if (args.length == 0) return;
             try {
@@ -372,7 +429,7 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     // ==================== Data loading ====================
-
+ 
     private void loadMessages() {
         String token = "Bearer " + sessionManager.getToken();
         Log.d(TAG, "Loading messages for conversation " + conversationId);

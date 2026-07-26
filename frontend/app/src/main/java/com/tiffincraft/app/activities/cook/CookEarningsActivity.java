@@ -347,8 +347,10 @@ public class CookEarningsActivity extends AppCompatActivity {
             return;
         }
 
+        // Week (7 pts) is fine showing every label; Month (30 pts) and Year (12 pts)
+        // both get thinned to ~6 or every 12 months look crammed/unreadable.
         chart.getXAxis().setLabelCount(
-                Math.min(entries.size(), trendRange == 1 ? 6 : entries.size()), false);
+                Math.min(entries.size(), trendRange == 0 ? entries.size() : 6), false);
 
         int green = ContextCompat.getColor(this, R.color.green_primary);
 

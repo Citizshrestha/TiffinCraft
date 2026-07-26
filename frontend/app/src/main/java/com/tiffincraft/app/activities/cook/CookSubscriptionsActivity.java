@@ -127,8 +127,16 @@ public class CookSubscriptionsActivity extends AppCompatActivity {
 
             SwitchCompat sw = new SwitchCompat(this);
             sw.setChecked(enabled);
-            sw.setThumbTintList(android.content.res.ColorStateList.valueOf(0xFF4CAF50));
-            sw.setTrackTintList(android.content.res.ColorStateList.valueOf(0xFFC8E6C9));
+            // Thumb/track tints previously used a single solid color regardless
+            // of checked state, so every toggle looked "on" (green) all the time.
+            int[][] switchStates = {
+                    {android.R.attr.state_checked},
+                    {-android.R.attr.state_checked}
+            };
+            sw.setThumbTintList(new android.content.res.ColorStateList(switchStates,
+                    new int[]{0xFF4CAF50, 0xFFF5F5F5}));
+            sw.setTrackTintList(new android.content.res.ColorStateList(switchStates,
+                    new int[]{0xFFA5D6A7, 0xFFBDBDBD}));
 
             topRow.addView(tvName);
             topRow.addView(sw);

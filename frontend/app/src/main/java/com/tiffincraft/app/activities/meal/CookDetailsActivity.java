@@ -31,11 +31,18 @@ import com.tiffincraft.app.models.CookProfileResponse;
 import com.tiffincraft.app.models.FavoriteResponse;
 import com.tiffincraft.app.models.Meal;
 import com.tiffincraft.app.models.MealResponse;
+import com.tiffincraft.app.models.Review;
+import com.tiffincraft.app.models.ReviewResponse;
+import com.tiffincraft.app.adapters.ReviewAdapter;
 import com.tiffincraft.app.session.SessionManager;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
+
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -45,6 +52,7 @@ public class CookDetailsActivity extends AppCompatActivity {
 
     public static final String EXTRA_COOK_ID = "cook_id";
     private static final int REQUEST_STORAGE_PERMISSION = 2001;
+    private static final int REQUEST_EDIT_REVIEW = 3001;
 
     private ImageButton btnBack;
     private FrameLayout btnFavorite;
@@ -58,6 +66,9 @@ public class CookDetailsActivity extends AppCompatActivity {
     private LinearLayout layoutMenuItems;
     private androidx.cardview.widget.CardView layoutPaymentQr;
     private MaterialButton btnOrderNow;
+    private RecyclerView rvReviews;
+    private TextView tvNoReviews;
+    private ReviewAdapter reviewAdapter;
 
     private int cookId = -1;
     private boolean isFavorite = false;
@@ -92,6 +103,7 @@ public class CookDetailsActivity extends AppCompatActivity {
         initViews();
         loadCookProfile();
         loadCookMeals();
+        loadCookReviews();
         checkFavoriteStatus();
     }
 
@@ -118,6 +130,40 @@ public class CookDetailsActivity extends AppCompatActivity {
         layoutMenuItems = findViewById(R.id.layoutMenuItems);
         btnOrderNow = findViewById(R.id.btnOrderNow);
         layoutPaymentQr = findViewById(R.id.layoutPaymentQr);
+        rvReviews = findViewById(R.id.rvReviews);
+        tvNoReviews = findViewById(R.id.tvNoReviews);
+
+        int myUserId = -1;
+        try {
+            myUserId = Integer.parseInt(sessionManager.getUserId());
+        } catch (Exception ignored) {}
+
+        reviewAdapter = new ReviewAdapter(this, new ArrayList<>(), new ReviewAdapter.OnReviewActionListener() {
+            @Override
+            public void onReplyClick(Review review) {}
+
+            @Override
+            public void onEditClick(Review review) {
+                Intent intent = new Intent(CookDetailsActivity.this, com.tiffincraft.app.activities.common.RateReviewActivity.class);
+                intent.putExtra(com.tiffincraft.app.activities.common.RateReviewActivity.EXTRA_REVIEW_ID, review.getId());
+                intent.putExtra(com.tiffincraft.app.activities.common.RateReviewActivity.EXTRA_COOK_ID, cookId);
+                intent.putExtra(com.tiffincraft.app.activities.common.RateReviewActivity.EXTRA_EXISTING_RATING, review.getRating());
+                intent.putExtra(com.tiffincraft.app.activities.common.RateReviewActivity.EXTRA_EXISTING_COMMENT, review.getComment());
+                startActivityForResult(intent, REQUEST_EDIT_REVIEW);
+            }
+
+            @Override
+            public void onDeleteClick(Review review) {
+                new AlertDialog.Builder(CookDetailsActivity.this)
+                        .setTitle("Delete review?")
+                        .setMessage("This can't be undone.")
+                        .setPositiveButton("Delete", (dialog, which) -> deleteReview(review))
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            }
+        }, true, myUserId);
+        rvReviews.setLayoutManager(new LinearLayoutManager(this));
+        rvReviews.setAdapter(reviewAdapter);
 
         btnBack.setOnClickListener(v -> finish());
         btnFavorite.setOnClickListener(v -> toggleFavorite());
@@ -456,6 +502,63 @@ public class CookDetailsActivity extends AppCompatActivity {
                 Toast.makeText(CookDetailsActivity.this, "Network error", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    // ─────────────────────────────────────────────
+    // LOAD REVIEWS
+    // ─────────────────────────────────────────────
+    private void loadCookReviews() {
+        apiService.getCookReviews(cookId).enqueue(new Callback<ReviewResponse>() {
+            @Override
+            public void onResponse(Call<ReviewResponse> call, Response<ReviewResponse> response) {
+                List<Review> reviews = response.isSuccessful() && response.body() != null
+                        ? response.body().getReviews() : null;
+                if (reviews == null || reviews.isEmpty()) {
+                    tvNoReviews.setVisibility(View.VISIBLE);
+                    rvReviews.setVisibility(View.GONE);
+                } else {
+                    tvNoReviews.setVisibility(View.GONE);
+                    rvReviews.setVisibility(View.VISIBLE);
+                    reviewAdapter.updateReviews(reviews);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ReviewResponse> call, Throwable t) {
+                tvNoReviews.setVisibility(View.VISIBLE);
+                rvReviews.setVisibility(View.GONE);
+            }
+        });
+    }
+
+    private void deleteReview(Review review) {
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.deleteReview(token, review.getId()).enqueue(new Callback<com.tiffincraft.app.models.RegisterResponse>() {
+            @Override
+            public void onResponse(Call<com.tiffincraft.app.models.RegisterResponse> call,
+                                    Response<com.tiffincraft.app.models.RegisterResponse> response) {
+                if (response.isSuccessful()) {
+                    Toast.makeText(CookDetailsActivity.this, "Review deleted", Toast.LENGTH_SHORT).show();
+                    loadCookReviews();
+                    loadCookProfile(); // refresh the cook's average rating
+                } else {
+                    Toast.makeText(CookDetailsActivity.this, "Failed to delete review", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<com.tiffincraft.app.models.RegisterResponse> call, Throwable t) {
+                Toast.makeText(CookDetailsActivity.this, "Network error", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_EDIT_REVIEW && resultCode == RESULT_OK) {
+            loadCookReviews();
+        }
     }
 
     // ─────────────────────────────────────────────

@@ -30,6 +30,7 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
 
     public interface OnOrderActionListener {
         void onActionClick(Order order, String nextStatus);
+        void onVerifyPaymentClick(Order order);
     }
 
     private final Context context;
@@ -100,6 +101,15 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
         } else {
             holder.layoutSpecialInstructions.setVisibility(View.GONE);
         }
+
+        // Verify Payment (cook-only) — shown only while an online-payment order
+        // has a customer-uploaded screenshot awaiting the cook's verification.
+        boolean needsPaymentVerification = "online".equals(order.getPaymentMethod())
+                && "paid".equals(order.getPaymentStatus());
+        holder.btnVerifyPayment.setVisibility(needsPaymentVerification ? View.VISIBLE : View.GONE);
+        holder.btnVerifyPayment.setOnClickListener(v -> {
+            if (listener != null) listener.onVerifyPaymentClick(order);
+        });
 
         // Action button
         String nextStatus = getNextStatus(status);
@@ -350,7 +360,7 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
         ImageView imgMealPlaceholder;
         ImageButton btnPrevImage, btnNextImage;
         LinearLayout layoutIndicators, layoutItemChips, layoutSpecialInstructions;
-        MaterialButton btnNextAction;
+        MaterialButton btnNextAction, btnVerifyPayment;
 
         OrderViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -369,6 +379,7 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
             layoutItemChips             = itemView.findViewById(R.id.layoutItemChips);
             layoutSpecialInstructions   = itemView.findViewById(R.id.layoutSpecialInstructions);
             btnNextAction               = itemView.findViewById(R.id.btnNextAction);
+            btnVerifyPayment            = itemView.findViewById(R.id.btnVerifyPayment);
         }
     }
 }

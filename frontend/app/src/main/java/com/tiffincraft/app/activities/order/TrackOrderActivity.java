@@ -16,6 +16,17 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.MapStyleOptions;
+import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.gms.maps.model.RoundCap;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
@@ -43,7 +54,7 @@ import retrofit2.Response;
  * as opposed to {@link OrderDetailsCustomerActivity}'s full itemized order details.
  * The two screens show the same order and are reachable from each other.
  */
-public class TrackOrderActivity extends AppCompatActivity {
+public class TrackOrderActivity extends AppCompatActivity implements OnMapReadyCallback {
 
     private static final String TAG = "TrackOrderActivity";
     private ActivityTrackOrderBinding binding;
@@ -53,6 +64,9 @@ public class TrackOrderActivity extends AppCompatActivity {
 
     private int orderId;
     private String currentStatus;
+
+    private GoogleMap map;
+    private Order loadedOrder;
 
     private LinearLayout[] stepRows;
     private ImageView[] stepIcons;
@@ -79,6 +93,8 @@ public class TrackOrderActivity extends AppCompatActivity {
     private static final int COLOR_PENDING_ICON = 0xFFBDBDBD;
     private static final int COLOR_PENDING_TEXT = 0xFF9E9E9E;
     private static final int COLOR_CANCELLED = 0xFFE53935;
+    /** Light amber — the delivery is underway but not yet complete. */
+    private static final int COLOR_ROUTE_IN_TRANSIT = 0x99FFA726;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,9 +117,32 @@ public class TrackOrderActivity extends AppCompatActivity {
 
         binding.tvOrderId.setText("Order ID: TC" + orderId);
 
+        SupportMapFragment mapFragment = (SupportMapFragment)
+                getSupportFragmentManager().findFragmentById(R.id.trackMap);
+        if (mapFragment != null) {
+            mapFragment.getMapAsync(this);
+        }
+
         buildTimelineRows();
         loadOrderDetails();
         connectSocket();
+    }
+
+    @Override
+    public void onMapReady(@NonNull GoogleMap googleMap) {
+        map = googleMap;
+        try {
+            map.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.map_style_tiffincraft));
+        } catch (Exception ignored) {
+            // Styling is cosmetic — never let it block the route from rendering.
+        }
+        map.getUiSettings().setZoomControlsEnabled(false);
+        map.getUiSettings().setMapToolbarEnabled(false);
+
+        // The order may have already loaded before the map finished initializing.
+        if (loadedOrder != null) {
+            drawRoute(loadedOrder);
+        }
     }
 
     private void buildTimelineRows() {
@@ -198,6 +237,94 @@ public class TrackOrderActivity extends AppCompatActivity {
 
         currentStatus = order.getStatus();
         updateTimeline(order.getStatus(), order.getCreatedAt());
+
+        loadedOrder = order;
+        drawRoute(order);
+    }
+
+    // ==================== Route map ====================
+
+    /**
+     * Draws the cook → customer route. The line's appearance encodes the order
+     * stage: nothing while the food is still being prepared (there is no journey
+     * yet), a light dashed line once it's out for delivery (in progress), and a
+     * solid green line once delivered (completed).
+     */
+    private void drawRoute(Order order) {
+        if (map == null) return; // onMapReady will re-invoke this
+
+        if (!order.hasMapCoordinates()) {
+            binding.layoutMapUnavailable.setVisibility(View.VISIBLE);
+            binding.tvRouteStage.setVisibility(View.GONE);
+            return;
+        }
+        binding.layoutMapUnavailable.setVisibility(View.GONE);
+
+        LatLng cook = new LatLng(order.getCookLatitude(), order.getCookLongitude());
+        LatLng customer = new LatLng(order.getCustomerLatitude(), order.getCustomerLongitude());
+
+        map.clear();
+
+        map.addMarker(new MarkerOptions()
+                .position(cook)
+                .title(order.getKitchenName() != null && !order.getKitchenName().isEmpty()
+                        ? order.getKitchenName() : "Kitchen")
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)));
+
+        map.addMarker(new MarkerOptions()
+                .position(customer)
+                .title("Delivery address")
+                .snippet(order.getDeliveryAddress())
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
+
+        applyRouteStyle(order.getStatus(), cook, customer);
+
+        try {
+            LatLngBounds bounds = new LatLngBounds.Builder().include(cook).include(customer).build();
+            map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+        } catch (IllegalStateException e) {
+            // Both points identical (cook delivering to their own address).
+            map.animateCamera(CameraUpdateFactory.newLatLngZoom(cook, 14f));
+        }
+    }
+
+    private void applyRouteStyle(String status, LatLng cook, LatLng customer) {
+        String s = status != null ? status.toLowerCase() : "";
+
+        if (s.contains("cancel")) {
+            binding.tvRouteStage.setVisibility(View.VISIBLE);
+            binding.tvRouteStage.setText("Order cancelled");
+            return; // no route line for a journey that never happened
+        }
+
+        // Still in the kitchen — deliberately no line yet.
+        if (s.equals("pending") || s.equals("placed") || s.equals("confirmed")
+                || s.equals("accepted") || s.equals("preparing") || s.equals("in_progress")
+                || s.equals("cooking")) {
+            binding.tvRouteStage.setVisibility(View.VISIBLE);
+            binding.tvRouteStage.setText("Preparing your order");
+            return;
+        }
+
+        boolean delivered = s.equals("delivered") || s.equals("completed");
+
+        PolylineOptions line = new PolylineOptions()
+                .add(cook, customer)
+                .width(delivered ? 10f : 8f)
+                .color(delivered ? COLOR_DONE : COLOR_ROUTE_IN_TRANSIT)
+                .startCap(new RoundCap())
+                .endCap(new RoundCap());
+
+        if (!delivered) {
+            // Dashed = journey underway but not finished.
+            line.pattern(java.util.Arrays.asList(new com.google.android.gms.maps.model.Dash(24),
+                    new com.google.android.gms.maps.model.Gap(14)));
+        }
+
+        map.addPolyline(line);
+
+        binding.tvRouteStage.setVisibility(View.VISIBLE);
+        binding.tvRouteStage.setText(delivered ? "Delivered" : "On the way");
     }
 
     private void updateTimeline(String status, String createdAt) {
@@ -262,9 +389,14 @@ public class TrackOrderActivity extends AppCompatActivity {
             case "in_progress":
             case "preparing":
             case "cooking":
+                return 1;
+            // "ready" is the backend's final pre-delivery state (see
+            // OrderAdapter.getNextStatus: preparing → ready → delivered,
+            // there is no separate "out_for_delivery" status in this app) —
+            // it belongs on the "Out For Delivery" step, not lumped in with
+            // "preparing", or the tracker looks stuck one stage behind reality.
             case "ready":
             case "prepared":
-                return 1;
             case "out_for_delivery":
             case "shipped":
             case "out for delivery":
@@ -328,6 +460,11 @@ public class TrackOrderActivity extends AppCompatActivity {
                             runOnUiThread(() -> {
                                 currentStatus = newStatus;
                                 updateTimeline(newStatus, null);
+                                // Keep the route line in sync with the new stage.
+                                if (loadedOrder != null) {
+                                    loadedOrder.setStatus(newStatus);
+                                    drawRoute(loadedOrder);
+                                }
                             });
                         }
                     } catch (Exception e) {

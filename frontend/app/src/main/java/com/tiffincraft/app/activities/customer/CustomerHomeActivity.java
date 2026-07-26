@@ -58,7 +58,7 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 public class CustomerHomeActivity extends AppCompatActivity {
-    
+
     private static final String TAG = "CustomerHomeActivity";
 
     // UI Components
@@ -67,6 +67,8 @@ public class CustomerHomeActivity extends AppCompatActivity {
     private TextView tvDeliveryAddress;
     private ImageView btnNotifications;
     private TextView tvNotificationBadge;
+    private View btnCart;
+    private TextView tvCartBadge;
     private View cardViewCartBar;
     private TextView tvCartBarCount;
     private TextView tvWelcome;
@@ -80,21 +82,21 @@ public class CustomerHomeActivity extends AppCompatActivity {
     private MaterialCardView cardSearchResults;
     private RecyclerView rvSearchResults;
     private TextView tvSearchNoResults;
-    
+
     // RecyclerViews
     private RecyclerView rvCategories;
     private RecyclerView rvPopularMeals;
     private RecyclerView rvRecommendedMeals;
     private RecyclerView rvNearbyCooks;
-    
+
     // View All Buttons
     private TextView tvViewAllPopular;
     private TextView tvViewAllRecommended;
     private TextView tvViewAllCooks;
-    
+
     // Bottom Navigation
     private BottomNavigationView bottomNavigation;
-    
+
     // Adapters
     private CategoryAdapter categoryAdapter;
     private PopularMealAdapter popularMealAdapter;
@@ -111,7 +113,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
     private List<Meal> popularMeals;
     private List<Meal> recommendedMeals;
     private List<CookProfile> popularCooks;
-    
+
     // Session and API
     private SessionManager sessionManager;
     private ApiService apiService;
@@ -120,7 +122,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
+
         try {
             setContentView(R.layout.activity_customer_home);
 
@@ -212,12 +214,14 @@ public class CustomerHomeActivity extends AppCompatActivity {
             tvDeliveryAddress = findViewById(R.id.tvDeliveryAddress);
             btnNotifications = findViewById(R.id.btnNotifications);
             tvNotificationBadge = findViewById(R.id.tvNotificationBadge);
+            btnCart = findViewById(R.id.btnCart);
+            tvCartBadge = findViewById(R.id.tvCartBadge);
             cardViewCartBar = findViewById(R.id.cardViewCartBar);
             tvCartBarCount = findViewById(R.id.tvCartBarCount);
-            
+
             // Greeting
             tvWelcome = findViewById(R.id.tvWelcome);
-            
+
             // Search and Filter
             searchBar = findViewById(R.id.searchBar);
             btnFilter = findViewById(R.id.btnFilter);
@@ -228,21 +232,21 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
             // Promo Banner
             promoBanner = findViewById(R.id.promoBanner);
-            
+
             // RecyclerViews
             rvCategories = findViewById(R.id.rvCategories);
             rvPopularMeals = findViewById(R.id.rvPopularMeals);
             rvRecommendedMeals = findViewById(R.id.rvRecommendedMeals);
             rvNearbyCooks = findViewById(R.id.rvNearbyCooks);
-            
+
             // View All buttons
             tvViewAllPopular = findViewById(R.id.tvViewAllPopular);
             tvViewAllRecommended = findViewById(R.id.tvViewAllRecommended);
             tvViewAllCooks = findViewById(R.id.tvViewAllCooks);
-            
+
             // Bottom Navigation
             bottomNavigation = findViewById(R.id.bottomNavigation);
-            
+
             Log.d(TAG, "All views initialized successfully");
         } catch (Exception e) {
             Log.e(TAG, "Error initializing views", e);
@@ -364,6 +368,10 @@ public class CustomerHomeActivity extends AppCompatActivity {
     }
 
     private void updateCartUi(int count, double grandTotal) {
+        if (tvCartBadge != null) {
+            tvCartBadge.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
+            tvCartBadge.setText(count > 99 ? "99+" : String.valueOf(count));
+        }
         if (cardViewCartBar != null) {
             if (count > 0) {
                 cardViewCartBar.setVisibility(View.VISIBLE);
@@ -413,11 +421,11 @@ public class CustomerHomeActivity extends AppCompatActivity {
         startActivity(new Intent(this, CookDetailsActivity.class)
                 .putExtra(CookDetailsActivity.EXTRA_COOK_ID, meal.getCookId()));
     }
-    
+
     private void updateGreeting(String name) {
         Calendar calendar = Calendar.getInstance();
         int hour = calendar.get(Calendar.HOUR_OF_DAY);
-        
+
         String greeting;
         if (hour < 12) {
             greeting = "Good Morning, " + name + "! 👋";
@@ -426,21 +434,21 @@ public class CustomerHomeActivity extends AppCompatActivity {
         } else {
             greeting = "Good Evening, " + name + "! 👋";
         }
-        
+
         tvWelcome.setText(greeting);
     }
-    
+
     private void setupRecyclerViews() {
         try {
             // Categories RecyclerView
             rvCategories.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
-            
+
             // Popular Meals RecyclerView
             rvPopularMeals.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
-            
+
             // Recommended Meals RecyclerView (horizontal cards, like Popular Near You)
             rvRecommendedMeals.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
-            
+
             // Popular Near You RecyclerView (horizontal cards)
             rvNearbyCooks.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
 
@@ -456,7 +464,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
             Log.e(TAG, "Error setting up RecyclerViews", e);
         }
     }
-    
+
     private void loadCategories() {
         categories = new ArrayList<>();
         categories.add(new Category("🍛", "Nepali"));
@@ -465,15 +473,15 @@ public class CustomerHomeActivity extends AppCompatActivity {
         categories.add(new Category("🥟", "Snacks"));
         categories.add(new Category("🥘", "Lunch"));
         categories.add(new Category("🍰", "Desserts"));
-        
+
         categoryAdapter = new CategoryAdapter(categories, (category, position) -> {
             Toast.makeText(this, "Category: " + category.getName(), Toast.LENGTH_SHORT).show();
             // TODO: Filter meals by category
         });
-        
+
         rvCategories.setAdapter(categoryAdapter);
     }
-    
+
     private void loadMeals() {
         popularMeals = new ArrayList<>();
         popularMealAdapter = new PopularMealAdapter(popularMeals, new PopularMealAdapter.OnMealClickListener() {
@@ -604,7 +612,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
             }
         });
     }
-    
+
     private void setupListeners() {
         // Search cooks by name/address as the user types (debounced)
         etSearchHome.addTextChangedListener(new TextWatcher() {
@@ -620,13 +628,16 @@ public class CustomerHomeActivity extends AppCompatActivity {
             Toast.makeText(this, "Filter coming soon", Toast.LENGTH_SHORT).show();
             // TODO: Show filter bottom sheet
         });
-        
+
         // Notification button click
         btnNotifications.setOnClickListener(v -> {
             startActivity(new Intent(this, NotificationActivity.class));
         });
 
-        // Cart — sticky bottom strip
+        // Cart — header icon (always visible) + sticky bottom strip (shown once cart has items)
+        if (btnCart != null) {
+            btnCart.setOnClickListener(v -> openCart());
+        }
         if (cardViewCartBar != null) {
             cardViewCartBar.setOnClickListener(v -> openCart());
         }
@@ -637,13 +648,13 @@ public class CustomerHomeActivity extends AppCompatActivity {
             cardNearbyCooks.setOnClickListener(v ->
                     startActivity(new Intent(this, NearbyCooksMapActivity.class)));
         }
-        
+
         // Promo banner click
         promoBanner.setOnClickListener(v -> {
             Toast.makeText(this, "Promo details coming soon", Toast.LENGTH_SHORT).show();
             // TODO: Show promo details
         });
-        
+
         // View All buttons
         tvViewAllPopular.setOnClickListener(v -> {
             startActivity(new Intent(this, CustomerMenuActivity.class)
@@ -654,19 +665,19 @@ public class CustomerHomeActivity extends AppCompatActivity {
             startActivity(new Intent(this, CustomerMenuActivity.class)
                     .putExtra(CustomerMenuActivity.EXTRA_FILTER, CustomerMenuActivity.FILTER_RECOMMENDED));
         });
-        
+
         tvViewAllCooks.setOnClickListener(v -> {
             Toast.makeText(this, "View all cooks", Toast.LENGTH_SHORT).show();
             // TODO: Navigate to all cooks
         });
     }
-    
+
     private void setupBottomNavigation() {
         bottomNavigation.setSelectedItemId(R.id.nav_home);
-        
+
         bottomNavigation.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
-            
+
             if (itemId == R.id.nav_home) {
                 return true;
             } else if (itemId == R.id.nav_menu) {
@@ -684,11 +695,11 @@ public class CustomerHomeActivity extends AppCompatActivity {
                 startActivity(new Intent(this, CustomerProfileActivity.class));
                 return false;
             }
-            
+
             return false;
         });
     }
-    
+
     private void setupBackPressHandler() {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
