@@ -18,6 +18,13 @@ uploads/
 .env.local
 .env.*.local
 
+# Service-account credentials (Firebase Admin, etc.)
+*firebase-adminsdk*.json
+backend/tunnel-config.json
+
+# Dead duplicate/backup source files
+*.backup
+
 # Logs
 *.log
 backend/server.log

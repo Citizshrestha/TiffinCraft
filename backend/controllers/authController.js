@@ -830,6 +830,32 @@ export const updateFcmToken = async (req, res) => {
 };
 
 /**
+ * POST /api/auth/logout
+ * Clears the FCM token so a shared/test device stops receiving pushes meant
+ * for this account after switching users on it.
+ */
+export const logoutUser = async (req, res) => {
+    try {
+        await db.promise().query(
+            "UPDATE users SET fcm_token = NULL WHERE id = ?",
+            [req.user.id]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Logged out successfully"
+        });
+    } catch (error) {
+        console.error("logoutUser error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message
+        });
+    }
+};
+
+/**
  * DELETE /api/auth/account
  * Self-service account deletion. Requires current password for confirmation.
  * Handles any role (customer, cook, admin). Uses a TRANSACTION so that if

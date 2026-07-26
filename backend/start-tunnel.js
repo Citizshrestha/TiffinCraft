@@ -6,12 +6,6 @@ import https from "https";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Path to RetrofitClient.java (relative to backend folder)
-const retrofitClientPath = path.join(
-    __dirname,
-    "../frontend/app/src/main/java/com/tiffincraft/app/api/RetrofitClient.java"
-);
-
 // Path to the tunnel config file the running backend serves at GET /api/config.
 // The Android app polls this (via the PC's LAN IP) to auto-discover the current
 // tunnel URL WITHOUT needing an APK rebuild every time the tunnel restarts.
@@ -51,7 +45,6 @@ async function startTunnel() {
         console.log(`✅ Tunnel active! URL: ${publicUrl}`);
         console.log(`   Time: ${new Date().toLocaleTimeString()}`);
 
-        updateRetrofitClient(publicUrl);
         updateTunnelConfig(publicUrl);
 
         // Set up keep-alive ping every 30 seconds
@@ -76,9 +69,10 @@ async function startTunnel() {
             reconnect();
         });
 
-        // Prevent the node process from exiting
+        // The Android app polls GET /api/config (see ServerConfig.java) and picks
+        // this URL up automatically — no APK rebuild needed.
         console.log("⚠️  Do NOT close this terminal — keep it open during your showcase!\n");
-        
+
     } catch (err) {
         console.error(`❌ Failed to create tunnel: ${err.message}`);
         reconnect();
@@ -94,38 +88,6 @@ function reconnect() {
     setTimeout(() => {
         startTunnel();
     }, delay);
-}
-
-function updateRetrofitClient(newUrl) {
-    if (!fs.existsSync(retrofitClientPath)) {
-        console.error(`❌ Cannot find RetrofitClient.java at:\n   ${retrofitClientPath}`);
-        return;
-    }
-
-    try {
-        let content = fs.readFileSync(retrofitClientPath, "utf-8");
-
-        // Update SERVER_URL
-        content = content.replace(
-            /public static final String SERVER_URL = ".*?";/,
-            `public static final String SERVER_URL = "${newUrl}";`
-        );
-
-        // Update BASE_URL
-        content = content.replace(
-            /public static final String BASE_URL = ".*?";/,
-            `public static final String BASE_URL = "${newUrl}/api/";`
-        );
-
-        fs.writeFileSync(retrofitClientPath, content, "utf-8");
-
-        console.log(`🎉 RetrofitClient.java updated!`);
-        console.log(`📱 Now REBUILD the app in Android Studio (green Run button).`);
-        console.log(`   Server URL: ${newUrl}`);
-        console.log(`   API URL:    ${newUrl}/api/\n`);
-    } catch (err) {
-        console.error("❌ Failed to update RetrofitClient.java:", err.message);
-    }
 }
 
 function updateTunnelConfig(newUrl) {

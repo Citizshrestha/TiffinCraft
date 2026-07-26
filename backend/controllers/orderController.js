@@ -150,14 +150,23 @@ export const getOrderById = async (req, res) => {
         const userId = req.user.id;
 
         const [orders] = await db.promise().query(
-            `SELECT o.*, 
+            `SELECT o.*,
                     u.full_name as customer_name,
                     u.phone as customer_phone,
                     cu.full_name as cook_name,
-                    cu.phone as cook_phone
+                    cu.phone as cook_phone,
+                    cp.kitchen_name,
+                    cu.latitude  AS cook_latitude,
+                    cu.longitude AS cook_longitude,
+                    -- Orders placed before delivery coords were captured have NULL
+                    -- delivery_latitude/longitude; fall back to the customer's saved
+                    -- profile location so the tracking map still has two points.
+                    COALESCE(o.delivery_latitude,  u.latitude)  AS map_customer_latitude,
+                    COALESCE(o.delivery_longitude, u.longitude) AS map_customer_longitude
              FROM orders o
              JOIN users u ON o.customer_id = u.id
              JOIN users cu ON o.cook_id = cu.id
+             LEFT JOIN cook_profiles cp ON cp.user_id = o.cook_id
              WHERE o.id = ?`,
             [orderId]
         );
@@ -188,9 +197,20 @@ export const getOrderById = async (req, res) => {
             [orderId]
         );
 
+        // mysql2 returns DECIMAL columns as strings — coerce so Gson maps them
+        // onto Double (same treatment getNearbyCooks applies to its coords).
+        const num = (v) => (v === null || v === undefined ? null : parseFloat(v));
+
         return res.status(200).json({
             success: true,
-            order: { ...order, items }
+            order: {
+                ...order,
+                items,
+                cook_latitude: num(order.cook_latitude),
+                cook_longitude: num(order.cook_longitude),
+                map_customer_latitude: num(order.map_customer_latitude),
+                map_customer_longitude: num(order.map_customer_longitude)
+            }
         });
 
     } catch (error) {

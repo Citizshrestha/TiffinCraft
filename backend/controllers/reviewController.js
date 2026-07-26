@@ -55,18 +55,20 @@ export const addReview = async (req, res) => {
         );
 
         const [ratingResult] = await connection.query(
-            `SELECT AVG(rating) as avg_rating, COUNT(*) as total
+            `SELECT AVG(rating) as avg_rating
              FROM reviews WHERE cook_id = ?`,
             [cook_id]
         );
 
+        // cook_profiles has no total_reviews column — review counts are computed
+        // live via COUNT(*) subqueries elsewhere (see getNearbyCooks/getAllCooks).
         await connection.query(
             `UPDATE cook_profiles
-             SET rating = ?, total_reviews = ?
+             SET rating = ?
              WHERE user_id = ?`,
             [
-                ratingResult[0].avg_rating.toFixed(2),
-                ratingResult[0].total,
+                // mysql2 returns AVG() as a string, not a number — .toFixed() crashed here.
+                parseFloat(ratingResult[0].avg_rating).toFixed(2),
                 cook_id
             ]
         );
@@ -81,6 +83,132 @@ export const addReview = async (req, res) => {
     } catch (error) {
         await connection.rollback();
         console.error("addReview error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    } finally {
+        connection.release();
+    }
+};
+
+// PUT /api/reviews/:reviewId — customer edits their own review
+export const updateReview = async (req, res) => {
+    const connection = await db.promise().getConnection();
+
+    try {
+        const customerId = req.user.id;
+        const { reviewId } = req.params;
+        const { rating, comment } = req.body;
+
+        if (!rating || rating < 1 || rating > 5) {
+            return res.status(400).json({
+                success: false,
+                message: "Rating must be between 1 and 5."
+            });
+        }
+
+        const [reviews] = await connection.query(
+            "SELECT id, cook_id FROM reviews WHERE id = ? AND customer_id = ?",
+            [reviewId, customerId]
+        );
+
+        if (reviews.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Review not found."
+            });
+        }
+
+        const cookId = reviews[0].cook_id;
+
+        await connection.beginTransaction();
+
+        await connection.query(
+            "UPDATE reviews SET rating = ?, comment = ?, updated_at = NOW() WHERE id = ?",
+            [rating, comment || null, reviewId]
+        );
+
+        const [ratingResult] = await connection.query(
+            "SELECT AVG(rating) as avg_rating FROM reviews WHERE cook_id = ?",
+            [cookId]
+        );
+
+        await connection.query(
+            "UPDATE cook_profiles SET rating = ? WHERE user_id = ?",
+            [parseFloat(ratingResult[0].avg_rating).toFixed(2), cookId]
+        );
+
+        await connection.commit();
+
+        return res.status(200).json({
+            success: true,
+            message: "Review updated successfully."
+        });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error("updateReview error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    } finally {
+        connection.release();
+    }
+};
+
+// DELETE /api/reviews/:reviewId — customer deletes their own review
+export const deleteReview = async (req, res) => {
+    const connection = await db.promise().getConnection();
+
+    try {
+        const customerId = req.user.id;
+        const { reviewId } = req.params;
+
+        const [reviews] = await connection.query(
+            "SELECT id, cook_id FROM reviews WHERE id = ? AND customer_id = ?",
+            [reviewId, customerId]
+        );
+
+        if (reviews.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Review not found."
+            });
+        }
+
+        const cookId = reviews[0].cook_id;
+
+        await connection.beginTransaction();
+
+        await connection.query("DELETE FROM reviews WHERE id = ?", [reviewId]);
+
+        const [ratingResult] = await connection.query(
+            "SELECT AVG(rating) as avg_rating FROM reviews WHERE cook_id = ?",
+            [cookId]
+        );
+        // No reviews left for this cook — AVG() returns NULL, reset to 0 instead of "NaN".
+        const newRating = ratingResult[0].avg_rating !== null
+            ? parseFloat(ratingResult[0].avg_rating).toFixed(2) : 0;
+
+        await connection.query(
+            "UPDATE cook_profiles SET rating = ? WHERE user_id = ?",
+            [newRating, cookId]
+        );
+
+        await connection.commit();
+
+        return res.status(200).json({
+            success: true,
+            message: "Review deleted successfully."
+        });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error("deleteReview error:", error);
         return res.status(500).json({
             success: false,
             message: "Server error.",
@@ -171,14 +299,15 @@ export const getMyCookReviews = async (req, res) => {
     try {
         const cookId = req.user.id;
 
+        // ponytail: no meal_id column on the live reviews table (schema drift
+        // from complete_schema.sql) — dropped the meals join rather than
+        // migrating; ReviewAdapter already null-guards getMealName().
         const [reviews] = await db.promise().query(
             `SELECT r.*,
                     u.full_name as customer_name,
-                    u.profile_image as customer_image,
-                    m.name as meal_name
+                    u.profile_image as customer_image
              FROM reviews r
              JOIN users u ON r.customer_id = u.id
-             LEFT JOIN meals m ON r.meal_id = m.id
              WHERE r.cook_id = ?
              ORDER BY r.created_at DESC`,
             [cookId]

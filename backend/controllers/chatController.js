@@ -4,6 +4,7 @@ import {
     extractPublicId
 } from "../services/uploadService.js";
 import { createNotification } from "../utils/notificationHelper.js";
+import { isOnline } from "../utils/onlineUsers.js";
 
 /**
  * Normalize a chat_messages row for JSON clients.
@@ -99,9 +100,14 @@ export const getConversations = async (req, res) => {
             [userId, userId, userId, userId, search, like]
         );
 
+        const conversations = rows.map(row => ({
+            ...row,
+            is_online: isOnline(row.other_user_id)
+        }));
+
         return res.status(200).json({
             success: true,
-            conversations: rows
+            conversations
         });
     } catch (error) {
         console.error("getConversations error:", error);
@@ -182,7 +188,7 @@ export const getOrCreateConversation = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            conversation: rows[0]
+            conversation: { ...rows[0], is_online: isOnline(otherUserId) }
         });
     } catch (error) {
         console.error("getOrCreateConversation error:", error);
@@ -829,9 +835,14 @@ export const getChatContacts = async (req, res) => {
 
         const [rows] = await db.promise().query(query, params);
 
+        const contacts = rows.map(row => ({
+            ...row,
+            is_online: isOnline(row.id)
+        }));
+
         return res.status(200).json({
             success: true,
-            contacts: rows
+            contacts
         });
     } catch (error) {
         console.error("getChatContacts error:", error);

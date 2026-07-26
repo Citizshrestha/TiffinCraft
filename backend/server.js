@@ -12,12 +12,12 @@ import mealRoutes from "./routes/mealRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import chatRoutes from "./routes/chatRoutes.js";
 import customerDashboardRoutes from "./routes/customerDashboardRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import favoritesRoutes from "./routes/favoritesRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
-import chatRoutes from "./routes/chatRoutes.js";
 import referralRoutes from "./routes/referralRoutes.js";
 import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 import { startSubscriptionJob } from "./jobs/subscriptionOrderJob.js";
@@ -26,6 +26,7 @@ import { dirname, join } from "path";
 import fs from "fs";
 import getLanIp from "./utils/lanIp.js";
 import { initFirebase } from "./config/firebaseAdmin.js";
+import { markOnline, markOffline, isOnline } from "./utils/onlineUsers.js";
 
 dotenv.config();
 
@@ -58,11 +59,48 @@ io.use((socket, next) => {
 
 io.on("connection", (socket) => {
     console.log(`🔌 Socket connected: ${socket.id} (User: ${socket.user.id})`);
-
-    // Every authenticated socket joins its own personal room for
-    // direct notifications (e.g. chat message alerts) regardless of
-    // which screen/room it's currently viewing.
     socket.join(`user_${socket.user.id}`);
+
+    // Presence: only broadcast on the FIRST connection for this user (refcount
+    // was 0 before this call) — a second tab/device shouldn't re-announce "online".
+    const wasOnline = isOnline(socket.user.id);
+    markOnline(socket.user.id);
+    if (!wasOnline) {
+        io.emit("presenceChanged", { user_id: socket.user.id, is_online: true });
+    }
+
+ socket.on("joinChatRoom", async (conversationId) => {
+     try {
+         const [rows] = await db.promise().query(
+             "SELECT customer_id, cook_id FROM conversations WHERE id = ?",
+             [conversationId]
+         );
+         if (rows.length > 0) {
+             const c = rows[0];
+             if (c.customer_id === socket.user.id || c.cook_id === socket.user.id) {
+                 socket.join(`chat_${conversationId}`);
+                 console.log(`💬 Socket ${socket.id} joined chat_${conversationId}`);
+             } else {
+                 console.warn(`⚠️  Socket ${socket.id} denied access to chat_${conversationId}`);
+             }
+         }
+     } catch (error) {
+         console.error("Error joining chat room:", error);
+     }
+ });
+
+ socket.on("leaveChatRoom", (conversationId) => {
+     socket.leave(`chat_${conversationId}`);
+ });
+
+ socket.on("chatTyping", (data) => {
+     if (data && data.conversation_id) {
+         socket.to(`chat_${data.conversation_id}`).emit("chatTyping", {
+             conversation_id: data.conversation_id,
+             user_id: socket.user.id
+         });
+     }
+ });
 
     socket.on("joinOrderRoom", async (orderId) => {
         try {
@@ -93,43 +131,12 @@ io.on("connection", (socket) => {
         }
     });
 
-    // ── Chat rooms ────────────────────────────────────────────────
-    socket.on("joinChatRoom", async (conversationId) => {
-        try {
-            const [rows] = await db.promise().query(
-                "SELECT customer_id, cook_id FROM conversations WHERE id = ?",
-                [conversationId]
-            );
-            if (rows.length > 0) {
-                const c = rows[0];
-                if (c.customer_id === socket.user.id || c.cook_id === socket.user.id) {
-                    socket.join(`chat_${conversationId}`);
-                    console.log(`💬 Socket ${socket.id} joined chat_${conversationId}`);
-                } else {
-                    console.warn(`⚠️  Socket ${socket.id} denied access to chat_${conversationId}`);
-                }
-            }
-        } catch (error) {
-            console.error("Error joining chat room:", error);
-        }
-    });
-
-    socket.on("leaveChatRoom", (conversationId) => {
-        socket.leave(`chat_${conversationId}`);
-        console.log(`💬 Socket ${socket.id} left chat_${conversationId}`);
-    });
-
-    socket.on("chatTyping", (data) => {
-        const conversationId = data && data.conversation_id;
-        if (!conversationId) return;
-        socket.to(`chat_${conversationId}`).emit("chatTyping", {
-            conversation_id: conversationId,
-            user_id: socket.user.id
-        });
-    });
-
     socket.on("disconnect", () => {
         console.log(`🔌 Socket disconnected: ${socket.id}`);
+        markOffline(socket.user.id);
+        if (!isOnline(socket.user.id)) {
+            io.emit("presenceChanged", { user_id: socket.user.id, is_online: false });
+        }
     });
 });
 
@@ -137,7 +144,6 @@ app.set("io", io);
 
 const allowedOrigins = (process.env.CLIENT_URL || '').split(',').filter(Boolean);
 
-// Allow all origins for development (Android app doesn't send origin header properly)
 console.log("⚠️  CORS: Allowing all origins for development");
 
 app.use(cors({
