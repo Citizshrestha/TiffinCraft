@@ -108,6 +108,58 @@
             android:lineSpacingExtra="2dp"
             tools:text="The food was delicious and arrived hot. Will definitely order again!" />
 
+        <!-- Own-review actions (customer viewing their own review on a cook's profile) -->
+        <LinearLayout
+            android:id="@+id/layoutOwnReviewActions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="end"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEditReview"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="Edit"
+                android:textAllCaps="false"
+                android:textColor="@color/green_primary_dark"
+                android:textSize="13sp"
+                app:icon="@drawable/ic_edit"
+                app:iconGravity="textStart"
+                app:iconSize="15dp"
+                app:iconTint="@color/green_primary_dark" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDeleteReview"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="Delete"
+                android:textAllCaps="false"
+                android:textColor="@color/error_red"
+                android:textSize="13sp"
+                app:icon="@drawable/ic_delete"
+                app:iconGravity="textStart"
+                app:iconSize="15dp"
+                app:iconTint="@color/error_red" />
+        </LinearLayout>
+
         <!-- Divider -->
         <View
             android:layout_width="match_parent"

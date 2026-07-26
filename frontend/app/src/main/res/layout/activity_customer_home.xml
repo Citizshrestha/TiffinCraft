@@ -117,6 +117,40 @@
                         </LinearLayout>
 
                         <RelativeLayout
+                            android:id="@+id/btnCart"
+                            android:layout_width="42dp"
+                            android:layout_height="42dp"
+                            android:layout_marginEnd="10dp"
+                            android:background="@drawable/bg_circle_glass"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_centerInParent="true"
+                                android:contentDescription="Cart"
+                                android:src="@drawable/ic_bag"
+                                android:tint="@color/white" />
+
+                            <TextView
+                                android:id="@+id/tvCartBadge"
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:layout_alignTop="@id/btnCart"
+                                android:layout_alignEnd="@id/btnCart"
+                                android:layout_marginTop="-6dp"
+                                android:layout_marginEnd="-8dp"
+                                android:background="@drawable/bg_badge_red"
+                                android:gravity="center"
+                                android:text="0"
+                                android:textColor="@color/white"
+                                android:textSize="9sp"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
+                        </RelativeLayout>
+
+                        <RelativeLayout
                             android:layout_width="42dp"
                             android:layout_height="42dp"
                             android:background="@drawable/bg_circle_glass">

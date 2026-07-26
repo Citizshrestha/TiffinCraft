@@ -1,30 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="?android:attr/selectableItemBackground"
+    android:background="?attr/selectableItemBackground"
     android:clickable="true"
     android:focusable="true"
     android:gravity="center_vertical"
     android:orientation="horizontal"
     android:paddingStart="16dp"
+    android:paddingTop="12dp"
     android:paddingEnd="16dp"
-    android:paddingTop="10dp"
-    android:paddingBottom="10dp">
+    android:paddingBottom="12dp">
 
+    <!-- Avatar -->
     <FrameLayout
-        android:layout_width="48dp"
-        android:layout_height="48dp">
+        android:layout_width="52dp"
+        android:layout_height="52dp">
 
         <ImageView
             android:id="@+id/ivContactAvatar"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
             android:background="@drawable/bg_avatar_circle"
-            android:contentDescription="Contact Avatar"
+            android:contentDescription="Avatar"
             android:scaleType="centerCrop" />
 
+        <!-- Online dot -->
         <View
             android:id="@+id/viewOnlineDot"
             android:layout_width="12dp"
@@ -35,6 +36,7 @@
 
     </FrameLayout>
 
+    <!-- Name + preview -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -48,8 +50,8 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
-            android:text="Contact Name"
-            android:textColor="@color/text_primary"
+            android:text="Farhan Alam"
+            android:textColor="#111111"
             android:textSize="15sp"
             android:textStyle="bold" />
 
@@ -57,44 +59,38 @@
             android:id="@+id/tvLastMessage"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="3dp"
             android:ellipsize="end"
             android:maxLines="1"
-            android:text="Last message preview"
-            android:textColor="@color/text_secondary"
+            android:text="hey"
+            android:textColor="#757575"
             android:textSize="13sp" />
 
     </LinearLayout>
 
+    <!-- Timestamp + options -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:gravity="end"
-        android:orientation="vertical">
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingStart="8dp">
 
         <TextView
-            android:id="@+id/tvContactTimestamp"
+            android:id="@+id/tvTimestamp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="12:38 PM"
-            android:textColor="@color/text_hint"
-            android:textSize="11sp" />
+            android:text="Mar 28"
+            android:textColor="#9E9E9E"
+            android:textSize="12sp" />
 
-        <TextView
-            android:id="@+id/tvUnreadCount"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:background="@drawable/bg_badge_red"
-            android:gravity="center"
-            android:minWidth="20dp"
-            android:minHeight="20dp"
-            android:paddingStart="6dp"
-            android:paddingEnd="6dp"
-            android:text="1"
-            android:textColor="#FFFFFF"
-            android:textSize="11sp"
-            android:textStyle="bold"
+        <ImageView
+            android:id="@+id/ivMoreOptions"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginTop="6dp"
+            android:contentDescription="More"
+            android:src="@drawable/ic_more_vert"
             android:visibility="gone" />
 
     </LinearLayout>

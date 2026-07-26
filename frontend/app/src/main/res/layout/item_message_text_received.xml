@@ -9,10 +9,20 @@
     android:paddingTop="4dp"
     android:paddingBottom="4dp">
 
+    <!-- Avatar -->
+    <ImageView
+        android:id="@+id/ivAvatar"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_avatar_circle"
+        android:contentDescription="Avatar"
+        android:scaleType="centerCrop" />
+
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:gravity="start"
         android:orientation="vertical">
 
         <TextView
@@ -25,7 +35,7 @@
             android:paddingTop="10dp"
             android:paddingEnd="14dp"
             android:paddingBottom="10dp"
-            android:text="Hello!"
+            android:text="hey"
             android:textColor="#111111"
             android:textSize="15sp" />
 
@@ -34,7 +44,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
-            android:text="12:38 PM"
+            android:text="12:36 PM"
             android:textColor="#BDBDBD"
             android:textSize="11sp" />
 

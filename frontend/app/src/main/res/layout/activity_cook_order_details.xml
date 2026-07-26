@@ -436,7 +436,7 @@
         android:layout_gravity="bottom"
         android:layout_margin="20dp"
         android:backgroundTint="#4CAF50"
-        android:text="Mark as Out for Delivery"
+        android:text="Update Order Status"
         android:textAllCaps="false"
         android:textColor="#FFFFFF"
         android:textSize="15sp"

@@ -78,4 +78,8 @@
     <color name="bg_app">#F6F8F3</color>
     <color name="stroke_soft">#EAEFE7</color>
     <color name="text_ink">#14210F</color>
+
+    <!-- Chat color -->
+    <color name="purple_primary">#7C6CF6</color>
+    <color name="purple_primary_dark">#6A5AE0</color>
 </resources>

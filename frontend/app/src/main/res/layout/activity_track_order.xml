@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/white"
@@ -46,34 +47,70 @@
             android:paddingEnd="16dp"
             android:paddingBottom="24dp">
 
-            <!-- ============ MAP PLACEHOLDER ============ -->
-            <FrameLayout
+            <!-- ============ ROUTE MAP ============ -->
+            <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
-                android:layout_height="190dp"
-                android:background="@drawable/bg_map_placeholder">
+                android:layout_height="220dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp">
 
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:gravity="center"
-                    android:orientation="vertical">
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
 
-                    <ImageView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:src="@drawable/ic_location"
-                        app:tint="#9E9E9E" />
+                    <fragment
+                        android:id="@+id/trackMap"
+                        android:name="com.google.android.gms.maps.SupportMapFragment"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
 
+                    <!-- Shown instead of the map when this order has no usable
+                         coordinates (older orders placed before delivery coords
+                         were captured, and no saved customer profile location). -->
+                    <LinearLayout
+                        android:id="@+id/layoutMapUnavailable"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/bg_map_placeholder"
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <ImageView
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:contentDescription="No location"
+                            android:src="@drawable/ic_location"
+                            app:tint="#9E9E9E" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="Route unavailable for this order"
+                            android:textColor="#9E9E9E"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <!-- Route stage legend, overlaid bottom-start on the map -->
                     <TextView
+                        android:id="@+id/tvRouteStage"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="Live map coming soon"
-                        android:textColor="#9E9E9E"
-                        android:textSize="12sp" />
-                </LinearLayout>
-            </FrameLayout>
+                        android:layout_gravity="bottom|start"
+                        android:layout_margin="10dp"
+                        android:background="@drawable/pill_white_translucent"
+                        android:paddingStart="12dp"
+                        android:paddingTop="6dp"
+                        android:paddingEnd="12dp"
+                        android:paddingBottom="6dp"
+                        android:textColor="@color/text_ink"
+                        android:textSize="11.5sp"
+                        android:textStyle="bold"
+                        android:visibility="gone"
+                        tools:text="On the way" />
+                </FrameLayout>
+            </androidx.cardview.widget.CardView>
 
             <!-- ============ CURRENT STATUS CARD ============ -->
             <LinearLayout

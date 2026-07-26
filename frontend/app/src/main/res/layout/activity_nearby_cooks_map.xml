@@ -152,13 +152,16 @@
     </com.google.android.material.card.MaterialCardView>
 
     <!-- ============ LEGEND ============ -->
+    <!-- Anchored top|end (same band as the result-count pill) rather than
+         bottom|end so it never collides with the cook carousel above the
+         bottom edge. -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardLegend"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="160dp"
         android:layout_marginEnd="16dp"
-        android:layout_marginBottom="28dp"
         android:visibility="gone"
         app:cardBackgroundColor="#FFFFFF"
         app:cardCornerRadius="14dp"
@@ -209,6 +212,20 @@
                 android:textStyle="bold" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
+
+    <!-- ============ NEARBY COOKS CAROUSEL ============ -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvCookCarousel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="20dp"
+        android:clipToPadding="false"
+        android:orientation="horizontal"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:visibility="gone"
+        tools:listitem="@layout/item_map_cook_card" />
 
     <!-- ============ LOADING ============ -->
     <LinearLayout

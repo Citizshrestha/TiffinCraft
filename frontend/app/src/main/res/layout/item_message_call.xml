@@ -2,6 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:id="@+id/callBubbleRoot"
     android:gravity="start"
     android:orientation="horizontal"
     android:paddingStart="4dp"
@@ -9,45 +10,46 @@
     android:paddingTop="4dp"
     android:paddingBottom="4dp">
 
+    <!-- Call bubble card -->
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="200dp"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_call_bubble"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="10dp"
-        android:paddingEnd="14dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp">
+        android:padding="12dp">
 
+        <!-- Icon circle -->
         <FrameLayout
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:id="@+id/ivCallIconBg"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
             android:background="@drawable/bg_call_icon_circle">
 
             <ImageView
                 android:id="@+id/ivCallIcon"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
                 android:layout_gravity="center"
                 android:contentDescription="Call"
                 android:src="@drawable/ic_call_end" />
 
         </FrameLayout>
 
+        <!-- Label + time -->
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="10dp"
+            android:layout_weight="1"
             android:orientation="vertical">
 
             <TextView
                 android:id="@+id/tvCallLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Voice call"
-                android:textColor="@color/text_primary"
+                android:text="Call Ended"
+                android:textColor="#111111"
                 android:textSize="14sp"
                 android:textStyle="bold" />
 
@@ -57,7 +59,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:text="0:15  5:58 PM"
-                android:textColor="@color/text_hint"
+                android:textColor="#9E9E9E"
                 android:textSize="12sp" />
 
         </LinearLayout>

@@ -295,6 +295,26 @@
                     android:visibility="gone" />
             </LinearLayout>
 
+            <!-- Verify Payment (cook-only; shown when an online-payment order has an
+                 uploaded screenshot awaiting the cook's verification) -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnVerifyPayment"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="12dp"
+                android:backgroundTint="#FF9800"
+                android:text="Verify Payment Screenshot"
+                android:textAllCaps="false"
+                android:textColor="#FFFFFF"
+                android:textSize="13.5sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                app:cornerRadius="12dp"
+                app:icon="@drawable/ic_check_circle"
+                app:iconGravity="textStart"
+                app:iconSize="16dp"
+                app:iconTint="#FFFFFF" />
+
             <!-- Cancel Order (customer-only; visibility toggled per order status) -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCancelOrder"
