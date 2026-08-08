@@ -7,7 +7,10 @@ import { MealsPage } from "./components/MealsPage";
 import { ManageOrdersPage } from "./components/ManageOrdersPage";
 import { ReviewsPage } from "./components/ReviewsPage";
 import { PaymentsPage } from "./components/PaymentsPage";
+import { RefundsPage } from "./components/RefundsPage";
 import { EarningsPage } from "./components/EarningsPage";
+import { CommissionSettlementsPage } from "./components/CommissionSettlementsPage";
+import { NotificationBell } from "./components/NotificationBell";
 import { ReportsPage } from "./components/ReportsPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { SupportPage } from "./components/SupportPage";
@@ -159,8 +162,12 @@ export default function App() {
         return <ReviewsPage />;
       case "payments":
         return <PaymentsPage />;
+      case "refunds":
+        return <RefundsPage />;
       case "earnings":
         return <EarningsPage />;
+      case "settlements":
+        return <CommissionSettlementsPage />;
       case "reports":
         return <ReportsPage />;
       case "settings":
@@ -206,10 +213,21 @@ export default function App() {
             </svg>
           </button>
           <img src="/tiffin-logo.png" alt="TiffinCraft logo" className="w-7 h-7 object-contain" />
-          <p className="text-white text-[16px]" style={{ fontFamily: "Inter", fontWeight: 700 }}>
+          <p className="text-white text-[16px] flex-1" style={{ fontFamily: "Inter", fontWeight: 700 }}>
             TiffinCraft
           </p>
+          <NotificationBell dark onNavigate={setActivePage} />
         </header>
+
+        {/* Desktop top bar — just the bell, right-aligned; hidden below lg where
+            the mobile header above already carries it. */}
+        <header
+          className="hidden lg:flex sticky top-0 z-30 items-center justify-end px-8 py-3"
+          style={{ background: "#f2f2f5" }}
+        >
+          <NotificationBell onNavigate={setActivePage} />
+        </header>
+
         <main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {renderPage()}
         </main>

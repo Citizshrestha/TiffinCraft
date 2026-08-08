@@ -9,7 +9,9 @@ import { useToast } from "./Toast";
 
 const PER_PAGE = 10;
 
-const STATUS_OPTS: StatusType[] = ["pending","confirmed","preparing","ready","delivered","cancelled","completed"];
+// Must match orders.status's actual DB enum — "completed" isn't a valid
+// value there, selecting it always failed the update with a DB error.
+const STATUS_OPTS: StatusType[] = ["pending","confirmed","preparing","ready","delivered","cancelled"];
 
 export function ManageOrdersPage() {
   const { showToast } = useToast();

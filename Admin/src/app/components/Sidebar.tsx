@@ -8,7 +8,9 @@ type Page =
   | "orders"
   | "reviews"
   | "payments"
+  | "refunds"
   | "earnings"
+  | "settlements"
   | "reports"
   | "settings"
   | "support";
@@ -32,7 +34,9 @@ const navItems: { id: Page; icon: string; label: string }[] = [
   { id: "orders", icon: "📦", label: "Orders" },
   { id: "reviews", icon: "⭐", label: "Reviews" },
   { id: "payments", icon: "💳", label: "Payments" },
+  { id: "refunds", icon: "↩️", label: "Refunds" },
   { id: "earnings", icon: "💰", label: "Earnings" },
+  { id: "settlements", icon: "🧾", label: "Settlements" },
   { id: "reports", icon: "📊", label: "Reports" },
   { id: "settings", icon: "⚙️", label: "Settings" },
   { id: "support", icon: "❓", label: "Support" },

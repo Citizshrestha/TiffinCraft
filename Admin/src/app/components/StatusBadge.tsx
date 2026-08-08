@@ -17,7 +17,14 @@ type StatusType =
   | "unverified"
   | "confirmed"
   | "preparing"
-  | "ready";
+  | "ready"
+  | "requested"
+  | "under_review"
+  | "approved"
+  | "rejected"
+  | "processed"
+  | "submitted"
+  | "overdue";
 
 const statusConfig: Record<
   StatusType,
@@ -95,6 +102,41 @@ const statusConfig: Record<
     bg: "rgba(120,135,250,0.12)",
     color: "#7887fa",
     label: "Ready",
+  },
+  requested: {
+    bg: "rgba(242,140,64,0.12)",
+    color: "#f28c40",
+    label: "Requested",
+  },
+  under_review: {
+    bg: "rgba(242,199,64,0.12)",
+    color: "#f2c740",
+    label: "Under Review",
+  },
+  approved: {
+    bg: "rgba(87,184,105,0.12)",
+    color: "#57b869",
+    label: "Approved",
+  },
+  rejected: {
+    bg: "rgba(242,89,89,0.12)",
+    color: "#f25959",
+    label: "Rejected",
+  },
+  processed: {
+    bg: "rgba(120,135,250,0.12)",
+    color: "#7887fa",
+    label: "Processed",
+  },
+  submitted: {
+    bg: "rgba(120,135,250,0.12)",
+    color: "#7887fa",
+    label: "Submitted",
+  },
+  overdue: {
+    bg: "rgba(242,89,89,0.12)",
+    color: "#f25959",
+    label: "Overdue",
   },
 };
 
