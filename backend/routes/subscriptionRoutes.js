@@ -7,7 +7,9 @@ import {
     pauseSubscription,
     resumeSubscription,
     skipDay,
-    cancelSubscription
+    cancelSubscription,
+    uploadSubscriptionScreenshot,
+    verifySubscriptionPayment
 } from "../controllers/subscriptionController.js";
 
 const router = Router();
@@ -18,6 +20,8 @@ router.get("/cook/my", protect, roleOnly("cook"), getCookSubscribers);
 router.put("/:id/pause", protect, pauseSubscription);
 router.put("/:id/resume", protect, resumeSubscription);
 router.put("/:id/skip", protect, roleOnly("customer"), skipDay);
+router.put("/:id/screenshot", protect, roleOnly("customer"), uploadSubscriptionScreenshot);
+router.put("/:id/verify-payment", protect, roleOnly("cook"), verifySubscriptionPayment);
 router.delete("/:id", protect, cancelSubscription);
 
 export default router;
