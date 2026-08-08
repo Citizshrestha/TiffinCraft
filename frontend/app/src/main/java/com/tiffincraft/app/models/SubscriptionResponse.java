@@ -32,14 +32,20 @@ public class SubscriptionResponse {
         @SerializedName("cook_id")
         private int cookId;
 
-        @SerializedName("meal_id")
-        private int mealId;
-
-        @SerializedName("frequency")
-        private String frequency;
+        @SerializedName("plan_id")
+        private int planId;
 
         @SerializedName("status")
-        private String status;
+        private String status; // pending_payment | active | paused | cancelled
+
+        @SerializedName("payment_status")
+        private String paymentStatus; // pending | submitted | verified | rejected
+
+        @SerializedName("payment_screenshot_url")
+        private String paymentScreenshotUrl;
+
+        @SerializedName("verification_notes")
+        private String verificationNotes;
 
         @SerializedName("delivery_address")
         private String deliveryAddress;
@@ -47,17 +53,26 @@ public class SubscriptionResponse {
         @SerializedName("next_delivery_date")
         private String nextDeliveryDate;
 
-        @SerializedName("meal_name")
-        private String mealName;
+        @SerializedName("created_at")
+        private String createdAt;
 
-        @SerializedName("price")
-        private double price;
+        @SerializedName("plan")
+        private SubscriptionPlanResponse.Plan plan;
 
-        @SerializedName("cook_name")
-        private String cookName;
+        // Flat fields present only on GET /subscriptions/cook/my (getCookSubscribers) —
+        // that endpoint joins plan/customer columns directly instead of nesting a
+        // full `plan` object like getMySubscriptions does. Null on the customer-side response.
+        @SerializedName("plan_name")
+        private String planName;
 
-        @SerializedName("kitchen_name")
-        private String kitchenName;
+        @SerializedName("duration")
+        private String duration;
+
+        @SerializedName("customer_name")
+        private String customerName;
+
+        @SerializedName("customer_phone")
+        private String customerPhone;
 
         public int getId() {
             return id;
@@ -67,16 +82,24 @@ public class SubscriptionResponse {
             return cookId;
         }
 
-        public int getMealId() {
-            return mealId;
-        }
-
-        public String getFrequency() {
-            return frequency;
+        public int getPlanId() {
+            return planId;
         }
 
         public String getStatus() {
             return status;
+        }
+
+        public String getPaymentStatus() {
+            return paymentStatus;
+        }
+
+        public String getPaymentScreenshotUrl() {
+            return paymentScreenshotUrl;
+        }
+
+        public String getVerificationNotes() {
+            return verificationNotes;
         }
 
         public String getDeliveryAddress() {
@@ -87,20 +110,28 @@ public class SubscriptionResponse {
             return nextDeliveryDate;
         }
 
-        public String getMealName() {
-            return mealName;
+        public String getCreatedAt() {
+            return createdAt;
         }
 
-        public double getPrice() {
-            return price;
+        public SubscriptionPlanResponse.Plan getPlan() {
+            return plan;
         }
 
-        public String getCookName() {
-            return cookName;
+        public String getPlanName() {
+            return plan != null ? plan.getName() : planName;
         }
 
-        public String getKitchenName() {
-            return kitchenName;
+        public String getDuration() {
+            return plan != null ? plan.getDuration() : duration;
+        }
+
+        public String getCustomerName() {
+            return customerName;
+        }
+
+        public String getCustomerPhone() {
+            return customerPhone;
         }
     }
 }

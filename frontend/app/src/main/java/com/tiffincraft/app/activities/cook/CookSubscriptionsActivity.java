@@ -1,52 +1,48 @@
 package com.tiffincraft.app.activities.cook;
 
-import android.content.SharedPreferences;
+import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.Gravity;
-import android.widget.LinearLayout;
+import android.view.LayoutInflater;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 
+import com.google.android.material.button.MaterialButton;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
-import com.tiffincraft.app.models.Meal;
-import com.tiffincraft.app.models.MealResponse;
+import com.tiffincraft.app.models.CookSubscribersResponse;
+import com.tiffincraft.app.models.RegisterResponse;
+import com.tiffincraft.app.models.SubscriptionPlanRequest;
+import com.tiffincraft.app.models.SubscriptionPlanResponse;
 import com.tiffincraft.app.session.SessionManager;
-import com.tiffincraft.app.utils.CurrencyUtils;
 
 import java.util.List;
+import java.util.Locale;
 
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
 /**
- * Lets a cook turn on weekly/monthly subscription pricing for individual meals.
- * Plan pricing is a discount off the per-meal price (6 meals/week for weekly,
- * 24 meals/month for monthly). Which meals have a plan enabled is stored on-device
- * for now since there is no subscriptions backend yet — this screen is the cook-side
- * configuration surface that a future customer subscription flow will read from.
+ * Cook-side management screen: create, edit, delete, and toggle subscription
+ * plans. Every plan a cook creates here shows up on their public profile
+ * automatically (see CookDetailsActivity) — no separate "publish" step.
  */
 public class CookSubscriptionsActivity extends AppCompatActivity {
 
-    private static final String TAG = "CookSubscriptions";
-    private static final String PREFS_NAME = "SubscriptionPlans";
-    private static final double WEEKLY_MEALS = 6;
-    private static final double MONTHLY_MEALS = 24;
-    private static final double DISCOUNT = 0.90; // 10% off for subscribing
+    private static final int REQUEST_PLAN_FORM = 4001;
 
     private ApiService apiService;
     private SessionManager sessionManager;
-    private SharedPreferences prefs;
 
-    private LinearLayout layoutMeals;
-    private TextView tvPlansEnabled, tvWeeklyPotential, tvEmptyMeals;
+    private TextView tvPlansCount, tvSubscribersCount, tvEmptyPlans;
+    private android.widget.LinearLayout layoutPlans;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,137 +51,186 @@ public class CookSubscriptionsActivity extends AppCompatActivity {
 
         sessionManager = new SessionManager(this);
         apiService = RetrofitClient.getInstance(this).getApiService();
-        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
 
-        layoutMeals = findViewById(R.id.layoutMeals);
-        tvPlansEnabled = findViewById(R.id.tvPlansEnabled);
-        tvWeeklyPotential = findViewById(R.id.tvWeeklyPotential);
-        tvEmptyMeals = findViewById(R.id.tvEmptyMeals);
+        tvPlansCount = findViewById(R.id.tvPlansCount);
+        tvSubscribersCount = findViewById(R.id.tvSubscribersCount);
+        tvEmptyPlans = findViewById(R.id.tvEmptyPlans);
+        layoutPlans = findViewById(R.id.layoutPlans);
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
+        findViewById(R.id.fabAddPlan).setOnClickListener(v ->
+                startActivityForResult(new Intent(this, SubscriptionPlanFormActivity.class), REQUEST_PLAN_FORM));
+        findViewById(R.id.rowViewSubscribers).setOnClickListener(v ->
+                startActivity(new Intent(this, CookSubscribersActivity.class)));
+        findViewById(R.id.rowViewCombos).setOnClickListener(v ->
+                startActivity(new Intent(this, CookCombosActivity.class)));
 
-        loadMeals();
+        loadSubscriberCount();
     }
 
-    private void loadMeals() {
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadPlans();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_PLAN_FORM && resultCode == RESULT_OK) {
+            loadPlans();
+        }
+    }
+
+    private void loadSubscriberCount() {
         String token = "Bearer " + sessionManager.getToken();
-        apiService.getMyMeals(token).enqueue(new Callback<MealResponse>() {
+        apiService.getCookSubscribers(token).enqueue(new Callback<CookSubscribersResponse>() {
             @Override
-            public void onResponse(@NonNull Call<MealResponse> call, @NonNull Response<MealResponse> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()
-                        && response.body().getMeals() != null && !response.body().getMeals().isEmpty()) {
-                    renderMeals(response.body().getMeals());
-                } else {
-                    tvEmptyMeals.setVisibility(android.view.View.VISIBLE);
+            public void onResponse(@NonNull Call<CookSubscribersResponse> call, @NonNull Response<CookSubscribersResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    tvSubscribersCount.setText(String.valueOf(response.body().getActiveSubscriberCount()));
                 }
             }
 
             @Override
-            public void onFailure(@NonNull Call<MealResponse> call, @NonNull Throwable t) {
-                Log.e(TAG, "Failed to load meals", t);
-                Toast.makeText(CookSubscriptionsActivity.this,
-                        "Could not load meals: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            public void onFailure(@NonNull Call<CookSubscribersResponse> call, @NonNull Throwable t) { /* leave default */ }
+        });
+    }
+
+    private void loadPlans() {
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.getMySubscriptionPlans(token).enqueue(new Callback<SubscriptionPlanResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<SubscriptionPlanResponse> call, @NonNull Response<SubscriptionPlanResponse> response) {
+                List<SubscriptionPlanResponse.Plan> plans = response.isSuccessful() && response.body() != null
+                        ? response.body().getPlans() : null;
+                renderPlans(plans);
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<SubscriptionPlanResponse> call, @NonNull Throwable t) {
+                Toast.makeText(CookSubscriptionsActivity.this, "Failed to load plans: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    private void renderMeals(List<Meal> meals) {
-        layoutMeals.removeAllViews();
-        float density = getResources().getDisplayMetrics().density;
+    private void renderPlans(List<SubscriptionPlanResponse.Plan> plans) {
+        layoutPlans.removeAllViews();
 
-        for (Meal meal : meals) {
-            String prefKey = "meal_" + meal.getId();
-            boolean enabled = prefs.getBoolean(prefKey, false);
-
-            com.google.android.material.card.MaterialCardView card = new com.google.android.material.card.MaterialCardView(this);
-            LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            cardLp.topMargin = (int) (10 * density);
-            card.setLayoutParams(cardLp);
-            card.setRadius(16 * density);
-            card.setCardElevation(0);
-            card.setStrokeColor(0xFFEFEFEF);
-            card.setStrokeWidth((int) density);
-            card.setCardBackgroundColor(0xFFFFFFFF);
-
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.VERTICAL);
-            row.setPadding((int) (16 * density), (int) (14 * density), (int) (16 * density), (int) (14 * density));
-
-            LinearLayout topRow = new LinearLayout(this);
-            topRow.setOrientation(LinearLayout.HORIZONTAL);
-            topRow.setGravity(Gravity.CENTER_VERTICAL);
-
-            TextView tvName = new TextView(this);
-            tvName.setText(meal.getName());
-            tvName.setTextColor(0xFF111111);
-            tvName.setTextSize(14.5f);
-            tvName.setTypeface(tvName.getTypeface(), android.graphics.Typeface.BOLD);
-            LinearLayout.LayoutParams nameLp = new LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            tvName.setLayoutParams(nameLp);
-
-            SwitchCompat sw = new SwitchCompat(this);
-            sw.setChecked(enabled);
-            // Thumb/track tints previously used a single solid color regardless
-            // of checked state, so every toggle looked "on" (green) all the time.
-            int[][] switchStates = {
-                    {android.R.attr.state_checked},
-                    {-android.R.attr.state_checked}
-            };
-            sw.setThumbTintList(new android.content.res.ColorStateList(switchStates,
-                    new int[]{0xFF4CAF50, 0xFFF5F5F5}));
-            sw.setTrackTintList(new android.content.res.ColorStateList(switchStates,
-                    new int[]{0xFFA5D6A7, 0xFFBDBDBD}));
-
-            topRow.addView(tvName);
-            topRow.addView(sw);
-
-            TextView tvPricing = new TextView(this);
-            tvPricing.setTextSize(12.5f);
-            tvPricing.setTextColor(0xFF4CAF50);
-            LinearLayout.LayoutParams pricingLp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            pricingLp.topMargin = (int) (6 * density);
-            tvPricing.setLayoutParams(pricingLp);
-            tvPricing.setText(buildPricingText(meal.getPrice()));
-            tvPricing.setVisibility(enabled ? android.view.View.VISIBLE : android.view.View.GONE);
-
-            row.addView(topRow);
-            row.addView(tvPricing);
-            card.addView(row);
-            layoutMeals.addView(card);
-
-            sw.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                prefs.edit().putBoolean(prefKey, isChecked).apply();
-                tvPricing.setVisibility(isChecked ? android.view.View.VISIBLE : android.view.View.GONE);
-                updateSummary(meals);
-            });
+        if (plans == null || plans.isEmpty()) {
+            tvPlansCount.setText("0");
+            tvEmptyPlans.setVisibility(View.VISIBLE);
+            layoutPlans.setVisibility(View.GONE);
+            return;
         }
 
-        updateSummary(meals);
-    }
+        int activeCount = 0;
+        for (SubscriptionPlanResponse.Plan plan : plans) {
+            if (plan.isActive()) activeCount++;
+        }
+        tvPlansCount.setText(String.valueOf(activeCount));
+        tvEmptyPlans.setVisibility(View.GONE);
+        layoutPlans.setVisibility(View.VISIBLE);
 
-    private String buildPricingText(double mealPrice) {
-        double weeklyPrice = mealPrice * WEEKLY_MEALS * DISCOUNT;
-        double monthlyPrice = mealPrice * MONTHLY_MEALS * DISCOUNT;
-        return "Weekly: " + CurrencyUtils.formatRupees(weeklyPrice)
-                + "  ·  Monthly: " + CurrencyUtils.formatRupees(monthlyPrice)
-                + "  (10% off)";
-    }
+        LayoutInflater inflater = LayoutInflater.from(this);
+        for (SubscriptionPlanResponse.Plan plan : plans) {
+            View card = inflater.inflate(R.layout.item_subscription_plan_manage, layoutPlans, false);
 
-    private void updateSummary(List<Meal> meals) {
-        int enabledCount = 0;
-        double avgWeekly = 0;
-        for (Meal meal : meals) {
-            if (prefs.getBoolean("meal_" + meal.getId(), false)) {
-                enabledCount++;
-                avgWeekly += meal.getPrice() * WEEKLY_MEALS * DISCOUNT;
+            TextView tvName = card.findViewById(R.id.tvPlanName);
+            TextView tvMeta = card.findViewById(R.id.tvPlanMeta);
+            TextView tvItemsSummary = card.findViewById(R.id.tvPlanItemsSummary);
+            SwitchCompat switchActive = card.findViewById(R.id.switchActive);
+            MaterialButton btnEdit = card.findViewById(R.id.btnEditPlan);
+            MaterialButton btnDelete = card.findViewById(R.id.btnDeletePlan);
+
+            int itemCount = plan.getItems() != null ? plan.getItems().size() : 0;
+            tvName.setText(plan.getName());
+            String meta = plan.getDurationLabel() + " · " + itemCount + " item" + (itemCount == 1 ? "" : "s")
+                    + " · " + String.format(Locale.getDefault(), "₹%.0f/delivery", plan.getPricePerDelivery());
+            // Plan is turned on but can't actually be subscribed to right now
+            // because one of its meals is 86'd — flag it so the cook knows to
+            // restock rather than wondering why nobody's subscribing.
+            if (plan.isActive() && !plan.isAvailable()) {
+                meta += " · ⚠ item unavailable";
             }
+            tvMeta.setText(meta);
+
+            StringBuilder summary = new StringBuilder();
+            if (plan.getItems() != null) {
+                for (int i = 0; i < plan.getItems().size(); i++) {
+                    if (i > 0) summary.append(", ");
+                    summary.append(plan.getItems().get(i).getQuantity()).append("x ").append(plan.getItems().get(i).getName());
+                }
+            }
+            tvItemsSummary.setText(summary.toString());
+
+            // Avoid firing the listener while we're just setting the initial state.
+            switchActive.setOnCheckedChangeListener(null);
+            switchActive.setChecked(plan.isActive());
+            switchActive.setOnCheckedChangeListener((buttonView, isChecked) -> setPlanActive(plan.getId(), isChecked));
+
+            btnEdit.setOnClickListener(v -> {
+                Intent intent = new Intent(this, SubscriptionPlanFormActivity.class);
+                intent.putExtra(SubscriptionPlanFormActivity.EXTRA_PLAN_ID, plan.getId());
+                startActivityForResult(intent, REQUEST_PLAN_FORM);
+            });
+
+            btnDelete.setOnClickListener(v -> confirmDeletePlan(plan));
+
+            layoutPlans.addView(card);
         }
-        tvPlansEnabled.setText(String.valueOf(enabledCount));
-        tvWeeklyPotential.setText(enabledCount > 0
-                ? CurrencyUtils.formatRupees(avgWeekly / enabledCount)
-                : "₹0");
+    }
+
+    private void setPlanActive(int planId, boolean active) {
+        SubscriptionPlanRequest request = new SubscriptionPlanRequest(null, null, null, null);
+        request.setActive(active);
+        String token = "Bearer " + sessionManager.getToken();
+
+        apiService.updateSubscriptionPlan(token, planId, request).enqueue(new Callback<SubscriptionPlanResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<SubscriptionPlanResponse> call, @NonNull Response<SubscriptionPlanResponse> response) {
+                if (!(response.isSuccessful() && response.body() != null && response.body().isSuccess())) {
+                    Toast.makeText(CookSubscriptionsActivity.this, "Failed to update plan", Toast.LENGTH_SHORT).show();
+                    loadPlans(); // revert the switch to actual server state
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<SubscriptionPlanResponse> call, @NonNull Throwable t) {
+                Toast.makeText(CookSubscriptionsActivity.this, "Network error", Toast.LENGTH_SHORT).show();
+                loadPlans();
+            }
+        });
+    }
+
+    private void confirmDeletePlan(SubscriptionPlanResponse.Plan plan) {
+        new AlertDialog.Builder(this)
+                .setTitle("Delete Plan")
+                .setMessage("Delete \"" + plan.getName() + "\"? This cannot be undone.")
+                .setPositiveButton("Delete", (dialog, which) -> deletePlan(plan.getId()))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void deletePlan(int planId) {
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.deleteSubscriptionPlan(token, planId).enqueue(new Callback<RegisterResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<RegisterResponse> call, @NonNull Response<RegisterResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    Toast.makeText(CookSubscriptionsActivity.this, "Plan deleted", Toast.LENGTH_SHORT).show();
+                    loadPlans();
+                } else {
+                    String msg = response.body() != null && response.body().getMessage() != null
+                            ? response.body().getMessage() : "Failed to delete plan";
+                    Toast.makeText(CookSubscriptionsActivity.this, msg, Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<RegisterResponse> call, @NonNull Throwable t) {
+                Toast.makeText(CookSubscriptionsActivity.this, "Network error", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 }
