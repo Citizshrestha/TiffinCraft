@@ -104,8 +104,11 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
 
         // Verify Payment (cook-only) — shown only while an online-payment order
         // has a customer-uploaded screenshot awaiting the cook's verification.
+        // An eSewa-confirmed payment also reaches payment_status="paid" but
+        // needs no manual verification — eSewa already confirmed it.
         boolean needsPaymentVerification = "online".equals(order.getPaymentMethod())
-                && "paid".equals(order.getPaymentStatus());
+                && "paid".equals(order.getPaymentStatus())
+                && !order.isEsewaConfirmed();
         holder.btnVerifyPayment.setVisibility(needsPaymentVerification ? View.VISIBLE : View.GONE);
         holder.btnVerifyPayment.setOnClickListener(v -> {
             if (listener != null) listener.onVerifyPaymentClick(order);

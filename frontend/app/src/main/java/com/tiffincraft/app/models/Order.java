@@ -37,6 +37,9 @@ public class Order {
     @SerializedName("customer_phone")
     private String customerPhone;
 
+    @SerializedName("customer_profile_image")
+    private String customerProfileImage;
+
     @SerializedName("meal_name")
     private String mealName;
 
@@ -102,6 +105,23 @@ public class Order {
     @SerializedName("map_customer_longitude")
     private Double customerLongitude;
 
+    // True when a 'payments' row confirms this order was paid via the eSewa
+    // Intent flow — distinguishes that from the older manual screenshot flow,
+    // which also reaches payment_status='paid' but means "awaiting cook
+    // verification" instead of "fully confirmed, nothing left to do".
+    @SerializedName("esewa_confirmed")
+    private boolean esewaConfirmed;
+
+    public boolean isEsewaConfirmed() { return esewaConfirmed; }
+
+    // Cook's eSewa QR image (from cook_profiles.bank_details) — shown so the
+    // customer can scan and pay the cook directly. Null if the cook hasn't
+    // uploaded one.
+    @SerializedName("cook_esewa_qr_url")
+    private String cookEsewaQrUrl;
+
+    public String getCookEsewaQrUrl() { return cookEsewaQrUrl; }
+
     // Per-item breakdown — only populated by GET /orders/{orderId} (getOrderById),
     // which attaches the real order_items rows. List-returning endpoints
     // (customer/cook order history) instead pre-aggregate itemsSummary.
@@ -143,6 +163,7 @@ public class Order {
     public String getUpdatedAt() { return updatedAt; }
     public String getCustomerName() { return customerName; }
     public String getCustomerPhone() { return customerPhone; }
+    public String getCustomerProfileImage() { return customerProfileImage; }
     public String getMealName() { return mealName; }
     public int getQuantity() { return quantity; }
     public double getMealPrice() { return mealPrice; }

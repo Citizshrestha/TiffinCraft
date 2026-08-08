@@ -12,6 +12,8 @@ public class SessionManager {
     private static final String KEY_USER_ID = "userId";
     private static final String KEY_FULL_NAME = "fullName";
     private static final String KEY_PROFILE_IMAGE = "profileImage";
+    private static final String KEY_PENDING_ESEWA_TXN = "pendingEsewaTransactionUuid";
+    private static final String KEY_PENDING_ESEWA_ORDER = "pendingEsewaOrderId";
 
     private final SharedPreferences prefs;
     private final SharedPreferences.Editor editor;
@@ -79,6 +81,33 @@ public class SessionManager {
         editor.putString(KEY_USER_ID, String.valueOf(userId));
         editor.putString(KEY_FULL_NAME, fullName);
         editor.putString(KEY_PROFILE_IMAGE, profileImage);
+        editor.apply();
+    }
+
+    /**
+     * Remembers the in-flight eSewa transaction in durable storage (not a
+     * static field) — the eSewa app takes over the foreground during
+     * payment and Android may kill our process while backgrounded, so
+     * PaymentResultActivity needs this to survive that. Never trust the
+     * transaction_uuid from the returned deeplink URI itself.
+     */
+    public void savePendingEsewaTransaction(String transactionUuid, int orderId) {
+        editor.putString(KEY_PENDING_ESEWA_TXN, transactionUuid);
+        editor.putInt(KEY_PENDING_ESEWA_ORDER, orderId);
+        editor.apply();
+    }
+
+    public String getPendingEsewaTransactionUuid() {
+        return prefs.getString(KEY_PENDING_ESEWA_TXN, null);
+    }
+
+    public int getPendingEsewaOrderId() {
+        return prefs.getInt(KEY_PENDING_ESEWA_ORDER, -1);
+    }
+
+    public void clearPendingEsewaTransaction() {
+        editor.remove(KEY_PENDING_ESEWA_TXN);
+        editor.remove(KEY_PENDING_ESEWA_ORDER);
         editor.apply();
     }
 

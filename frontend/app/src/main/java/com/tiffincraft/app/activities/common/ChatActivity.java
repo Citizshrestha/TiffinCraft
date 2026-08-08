@@ -149,9 +149,10 @@ public class ChatActivity extends AppCompatActivity {
 
         initViews();
         setupHeader(contactName, isOnline);
-        if (TextUtils.isEmpty(contactName)) {
-            resolveContactDetails();
-        }
+        // Always refresh from the conversations list — the caller's EXTRA_IS_ONLINE is
+        // a snapshot at most (often just a default false, e.g. opened from a profile's
+        // "Message" button), so this is the only reliable source for current status.
+        resolveContactDetails();
         setupRecyclerView();
         setupListeners();
         setupSocket();

@@ -5,6 +5,8 @@ import java.util.List;
 public class EarningsSummary {
     private double thisWeekTotal;
     private double thisMonthTotal;
+    private double thisMonthCommission;
+    private double thisMonthNetTotal;
     private int thisMonthOrderCount;
     private double todayTotal;
     private List<EarningsTransaction> recentTransactions;
@@ -29,6 +31,23 @@ public class EarningsSummary {
 
     public void setThisMonthTotal(double thisMonthTotal) {
         this.thisMonthTotal = thisMonthTotal;
+    }
+
+    public double getThisMonthCommission() {
+        return thisMonthCommission;
+    }
+
+    public void setThisMonthCommission(double thisMonthCommission) {
+        this.thisMonthCommission = thisMonthCommission;
+    }
+
+    /** What the cook actually keeps this month — gross minus platform commission. */
+    public double getThisMonthNetTotal() {
+        return thisMonthNetTotal;
+    }
+
+    public void setThisMonthNetTotal(double thisMonthNetTotal) {
+        this.thisMonthNetTotal = thisMonthNetTotal;
     }
 
     public int getThisMonthOrderCount() {

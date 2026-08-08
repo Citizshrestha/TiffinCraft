@@ -8,64 +8,61 @@
     android:orientation="vertical"
     android:padding="32dp">
 
+    <ProgressBar
+        android:id="@+id/progressChecking"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:indeterminateTint="@color/green_primary"
+        android:visibility="visible" />
+
     <ImageView
+        android:id="@+id/imgStatusIcon"
         android:layout_width="120dp"
         android:layout_height="120dp"
         android:src="@drawable/ic_check_circle"
+        android:visibility="gone"
         app:tint="@color/green_primary" />
 
     <TextView
+        android:id="@+id/tvStatusTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
         android:gravity="center"
-        android:text="@string/order_placed_success"
+        android:text="Confirming your payment…"
         android:textColor="@color/text_title"
-        android:textSize="24sp"
+        android:textSize="22sp"
         android:textStyle="bold" />
 
     <TextView
-        android:id="@+id/tvOrderMessage"
+        android:id="@+id/tvStatusMessage"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:gravity="center"
-        android:text="Your cook has been notified of your order."
+        android:text="Please wait while we verify your payment with eSewa."
         android:textColor="@color/text_subtitle"
         android:textSize="15sp" />
 
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnPayNow"
+        android:id="@+id/btnPrimaryAction"
         android:layout_width="match_parent"
         android:layout_height="54dp"
         android:layout_marginTop="40dp"
-        android:text="Pay with eSewa"
+        android:text="Refresh Status"
         android:textAllCaps="false"
-        android:textColor="@color/white"
-        android:textStyle="bold"
         android:visibility="gone"
-        app:backgroundTint="#60BB46"
-        app:cornerRadius="27dp"
-        app:icon="@drawable/ic_check_circle"
-        app:iconTint="@color/white" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnTrackOrder"
-        android:layout_width="match_parent"
-        android:layout_height="54dp"
-        android:layout_marginTop="12dp"
-        android:text="@string/track_order"
-        android:textAllCaps="false"
         app:backgroundTint="@color/green_primary"
         app:cornerRadius="27dp" />
 
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnHome"
+        android:id="@+id/btnBackToOrders"
         style="@style/Widget.MaterialComponents.Button.TextButton"
         android:layout_width="match_parent"
         android:layout_height="54dp"
         android:layout_marginTop="8dp"
-        android:text="@string/back_to_home"
-        android:textColor="@color/green_primary" />
+        android:text="Back to Orders"
+        android:textColor="@color/green_primary"
+        android:visibility="gone" />
 
 </LinearLayout>

@@ -29,15 +29,21 @@ import com.tiffincraft.app.models.CartResponse;
 import com.tiffincraft.app.models.CookProfile;
 import com.tiffincraft.app.models.CookProfileResponse;
 import com.tiffincraft.app.models.FavoriteResponse;
+import com.tiffincraft.app.models.CreateCustomerSubscriptionRequest;
+import com.tiffincraft.app.models.CustomerProfileResponse;
 import com.tiffincraft.app.models.Meal;
 import com.tiffincraft.app.models.MealResponse;
+import com.tiffincraft.app.models.RegisterResponse;
 import com.tiffincraft.app.models.Review;
 import com.tiffincraft.app.models.ReviewResponse;
+import com.tiffincraft.app.models.SubscriptionPlanResponse;
 import com.tiffincraft.app.adapters.ReviewAdapter;
 import com.tiffincraft.app.session.SessionManager;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -56,6 +62,7 @@ public class CookDetailsActivity extends AppCompatActivity {
 
     private ImageButton btnBack;
     private FrameLayout btnFavorite;
+    private FrameLayout btnMessage;
     private ImageView imgFavoriteIcon;
     private ImageView ivCookImage;
     private View layoutVerifiedBadge;
@@ -64,6 +71,10 @@ public class CookDetailsActivity extends AppCompatActivity {
     private TextView tvAboutDescription, tvLocation, tvAvailability, tvMenuItemCount;
     private View layoutLocation, layoutAvailability;
     private LinearLayout layoutMenuItems;
+    private View layoutSubscriptionPlansHeader;
+    private LinearLayout layoutSubscriptionPlans;
+    private View layoutComboDealsHeader;
+    private LinearLayout layoutComboDeals;
     private androidx.cardview.widget.CardView layoutPaymentQr;
     private MaterialButton btnOrderNow;
     private RecyclerView rvReviews;
@@ -71,6 +82,11 @@ public class CookDetailsActivity extends AppCompatActivity {
     private ReviewAdapter reviewAdapter;
 
     private int cookId = -1;
+    private int cookUserId = -1;
+    private String cookDisplayName;
+    private String cookAvatarUrl;
+    private String cookPhone;
+    private String cookEsewaQrUrl;
     private boolean isFavorite = false;
     private double runningTotal = 0.0;
 
@@ -103,6 +119,8 @@ public class CookDetailsActivity extends AppCompatActivity {
         initViews();
         loadCookProfile();
         loadCookMeals();
+        loadCookSubscriptionPlans();
+        loadCookCombos();
         loadCookReviews();
         checkFavoriteStatus();
     }
@@ -110,6 +128,7 @@ public class CookDetailsActivity extends AppCompatActivity {
     private void initViews() {
         btnBack = findViewById(R.id.btnBack);
         btnFavorite = findViewById(R.id.btnFavorite);
+        btnMessage = findViewById(R.id.btnMessage);
         imgFavoriteIcon = (ImageView) btnFavorite.getChildAt(0);
         ivCookImage = findViewById(R.id.ivCookImage);
         layoutVerifiedBadge = findViewById(R.id.layoutVerifiedBadge);
@@ -128,6 +147,10 @@ public class CookDetailsActivity extends AppCompatActivity {
         tvAvailability = findViewById(R.id.tvAvailability);
         tvMenuItemCount = findViewById(R.id.tvMenuItemCount);
         layoutMenuItems = findViewById(R.id.layoutMenuItems);
+        layoutSubscriptionPlansHeader = findViewById(R.id.layoutSubscriptionPlansHeader);
+        layoutSubscriptionPlans = findViewById(R.id.layoutSubscriptionPlans);
+        layoutComboDealsHeader = findViewById(R.id.layoutComboDealsHeader);
+        layoutComboDeals = findViewById(R.id.layoutComboDeals);
         btnOrderNow = findViewById(R.id.btnOrderNow);
         layoutPaymentQr = findViewById(R.id.layoutPaymentQr);
         rvReviews = findViewById(R.id.rvReviews);
@@ -167,6 +190,7 @@ public class CookDetailsActivity extends AppCompatActivity {
 
         btnBack.setOnClickListener(v -> finish());
         btnFavorite.setOnClickListener(v -> toggleFavorite());
+        btnMessage.setOnClickListener(v -> openChatWithCook());
 
         btnOrderNow.setText("View Cart");
         btnOrderNow.setOnClickListener(v -> {
@@ -233,8 +257,13 @@ public class CookDetailsActivity extends AppCompatActivity {
         CookProfile cook = response.getCook();
         if (cook == null) return;
 
+        cookUserId = cook.getUserId();
+        cookAvatarUrl = cook.getProfileImage();
+        cookPhone = cook.getPhone();
+
         String kitchenName = cook.getKitchenName();
-        tvKitchenName.setText(kitchenName != null ? kitchenName : cook.getFullName());
+        cookDisplayName = kitchenName != null ? kitchenName : cook.getFullName();
+        tvKitchenName.setText(cookDisplayName);
         tvRating.setText(String.format(Locale.getDefault(), "%.1f", cook.getRating()));
         tvReviewCount.setText(String.format(Locale.getDefault(), "(%d reviews)", cook.getTotalReviews()));
         tvFoodType.setText(cook.getFoodType() != null ? cook.getFoodType() : "Home-cooked meals");
@@ -274,6 +303,7 @@ public class CookDetailsActivity extends AppCompatActivity {
                 BankDetails bankDetails = gson.fromJson(bankDetailsJson, BankDetails.class);
                 if (bankDetails != null) {
                     populatePaymentQr(bankDetails);
+                    cookEsewaQrUrl = bankDetails.getEsewaQrUrl();
                 }
             } catch (Exception e) {
                 // Invalid JSON, just hide the section
@@ -505,6 +535,366 @@ public class CookDetailsActivity extends AppCompatActivity {
     }
 
     // ─────────────────────────────────────────────
+    // SUBSCRIPTION PLANS — automatically shown for this cook, no extra config needed
+    // ─────────────────────────────────────────────
+    private void loadCookSubscriptionPlans() {
+        apiService.getSubscriptionPlansByCook(cookId).enqueue(new Callback<SubscriptionPlanResponse>() {
+            @Override
+            public void onResponse(Call<SubscriptionPlanResponse> call, Response<SubscriptionPlanResponse> response) {
+                List<SubscriptionPlanResponse.Plan> plans = response.isSuccessful() && response.body() != null
+                        ? response.body().getPlans() : null;
+                renderSubscriptionPlans(plans);
+            }
+
+            @Override
+            public void onFailure(Call<SubscriptionPlanResponse> call, Throwable t) {
+                renderSubscriptionPlans(null);
+            }
+        });
+    }
+
+    private void renderSubscriptionPlans(List<SubscriptionPlanResponse.Plan> plans) {
+        layoutSubscriptionPlans.removeAllViews();
+
+        if (plans == null || plans.isEmpty()) {
+            layoutSubscriptionPlansHeader.setVisibility(View.GONE);
+            layoutSubscriptionPlans.setVisibility(View.GONE);
+            return;
+        }
+
+        layoutSubscriptionPlansHeader.setVisibility(View.VISIBLE);
+        layoutSubscriptionPlans.setVisibility(View.VISIBLE);
+
+        LayoutInflater inflater = LayoutInflater.from(this);
+        for (SubscriptionPlanResponse.Plan plan : plans) {
+            View row = inflater.inflate(R.layout.item_subscription_plan_public, layoutSubscriptionPlans, false);
+
+            TextView tvName = row.findViewById(R.id.tvPlanName);
+            TextView tvDuration = row.findViewById(R.id.tvPlanDuration);
+            TextView tvDescription = row.findViewById(R.id.tvPlanDescription);
+            TextView tvItems = row.findViewById(R.id.tvPlanItems);
+            TextView tvPrice = row.findViewById(R.id.tvPlanPrice);
+            TextView tvOriginalPrice = row.findViewById(R.id.tvPlanOriginalPrice);
+            TextView tvSavings = row.findViewById(R.id.tvPlanSavings);
+            MaterialButton btnSubscribe = row.findViewById(R.id.btnSubscribePlan);
+            tvOriginalPrice.setPaintFlags(tvOriginalPrice.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
+
+            tvName.setText(plan.getName());
+            tvDuration.setText(plan.getDurationLabel());
+
+            if (plan.getDescription() != null && !plan.getDescription().isEmpty()) {
+                tvDescription.setText(plan.getDescription());
+                tvDescription.setVisibility(View.VISIBLE);
+            }
+
+            StringBuilder itemsSummary = new StringBuilder();
+            if (plan.getItems() != null) {
+                for (int i = 0; i < plan.getItems().size(); i++) {
+                    SubscriptionPlanResponse.PlanItem item = plan.getItems().get(i);
+                    if (i > 0) itemsSummary.append(", ");
+                    itemsSummary.append(item.getQuantity()).append("x ").append(item.getName());
+                    if (!item.isAvailable()) itemsSummary.append(" (unavailable)");
+                }
+            }
+            tvItems.setText(itemsSummary.toString());
+
+            tvPrice.setText(String.format(Locale.getDefault(), "₹%.0f / delivery", plan.getPricePerDelivery()));
+
+            if (plan.getSavings() > 0) {
+                tvOriginalPrice.setText(String.format(Locale.getDefault(), "₹%.0f", plan.getIndividualTotal()));
+                tvOriginalPrice.setVisibility(View.VISIBLE);
+                tvSavings.setText(String.format(Locale.getDefault(), "Save ₹%.0f vs. ordering separately", plan.getSavings()));
+                tvSavings.setVisibility(View.VISIBLE);
+            } else {
+                tvOriginalPrice.setVisibility(View.GONE);
+                tvSavings.setVisibility(View.GONE);
+            }
+
+            if (plan.isAvailable()) {
+                row.setAlpha(1f);
+                btnSubscribe.setEnabled(true);
+                btnSubscribe.setText("Subscribe");
+                btnSubscribe.setOnClickListener(v -> showSubscribeDialog(plan));
+            } else {
+                // Paused, or a meal in the plan is currently unavailable — matches
+                // the same block already enforced server-side in createSubscription.
+                row.setAlpha(0.6f);
+                btnSubscribe.setEnabled(false);
+                btnSubscribe.setText("Unavailable");
+                btnSubscribe.setOnClickListener(null);
+            }
+
+            layoutSubscriptionPlans.addView(row);
+        }
+    }
+
+    private void showSubscribeDialog(SubscriptionPlanResponse.Plan plan) {
+        android.app.Dialog dialog = new android.app.Dialog(this);
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_subscribe_plan, null);
+        dialog.setContentView(view);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(
+                    new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            dialog.getWindow().setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.9),
+                    WindowManager.LayoutParams.WRAP_CONTENT);
+        }
+
+        TextView tvName = view.findViewById(R.id.tvDialogPlanName);
+        TextView tvPrice = view.findViewById(R.id.tvDialogPrice);
+        TextView tvOriginalPrice = view.findViewById(R.id.tvDialogOriginalPrice);
+        tvOriginalPrice.setPaintFlags(tvOriginalPrice.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
+        TextView tvDuration = view.findViewById(R.id.tvDialogDuration);
+        TextView tvSavings = view.findViewById(R.id.tvDialogSavings);
+        com.google.android.material.textfield.TextInputEditText etAddress = view.findViewById(R.id.etDialogAddress);
+        MaterialButton btnCancel = view.findViewById(R.id.btnDialogCancel);
+        MaterialButton btnConfirm = view.findViewById(R.id.btnDialogConfirm);
+
+        tvName.setText(plan.getName());
+        tvPrice.setText(String.format(Locale.getDefault(), "₹%.0f", plan.getPricePerDelivery()));
+        tvDuration.setText(plan.getDurationLabel());
+        if (plan.getSavings() > 0) {
+            tvOriginalPrice.setText(String.format(Locale.getDefault(), "₹%.0f", plan.getIndividualTotal()));
+            tvOriginalPrice.setVisibility(View.VISIBLE);
+            tvSavings.setText(String.format(Locale.getDefault(),
+                    "You save ₹%.0f per delivery vs. ordering separately", plan.getSavings()));
+            tvSavings.setVisibility(View.VISIBLE);
+        } else {
+            tvOriginalPrice.setVisibility(View.GONE);
+            tvSavings.setVisibility(View.GONE);
+        }
+
+        // Prefill with the customer's saved address, if any.
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.getCustomerProfile(token).enqueue(new Callback<CustomerProfileResponse>() {
+            @Override
+            public void onResponse(Call<CustomerProfileResponse> call, Response<CustomerProfileResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getProfile() != null
+                        && response.body().getProfile().getAddress() != null) {
+                    etAddress.setText(response.body().getProfile().getAddress());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<CustomerProfileResponse> call, Throwable t) { /* leave blank */ }
+        });
+
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnConfirm.setOnClickListener(v -> {
+            String address = etAddress.getText() != null ? etAddress.getText().toString().trim() : "";
+            if (address.isEmpty()) {
+                Toast.makeText(this, "Delivery address is required", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            dialog.dismiss();
+            subscribeToPlan(plan, address);
+        });
+
+        dialog.show();
+    }
+
+    private void subscribeToPlan(SubscriptionPlanResponse.Plan plan, String deliveryAddress) {
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+        String token = "Bearer " + sessionManager.getToken();
+
+        apiService.createSubscription(token,
+                new CreateCustomerSubscriptionRequest(plan.getId(), deliveryAddress, today)
+        ).enqueue(new Callback<com.tiffincraft.app.models.CreateSubscriptionResponse>() {
+            @Override
+            public void onResponse(Call<com.tiffincraft.app.models.CreateSubscriptionResponse> call,
+                                    Response<com.tiffincraft.app.models.CreateSubscriptionResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    // Subscribing no longer activates anything — the customer still has to
+                    // pay the cook and get verified. Hand off to that flow instead of
+                    // claiming "Subscribed!" here.
+                    Intent intent = new Intent(CookDetailsActivity.this,
+                            com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.class);
+                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_SUBSCRIPTION_ID,
+                            response.body().getSubscriptionId());
+                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_PLAN_NAME, plan.getName());
+                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_PLAN_PRICE, plan.getPricePerDelivery());
+                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_PLAN_DURATION, plan.getDuration());
+                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_COOK_ESEWA_QR_URL, cookEsewaQrUrl);
+                    startActivity(intent);
+                } else {
+                    String msg = response.body() != null && response.body().getMessage() != null
+                            ? response.body().getMessage() : "Failed to subscribe";
+                    Toast.makeText(CookDetailsActivity.this, msg, Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<com.tiffincraft.app.models.CreateSubscriptionResponse> call, Throwable t) {
+                Toast.makeText(CookDetailsActivity.this, "Network error. Try again.", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    // ─────────────────────────────────────────────
+    // COMBO DEALS — one-time bundles at a fixed price, distinct from the
+    // recurring Subscription Plans above (see comboController.js).
+    // ─────────────────────────────────────────────
+    private void loadCookCombos() {
+        apiService.getCombosByCook(cookId).enqueue(new Callback<com.tiffincraft.app.models.ComboResponse>() {
+            @Override
+            public void onResponse(Call<com.tiffincraft.app.models.ComboResponse> call, Response<com.tiffincraft.app.models.ComboResponse> response) {
+                List<com.tiffincraft.app.models.ComboResponse.Combo> combos = response.isSuccessful() && response.body() != null
+                        ? response.body().getCombos() : null;
+                renderCombos(combos);
+            }
+
+            @Override
+            public void onFailure(Call<com.tiffincraft.app.models.ComboResponse> call, Throwable t) {
+                renderCombos(null);
+            }
+        });
+    }
+
+    private void renderCombos(List<com.tiffincraft.app.models.ComboResponse.Combo> combos) {
+        layoutComboDeals.removeAllViews();
+
+        if (combos == null || combos.isEmpty()) {
+            layoutComboDealsHeader.setVisibility(View.GONE);
+            layoutComboDeals.setVisibility(View.GONE);
+            return;
+        }
+
+        layoutComboDealsHeader.setVisibility(View.VISIBLE);
+        layoutComboDeals.setVisibility(View.VISIBLE);
+
+        LayoutInflater inflater = LayoutInflater.from(this);
+        for (com.tiffincraft.app.models.ComboResponse.Combo combo : combos) {
+            View row = inflater.inflate(R.layout.item_combo_deal_public, layoutComboDeals, false);
+
+            ImageView ivCombo = row.findViewById(R.id.ivComboImage);
+            TextView tvName = row.findViewById(R.id.tvComboName);
+            TextView tvSavings = row.findViewById(R.id.tvComboSavings);
+            TextView tvDescription = row.findViewById(R.id.tvComboDescription);
+            TextView tvItems = row.findViewById(R.id.tvComboItems);
+            TextView tvPrice = row.findViewById(R.id.tvComboPrice);
+            MaterialButton btnBuy = row.findViewById(R.id.btnBuyCombo);
+
+            tvName.setText(combo.getName());
+
+            // No dedicated combo image upload — reuses its first item's real
+            // meal photo as the thumbnail, same data already shown for that
+            // meal elsewhere, no new upload flow needed.
+            String thumbnailUrl = combo.getItems() != null && !combo.getItems().isEmpty()
+                    ? combo.getItems().get(0).getImageUrl() : null;
+            com.tiffincraft.app.utils.ImageUrlHelper.load(ivCombo, thumbnailUrl, R.drawable.ic_food);
+
+            if (combo.getSavings() > 0) {
+                tvSavings.setText(String.format(Locale.getDefault(), "Save ₹%.0f", combo.getSavings()));
+                tvSavings.setVisibility(View.VISIBLE);
+            }
+
+            if (combo.getDescription() != null && !combo.getDescription().isEmpty()) {
+                tvDescription.setText(combo.getDescription());
+                tvDescription.setVisibility(View.VISIBLE);
+            }
+
+            StringBuilder itemsSummary = new StringBuilder();
+            if (combo.getItems() != null) {
+                for (int i = 0; i < combo.getItems().size(); i++) {
+                    com.tiffincraft.app.models.ComboResponse.ComboItem item = combo.getItems().get(i);
+                    if (i > 0) itemsSummary.append(", ");
+                    itemsSummary.append(item.getQuantity()).append("x ").append(item.getName());
+                    if (!item.isAvailable()) itemsSummary.append(" (unavailable)");
+                }
+            }
+            tvItems.setText(itemsSummary.toString());
+
+            tvPrice.setText(String.format(Locale.getDefault(), "₹%.0f", combo.getPrice()));
+
+            if (combo.isAvailable()) {
+                row.setAlpha(1f);
+                btnBuy.setEnabled(true);
+                btnBuy.setText("Buy Now");
+                btnBuy.setOnClickListener(v -> showBuyComboDialog(combo));
+            } else {
+                // Paused, or one of its meals is 86'd — matches the same block
+                // buyCombo() already enforces server-side.
+                row.setAlpha(0.6f);
+                btnBuy.setEnabled(false);
+                btnBuy.setText("Unavailable");
+                btnBuy.setOnClickListener(null);
+            }
+
+            layoutComboDeals.addView(row);
+        }
+    }
+
+    private void showBuyComboDialog(com.tiffincraft.app.models.ComboResponse.Combo combo) {
+        android.widget.EditText etAddress = new android.widget.EditText(this);
+        etAddress.setHint("Delivery address");
+        etAddress.setMinLines(2);
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        etAddress.setPadding(pad, pad, pad, pad);
+
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.getCustomerProfile(token).enqueue(new Callback<CustomerProfileResponse>() {
+            @Override
+            public void onResponse(Call<CustomerProfileResponse> call, Response<CustomerProfileResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getProfile() != null
+                        && response.body().getProfile().getAddress() != null) {
+                    etAddress.setText(response.body().getProfile().getAddress());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<CustomerProfileResponse> call, Throwable t) { /* leave blank */ }
+        });
+
+        String[] paymentLabels = { "Cash on Delivery", "Online (eSewa / QR)" };
+        String[] paymentValues = { "cod", "online" };
+        final int[] selectedPayment = { 0 };
+
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.addView(etAddress);
+
+        new AlertDialog.Builder(this)
+                .setTitle("Buy \"" + combo.getName() + "\"")
+                .setMessage(String.format(Locale.getDefault(), "₹%.0f · one-time order, delivered once", combo.getPrice()))
+                .setView(container)
+                .setSingleChoiceItems(paymentLabels, 0, (dialog, which) -> selectedPayment[0] = which)
+                .setPositiveButton("Buy Now", (dialog, which) -> {
+                    String address = etAddress.getText().toString().trim();
+                    if (address.isEmpty()) {
+                        Toast.makeText(this, "Delivery address is required", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    buyCombo(combo, address, paymentValues[selectedPayment[0]]);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void buyCombo(com.tiffincraft.app.models.ComboResponse.Combo combo, String deliveryAddress, String paymentMethod) {
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.buyCombo(token, combo.getId(),
+                new com.tiffincraft.app.models.BuyComboRequest(deliveryAddress, paymentMethod, null)
+        ).enqueue(new Callback<RegisterResponse>() {
+            @Override
+            public void onResponse(Call<RegisterResponse> call, Response<RegisterResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    Toast.makeText(CookDetailsActivity.this, "Order placed for \"" + combo.getName() + "\"!", Toast.LENGTH_SHORT).show();
+                } else {
+                    String msg = response.body() != null && response.body().getMessage() != null
+                            ? response.body().getMessage() : "Failed to place combo order";
+                    Toast.makeText(CookDetailsActivity.this, msg, Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<RegisterResponse> call, Throwable t) {
+                Toast.makeText(CookDetailsActivity.this, "Network error. Try again.", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    // ─────────────────────────────────────────────
     // LOAD REVIEWS
     // ─────────────────────────────────────────────
     private void loadCookReviews() {
@@ -617,6 +1007,49 @@ public class CookDetailsActivity extends AppCompatActivity {
                 }
             });
         }
+    }
+
+    // ─────────────────────────────────────────────
+    // MESSAGE COOK
+    // ─────────────────────────────────────────────
+    private void openChatWithCook() {
+        if (cookUserId <= 0) {
+            Toast.makeText(this, "Cook details still loading — try again in a moment.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.createChatConversation(token,
+                        new com.tiffincraft.app.models.CreateConversationRequest(cookUserId))
+                .enqueue(new Callback<com.tiffincraft.app.models.CreateConversationResponse>() {
+                    @Override
+                    public void onResponse(Call<com.tiffincraft.app.models.CreateConversationResponse> call,
+                                            Response<com.tiffincraft.app.models.CreateConversationResponse> response) {
+                        if (response.isSuccessful() && response.body() != null
+                                && response.body().isSuccess()
+                                && response.body().getConversation() != null) {
+                            startChatActivity(response.body().getConversation().getId());
+                        } else {
+                            Toast.makeText(CookDetailsActivity.this, "Could not start conversation.", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<com.tiffincraft.app.models.CreateConversationResponse> call, Throwable t) {
+                        Toast.makeText(CookDetailsActivity.this, "Network error. Please try again.", Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    private void startChatActivity(int conversationId) {
+        Intent intent = new Intent(this, com.tiffincraft.app.activities.common.ChatActivity.class);
+        intent.putExtra(com.tiffincraft.app.activities.common.ChatActivity.EXTRA_CONVERSATION_ID, conversationId);
+        intent.putExtra(com.tiffincraft.app.activities.common.ChatActivity.EXTRA_CONTACT_NAME, cookDisplayName);
+        intent.putExtra(com.tiffincraft.app.activities.common.ChatActivity.EXTRA_CONTACT_ID, cookUserId);
+        intent.putExtra(com.tiffincraft.app.activities.common.ChatActivity.EXTRA_CONTACT_ROLE, "cook");
+        intent.putExtra(com.tiffincraft.app.activities.common.ChatActivity.EXTRA_CONTACT_PHONE, cookPhone);
+        intent.putExtra(com.tiffincraft.app.activities.common.ChatActivity.EXTRA_CONTACT_AVATAR, cookAvatarUrl);
+        startActivity(intent);
     }
 
     private void updateFavoriteIcon() {

@@ -121,6 +121,9 @@ public class CookEarningsActivity extends AppCompatActivity {
             trendRange = (trendRange + 1) % 3;
             renderTrendChart();
         });
+
+        binding.cardCommissionDue.setOnClickListener(v ->
+                startActivity(new Intent(this, CommissionSettlementActivity.class)));
     }
 
     // ==================== Data ====================
@@ -179,11 +182,23 @@ public class CookEarningsActivity extends AppCompatActivity {
 
         int orderCount = summary.getThisMonthOrderCount();
         double monthTotal = summary.getThisMonthTotal();
+        double monthCommission = summary.getThisMonthCommission();
+        double monthNetTotal = summary.getThisMonthNetTotal();
 
-        binding.tvTotalEarnings.setText(CurrencyUtils.formatRupees(monthTotal));
+        // Show what the cook actually keeps (net of platform commission), not gross —
+        // gross was misleading here since commission is deducted at monthly settlement.
+        binding.tvTotalEarnings.setText(CurrencyUtils.formatRupees(monthNetTotal));
         binding.tvEarningsSubtitle.setText(orderCount == 1
                 ? "Total Earnings · 1 order"
                 : "Total Earnings · " + orderCount + " orders");
+
+        if (monthCommission > 0) {
+            binding.tvCommissionBreakdown.setText("Gross " + CurrencyUtils.formatRupees(monthTotal)
+                    + " · Commission −" + CurrencyUtils.formatRupees(monthCommission));
+            binding.tvCommissionBreakdown.setVisibility(View.VISIBLE);
+        } else {
+            binding.tvCommissionBreakdown.setVisibility(View.GONE);
+        }
 
         // Quick-glance strip
         binding.tvTodayQuick.setText(CurrencyUtils.formatRupees(summary.getTodayTotal()));

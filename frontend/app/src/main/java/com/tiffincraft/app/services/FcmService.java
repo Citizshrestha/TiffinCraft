@@ -119,7 +119,13 @@ public class FcmService extends FirebaseMessagingService {
             }
 
         } else {
-            intent = new Intent(this, ManageOrdersActivity.class);
+            // Anything without a hardcoded deep-link above (commission/refund/
+            // subscription events, reviews, etc.) — ManageOrdersActivity is
+            // cook-only and would be the wrong screen for a customer-facing
+            // type here. NotificationActivity is role-agnostic and already
+            // knows how to route every type correctly once tapped there
+            // (see NotificationActivity.navigateForNotification).
+            intent = new Intent(this, NotificationActivity.class);
         }
 
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);

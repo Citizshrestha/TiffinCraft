@@ -12,6 +12,9 @@ public class CookEarningsTotalsResponse {
         @SerializedName("total_earned")
         private double totalEarned;
 
+        @SerializedName("total_commission")
+        private double totalCommission;
+
         @SerializedName("today_earned")
         private double todayEarned;
 
@@ -23,6 +26,9 @@ public class CookEarningsTotalsResponse {
 
         public int getTotalOrders() { return totalOrders; }
         public double getTotalEarned() { return totalEarned; }
+        public double getTotalCommission() { return totalCommission; }
+        /** What the cook actually keeps — gross earnings minus platform commission. */
+        public double getNetEarned() { return totalEarned - totalCommission; }
         public double getTodayEarned() { return todayEarned; }
         public double getThisMonthEarned() { return thisMonthEarned; }
         public int getPendingOrders() { return pendingOrders; }

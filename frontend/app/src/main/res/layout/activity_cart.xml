@@ -217,10 +217,10 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="FREE"
+                android:text="Paid to rider on delivery"
                 android:textSize="13sp"
                 android:textStyle="bold"
-                android:textColor="#4CAF50"/>
+                android:textColor="#FF9800"/>
         </LinearLayout>
 
         <View

@@ -260,11 +260,20 @@ public class OrderSummaryActivity extends AppCompatActivity {
 
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
                     CheckoutResponse body = response.body();
-                    int orderCount = body.getOrders() != null ? body.getOrders().size() : 1;
+                    List<CheckoutResponse.CreatedOrder> createdOrders = body.getOrders();
+                    int orderCount = createdOrders != null ? createdOrders.size() : 1;
 
                     Intent intent = new Intent(OrderSummaryActivity.this, OrderPlacedActivity.class);
                     intent.putExtra("order_count", orderCount);
                     intent.putExtra("message", body.getMessage());
+                    intent.putExtra("payment_method", payment);
+                    if (createdOrders != null) {
+                        int[] orderIds = new int[createdOrders.size()];
+                        for (int i = 0; i < createdOrders.size(); i++) {
+                            orderIds[i] = createdOrders.get(i).getOrderId();
+                        }
+                        intent.putExtra("order_ids", orderIds);
+                    }
                     intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
                     startActivity(intent);
                     finish();

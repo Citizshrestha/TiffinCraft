@@ -43,8 +43,14 @@ import com.tiffincraft.app.models.ChangePasswordResponse;
 import com.tiffincraft.app.models.ChatUnreadCountResponse;
 import com.tiffincraft.app.models.CustomerDetailsResponse;
 import com.tiffincraft.app.models.SubscriptionResponse;
+import com.tiffincraft.app.models.SubscriptionPlanRequest;
+import com.tiffincraft.app.models.SubscriptionPlanResponse;
+import com.tiffincraft.app.models.CreateCustomerSubscriptionRequest;
 import com.tiffincraft.app.models.ReferralInfoResponse;
 import com.tiffincraft.app.models.ApplyReferralResponse;
+import com.tiffincraft.app.models.EsewaInitiateResponse;
+import com.tiffincraft.app.models.EsewaStatusResponse;
+import com.tiffincraft.app.models.EpayInitiateResponse;
 
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
@@ -266,6 +272,19 @@ public interface ApiService {
     @GET("orders/cook/earnings/transactions")
     Call<EarningsTransactionsResponse> getCookEarningsTransactions(@Header("Authorization") String token, @Query("page") int page, @Query("limit") int limit, @Query("search") String search);
 
+    // ── Commission settlement (cook pays platform commission — see commissionController.js) ──
+    @GET("commission/settlements/current")
+    Call<com.tiffincraft.app.models.CommissionSettlementCurrentResponse> getCurrentCommissionSettlement(@Header("Authorization") String token);
+
+    @GET("commission/settlements/mine")
+    Call<com.tiffincraft.app.models.CommissionSettlementsListResponse> getMyCommissionSettlements(@Header("Authorization") String token);
+
+    @PUT("commission/settlements/{id}/screenshot")
+    Call<RegisterResponse> uploadCommissionScreenshot(@Header("Authorization") String token, @Path("id") int settlementId, @Body com.google.gson.JsonObject requestBody);
+
+    @GET("commission/admin-qr")
+    Call<com.tiffincraft.app.models.AdminQrResponse> getAdminQr(@Header("Authorization") String token);
+
     @GET("favorites")
     Call<com.tiffincraft.app.models.FavoriteResponse> getFavorites(@Header("Authorization") String token);
 
@@ -345,6 +364,9 @@ public interface ApiService {
     @GET("subscriptions/customer/my")
     Call<SubscriptionResponse> getMySubscriptions(@Header("Authorization") String token);
 
+    @POST("subscriptions")
+    Call<com.tiffincraft.app.models.CreateSubscriptionResponse> createSubscription(@Header("Authorization") String token, @Body CreateCustomerSubscriptionRequest request);
+
     @PUT("subscriptions/{id}/pause")
     Call<RegisterResponse> pauseSubscription(@Header("Authorization") String token, @Path("id") int subscriptionId);
 
@@ -354,9 +376,83 @@ public interface ApiService {
     @DELETE("subscriptions/{id}")
     Call<RegisterResponse> cancelSubscription(@Header("Authorization") String token, @Path("id") int subscriptionId);
 
+    // ==================== Subscription Plans (cook-authored) ====================
+
+    @POST("subscription-plans")
+    Call<SubscriptionPlanResponse> createSubscriptionPlan(@Header("Authorization") String token, @Body SubscriptionPlanRequest request);
+
+    @GET("subscription-plans/my")
+    Call<SubscriptionPlanResponse> getMySubscriptionPlans(@Header("Authorization") String token);
+
+    /** Public — powers the "Subscription Plans" section on a cook's profile page. */
+    @GET("subscription-plans/cook/{cookId}")
+    Call<SubscriptionPlanResponse> getSubscriptionPlansByCook(@Path("cookId") int cookId);
+
+    @GET("subscription-plans/{id}")
+    Call<SubscriptionPlanResponse> getSubscriptionPlanById(@Path("id") int planId);
+
+    @PUT("subscription-plans/{id}")
+    Call<SubscriptionPlanResponse> updateSubscriptionPlan(@Header("Authorization") String token, @Path("id") int planId, @Body SubscriptionPlanRequest request);
+
+    @DELETE("subscription-plans/{id}")
+    Call<RegisterResponse> deleteSubscriptionPlan(@Header("Authorization") String token, @Path("id") int planId);
+
+    @GET("subscriptions/cook/my")
+    Call<com.tiffincraft.app.models.CookSubscribersResponse> getCookSubscribers(@Header("Authorization") String token);
+
+    @PUT("subscriptions/{id}/screenshot")
+    Call<RegisterResponse> uploadSubscriptionScreenshot(@Header("Authorization") String token, @Path("id") int subscriptionId, @Body com.google.gson.JsonObject requestBody);
+
+    @PUT("subscriptions/{id}/verify-payment")
+    Call<RegisterResponse> verifySubscriptionPayment(@Header("Authorization") String token, @Path("id") int subscriptionId, @Body com.google.gson.JsonObject requestBody);
+
+    // ==================== Combo Deals (cook-authored, one-time bundle) ====================
+
+    @POST("combos")
+    Call<com.tiffincraft.app.models.ComboResponse> createCombo(@Header("Authorization") String token, @Body com.tiffincraft.app.models.ComboRequest request);
+
+    @GET("combos/my")
+    Call<com.tiffincraft.app.models.ComboResponse> getMyCombos(@Header("Authorization") String token);
+
+    /** Public — powers the "Combo Deals" section on a cook's profile page. */
+    @GET("combos/cook/{cookId}")
+    Call<com.tiffincraft.app.models.ComboResponse> getCombosByCook(@Path("cookId") int cookId);
+
+    @GET("combos/{id}")
+    Call<com.tiffincraft.app.models.ComboResponse> getComboById(@Path("id") int comboId);
+
+    @PUT("combos/{id}")
+    Call<com.tiffincraft.app.models.ComboResponse> updateCombo(@Header("Authorization") String token, @Path("id") int comboId, @Body com.tiffincraft.app.models.ComboRequest request);
+
+    @DELETE("combos/{id}")
+    Call<RegisterResponse> deleteCombo(@Header("Authorization") String token, @Path("id") int comboId);
+
+    @POST("combos/{id}/order")
+    Call<RegisterResponse> buyCombo(@Header("Authorization") String token, @Path("id") int comboId, @Body com.tiffincraft.app.models.BuyComboRequest request);
+
     @GET("referrals/my")
     Call<ReferralInfoResponse> getMyReferralInfo(@Header("Authorization") String token);
 
     @POST("referrals/apply")
     Call<ApplyReferralResponse> applyReferralCode(@Header("Authorization") String token, @Body com.google.gson.JsonObject requestBody);
+
+    // ==================== eSewa Intent Payment ====================
+
+    @POST("payments/esewa/initiate")
+    Call<EsewaInitiateResponse> initiateEsewaPayment(@Header("Authorization") String token, @Body com.google.gson.JsonObject requestBody);
+
+    @GET("payments/esewa/status/{transactionUuid}")
+    Call<EsewaStatusResponse> getEsewaPaymentStatus(@Header("Authorization") String token, @Path("transactionUuid") String transactionUuid);
+
+    @POST("payments/esewa/cancel")
+    Call<RegisterResponse> cancelEsewaPayment(@Header("Authorization") String token, @Body com.google.gson.JsonObject requestBody);
+
+    /** ePay v2 fallback — see EsewaEpayCheckoutActivity for why this exists alongside Intent Payment. */
+    @POST("payments/esewa-epay/initiate")
+    Call<EpayInitiateResponse> initiateEpayPayment(@Header("Authorization") String token, @Body com.google.gson.JsonObject requestBody);
+
+    // ==================== Refunds ====================
+
+    @POST("refunds/request")
+    Call<RegisterResponse> requestRefund(@Header("Authorization") String token, @Body com.google.gson.JsonObject requestBody);
 }

@@ -20,6 +20,8 @@ public class OrderPlacedActivity extends AppCompatActivity {
 
         int orderCount = getIntent().getIntExtra("order_count", 1);
         String message = getIntent().getStringExtra("message");
+        boolean isOnlinePayment = "online".equals(getIntent().getStringExtra("payment_method"));
+        int[] orderIds = getIntent().getIntArrayExtra("order_ids");
 
         TextView tvMessage = findViewById(com.tiffincraft.app.R.id.tvOrderMessage);
         if (tvMessage != null) {
@@ -30,6 +32,25 @@ public class OrderPlacedActivity extends AppCompatActivity {
             } else {
                 tvMessage.setText("Your cook has been notified of your order.");
             }
+        }
+
+        // Online payment isn't collected at checkout — surface the payment
+        // step immediately instead of leaving the customer to discover it
+        // buried inside Order History → Order Details later.
+        if (isOnlinePayment && binding.btnPayNow != null) {
+            binding.btnPayNow.setVisibility(android.view.View.VISIBLE);
+            binding.btnPayNow.setOnClickListener(v -> {
+                if (orderIds != null && orderIds.length == 1) {
+                    Intent intent = new Intent(this, OrderDetailsCustomerActivity.class);
+                    intent.putExtra("order_id", orderIds[0]);
+                    startActivity(intent);
+                } else {
+                    // Multiple cooks in one cart → multiple orders, each paid
+                    // separately — send them to the list rather than guessing which one.
+                    startActivity(new Intent(this, OrderHistoryActivity.class));
+                }
+                finish();
+            });
         }
 
         binding.btnHome.setOnClickListener(v -> {

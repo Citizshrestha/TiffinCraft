@@ -88,10 +88,13 @@ public class OrderDetailsCookActivity extends AppCompatActivity {
         }
     }
 
+    /** Blocks "mark complete" until money has actually been confirmed received. */
     private boolean isPaymentNotVerified() {
-        if (binding.tvPaymentStatus == null) return false;
-        String status = binding.tvPaymentStatus.getText().toString();
-        return !status.contains("Verified") && !status.contains("COD");
+        if (currentOrder == null || !"online".equals(currentOrder.getPaymentMethod())) return false;
+        String status = currentOrder.getPaymentStatus();
+        if ("verified".equals(status)) return false;
+        if ("paid".equals(status) && currentOrder.isEsewaConfirmed()) return false;
+        return true;
     }
 
     private void loadOrderDetails() {
@@ -130,6 +133,9 @@ public class OrderDetailsCookActivity extends AppCompatActivity {
 
         if (binding.tvCustomerName != null) {
             binding.tvCustomerName.setText(order.getCustomerName() != null ? order.getCustomerName() : "Customer");
+        }
+        if (binding.ivCustomerAvatar != null) {
+            com.tiffincraft.app.utils.ImageUrlHelper.load(binding.ivCustomerAvatar, order.getCustomerProfileImage(), R.drawable.avatar_customer);
         }
         if (binding.tvCustomerAddress != null) {
             binding.tvCustomerAddress.setText(order.getDeliveryAddress() != null ? order.getDeliveryAddress() : "—");
@@ -271,13 +277,16 @@ public class OrderDetailsCookActivity extends AppCompatActivity {
         if (!isOnline) return;
 
         String status = order.getPaymentStatus();
+        boolean esewaConfirmed = order.isEsewaConfirmed();
         String label;
         int bgRes;
         switch (status != null ? status : "") {
             case "verified":
                 label = "✅ Verified"; bgRes = R.drawable.status_chip_delivered; break;
             case "paid":
-                label = "⏳ Awaiting Verification"; bgRes = R.drawable.status_chip_preparing; break;
+                label = esewaConfirmed ? "✅ Paid via eSewa" : "⏳ Awaiting Verification";
+                bgRes = esewaConfirmed ? R.drawable.status_chip_delivered : R.drawable.status_chip_preparing;
+                break;
             case "refunded":
                 label = "🔄 Refunded"; bgRes = R.drawable.status_chip_out_for_delivery; break;
             default:
@@ -303,7 +312,7 @@ public class OrderDetailsCookActivity extends AppCompatActivity {
         }
 
         if (binding.btnVerifyPayment != null) {
-            boolean canVerify = "paid".equals(status);
+            boolean canVerify = "paid".equals(status) && !esewaConfirmed;
             binding.btnVerifyPayment.setVisibility(canVerify ? View.VISIBLE : View.GONE);
             binding.btnVerifyPayment.setOnClickListener(v -> verifyPayment());
         }

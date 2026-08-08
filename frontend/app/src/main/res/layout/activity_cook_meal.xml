@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF"
+    android:background="@color/bg_app"
     tools:context=".activities.CookMealActivity">
 
     <!-- ================= MAIN SCROLLABLE CONTENT ================= -->
@@ -26,7 +26,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="#FFFFFF"
+                android:background="@color/bg_app"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="20dp"
@@ -45,7 +45,7 @@
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical"
                         android:text="My Meals"
-                        android:textColor="#111111"
+                        android:textColor="@color/text_ink"
                         android:textSize="20sp"
                         android:textStyle="bold" />
 
@@ -55,8 +55,8 @@
                         android:layout_height="40dp"
                         android:background="@drawable/edit_text_bg"
                         android:hint="Search meals..."
-                        android:textColor="#111111"
-                        android:textColorHint="#999999"
+                        android:textColor="@color/text_ink"
+                        android:textColorHint="@color/text_disabled"
                         android:paddingStart="12dp"
                         android:paddingEnd="12dp"
                         android:singleLine="true"
@@ -64,27 +64,41 @@
                         android:visibility="gone" />
                 </FrameLayout>
 
-                <ImageView
-                    android:id="@+id/btnSearchMeal"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="16dp"
-                    android:clickable="true"
-                    android:contentDescription="Search meals"
-                    android:focusable="true"
-                    android:src="@drawable/ic_search"
-                    android:tint="#111111" />
+                <FrameLayout
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="12dp"
+                    android:background="@drawable/circle_bg_green_light">
 
-                <ImageView
-                    android:id="@+id/btnFilterMeal"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:clickable="true"
-                    android:contentDescription="Filter meals"
-                    android:focusable="true"
-                    android:src="@drawable/ic_filter"
-                    android:tint="#111111" />
+                    <ImageView
+                        android:id="@+id/btnSearchMeal"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:clickable="true"
+                        android:contentDescription="Search meals"
+                        android:focusable="true"
+                        android:src="@drawable/ic_search"
+                        app:tint="@color/green_primary_dark" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="10dp"
+                    android:background="@drawable/circle_bg_green_light">
+
+                    <ImageView
+                        android:id="@+id/btnFilterMeal"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:clickable="true"
+                        android:contentDescription="Filter meals"
+                        android:focusable="true"
+                        android:src="@drawable/ic_filter"
+                        app:tint="@color/green_primary_dark" />
+                </FrameLayout>
             </LinearLayout>
 
             <!-- ============ MEAL STATS ROW ============ -->
@@ -105,7 +119,7 @@
                     app:cardBackgroundColor="#FFFFFF"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
-                    app:strokeColor="#EFEFEF"
+                    app:strokeColor="@color/stroke_soft"
                     app:strokeWidth="1dp">
 
                     <LinearLayout
@@ -119,7 +133,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="14"
-                            android:textColor="#111111"
+                            android:textColor="@color/text_ink"
                             android:textSize="20sp"
                             android:textStyle="bold" />
 
@@ -128,7 +142,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
                             android:text="Total Meals"
-                            android:textColor="#777777"
+                            android:textColor="@color/text_subtitle"
                             android:textSize="11.5sp" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -143,7 +157,7 @@
                     app:cardBackgroundColor="#FFFFFF"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
-                    app:strokeColor="#EFEFEF"
+                    app:strokeColor="@color/stroke_soft"
                     app:strokeWidth="1dp">
 
                     <LinearLayout
@@ -157,7 +171,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="11"
-                            android:textColor="#111111"
+                            android:textColor="@color/text_ink"
                             android:textSize="20sp"
                             android:textStyle="bold" />
 
@@ -166,7 +180,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
                             android:text="Active"
-                            android:textColor="#777777"
+                            android:textColor="@color/text_subtitle"
                             android:textSize="11.5sp" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -180,7 +194,7 @@
                     app:cardBackgroundColor="#FFFFFF"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
-                    app:strokeColor="#EFEFEF"
+                    app:strokeColor="@color/stroke_soft"
                     app:strokeWidth="1dp">
 
                     <LinearLayout
@@ -194,7 +208,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="3"
-                            android:textColor="#111111"
+                            android:textColor="@color/text_ink"
                             android:textSize="20sp"
                             android:textStyle="bold" />
 
@@ -203,7 +217,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
                             android:text="Sold Out"
-                            android:textColor="#777777"
+                            android:textColor="@color/text_subtitle"
                             android:textSize="11.5sp" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -225,7 +239,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Today's Menu"
-                    android:textColor="#111111"
+                    android:textColor="@color/text_ink"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
@@ -236,7 +250,7 @@
                     android:clickable="true"
                     android:focusable="true"
                     android:text="Categories"
-                    android:textColor="#4CAF50"
+                    android:textColor="@color/green_primary_dark"
                     android:textSize="13sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -268,14 +282,14 @@
                     android:alpha="0.3"
                     android:contentDescription="No meals"
                     android:src="@drawable/ic_bag"
-                    android:tint="#4CAF50" />
+                    android:tint="@color/green_primary_dark" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="20dp"
                     android:text="No meals yet"
-                    android:textColor="#111111"
+                    android:textColor="@color/text_ink"
                     android:textSize="18sp"
                     android:textStyle="bold" />
 
@@ -285,7 +299,7 @@
                     android:layout_marginTop="8dp"
                     android:gravity="center"
                     android:text="Start adding delicious meals\nto your menu"
-                    android:textColor="#777777"
+                    android:textColor="@color/text_subtitle"
                     android:textSize="14sp" />
             </LinearLayout>
 
@@ -301,7 +315,7 @@
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="20dp"
         android:layout_marginBottom="84dp"
-        android:backgroundTint="#4CAF50"
+        android:backgroundTint="@color/green_primary_dark"
         android:elevation="6dp"
         android:text="Add Meal"
         android:textColor="#FFFFFF"

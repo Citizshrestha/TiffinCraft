@@ -139,6 +139,50 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                 bgRes = R.drawable.circle_icon_blue;
                 tintColor = 0xFF1976D2;
                 break;
+            case "commission_due":
+            case "commission_submitted":
+                iconRes = R.drawable.ic_wallet;
+                bgRes = R.drawable.circle_icon_orange;
+                tintColor = 0xFFF57C00;
+                break;
+            case "commission_verified":
+                iconRes = R.drawable.ic_check_circle;
+                bgRes = R.drawable.circle_icon_green;
+                tintColor = 0xFF388E3C;
+                break;
+            case "commission_rejected":
+                iconRes = R.drawable.ic_close;
+                bgRes = R.drawable.circle_icon_red;
+                tintColor = 0xFFE53935;
+                break;
+            case "refund_requested":
+            case "refund_feedback":
+                iconRes = R.drawable.ic_info;
+                bgRes = R.drawable.circle_icon_orange;
+                tintColor = 0xFFF57C00;
+                break;
+            case "refund_status":
+                iconRes = R.drawable.ic_receipt;
+                bgRes = R.drawable.circle_icon_blue;
+                tintColor = 0xFF1976D2;
+                break;
+            case "subscription_payment_submitted":
+                // Cook-side: a customer just submitted proof, awaiting review — same
+                // treatment as commission_submitted / payment_verification above.
+                iconRes = R.drawable.ic_receipt;
+                bgRes = R.drawable.circle_icon_orange;
+                tintColor = 0xFFF57C00;
+                break;
+            case "subscription_verified":
+                iconRes = R.drawable.ic_check_circle;
+                bgRes = R.drawable.circle_icon_green;
+                tintColor = 0xFF388E3C;
+                break;
+            case "subscription_rejected":
+                iconRes = R.drawable.ic_close;
+                bgRes = R.drawable.circle_icon_red;
+                tintColor = 0xFFE53935;
+                break;
             case "system":
             default:
                 iconRes = R.drawable.ic_notifications;

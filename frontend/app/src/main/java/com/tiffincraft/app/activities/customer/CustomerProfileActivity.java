@@ -26,6 +26,7 @@ import com.tiffincraft.app.databinding.ActivityCustomerProfileBinding;
 import com.tiffincraft.app.models.CustomerProfile;
 import com.tiffincraft.app.models.CustomerProfileResponse;
 import com.tiffincraft.app.models.RegisterResponse;
+import com.tiffincraft.app.models.SubscriptionPlanResponse;
 import com.tiffincraft.app.models.SubscriptionResponse;
 import com.tiffincraft.app.models.UploadResponse;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -89,6 +90,11 @@ public class CustomerProfileActivity extends AppCompatActivity {
 
         if (binding.btnManageSubscription != null) {
             binding.btnManageSubscription.setOnClickListener(v -> showManageSubscriptionDialog());
+        }
+
+        if (binding.tvViewAllSubscriptions != null) {
+            binding.tvViewAllSubscriptions.setOnClickListener(v ->
+                    startActivity(new Intent(this, CustomerSubscriptionsActivity.class)));
         }
 
         if (binding.btnEditAvatar != null) {
@@ -251,7 +257,7 @@ public class CustomerProfileActivity extends AppCompatActivity {
         if (binding.tvMemberSince != null && profile.getCreatedAt() != null) {
             try {
                 SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
-                SimpleDateFormat outputFormat = new SimpleDateFormat("MMM yyyy", Locale.US);
+                SimpleDateFormat outputFormat = new SimpleDateFormat("d MMM yyyy", Locale.US);
                 Date date = inputFormat.parse(profile.getCreatedAt().substring(0, 10));
                 if (date != null) {
                     binding.tvMemberSince.setText(outputFormat.format(date));
@@ -317,18 +323,34 @@ public class CustomerProfileActivity extends AppCompatActivity {
     private void populateSubscriptionCard(SubscriptionResponse.Subscription sub) {
         if (binding.cardSubscription == null) return;
 
-        if (sub == null) {
+        if (sub == null || sub.getPlan() == null) {
             binding.cardSubscription.setVisibility(View.GONE);
             return;
         }
 
         binding.cardSubscription.setVisibility(View.VISIBLE);
 
-        String statusLabel = "paused".equals(sub.getStatus()) ? "Paused" : "Active";
-        binding.tvSubscriptionStatus.setText(sub.getMealName() + " Subscription " + statusLabel);
+        SubscriptionPlanResponse.Plan plan = sub.getPlan();
+        String kitchen = plan.getKitchenName() != null && !plan.getKitchenName().isEmpty()
+                ? plan.getKitchenName() : plan.getCookName();
 
-        String kitchen = sub.getKitchenName() != null && !sub.getKitchenName().isEmpty()
-                ? sub.getKitchenName() : sub.getCookName();
+        // Not yet activated — payment hasn't been verified, so "Active"/"Renews"
+        // would be misleading (next_delivery_date is just a placeholder until then).
+        if ("pending_payment".equals(sub.getStatus())) {
+            String statusLabel;
+            switch (sub.getPaymentStatus() != null ? sub.getPaymentStatus() : "pending") {
+                case "submitted": statusLabel = "Awaiting Verification"; break;
+                case "rejected": statusLabel = "Payment Rejected"; break;
+                default: statusLabel = "Payment Pending"; break;
+            }
+            binding.tvSubscriptionStatus.setText(plan.getName() + " Subscription — " + statusLabel);
+            binding.tvSubscriptionDetail.setText("From " + kitchen + " · Tap Manage to complete payment");
+            return;
+        }
+
+        String statusLabel = "paused".equals(sub.getStatus()) ? "Paused" : "Active";
+        binding.tvSubscriptionStatus.setText(plan.getName() + " Subscription " + statusLabel);
+
         String renewLabel = "paused".equals(sub.getStatus()) ? "Paused" : "Renews " + formatShortDate(sub.getNextDeliveryDate());
         binding.tvSubscriptionDetail.setText("From " + kitchen + " · " + renewLabel);
     }
@@ -348,6 +370,26 @@ public class CustomerProfileActivity extends AppCompatActivity {
     private void showManageSubscriptionDialog() {
         if (activeSubscription == null) return;
 
+        // Not yet activated — pause/resume don't apply; route to the payment
+        // screen (or just offer to cancel while it's still stuck).
+        if ("pending_payment".equals(activeSubscription.getStatus())) {
+            String[] options = {
+                    "rejected".equals(activeSubscription.getPaymentStatus()) ? "Re-upload payment proof" : "Complete payment",
+                    "Cancel subscription"
+            };
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle("Manage Subscription")
+                    .setItems(options, (dialog, which) -> {
+                        if (which == 0) {
+                            openSubscriptionPayment(activeSubscription);
+                        } else {
+                            confirmCancelSubscription();
+                        }
+                    })
+                    .show();
+            return;
+        }
+
         boolean isPaused = "paused".equals(activeSubscription.getStatus());
         String[] options = { isPaused ? "Resume subscription" : "Pause subscription", "Cancel subscription" };
 
@@ -361,6 +403,19 @@ public class CustomerProfileActivity extends AppCompatActivity {
                     }
                 })
                 .show();
+    }
+
+    /** Submitted subscriptions can't upload again (see uploadSubscriptionScreenshot's
+     *  ["pending","rejected"] guard on the backend) — the payment screen still opens
+     *  so the customer can see its live status either way. */
+    private void openSubscriptionPayment(SubscriptionResponse.Subscription sub) {
+        if (sub.getPlan() == null) return;
+        Intent intent = new Intent(this, SubscriptionPaymentActivity.class);
+        intent.putExtra(SubscriptionPaymentActivity.EXTRA_SUBSCRIPTION_ID, sub.getId());
+        intent.putExtra(SubscriptionPaymentActivity.EXTRA_PLAN_NAME, sub.getPlan().getName());
+        intent.putExtra(SubscriptionPaymentActivity.EXTRA_PLAN_PRICE, sub.getPlan().getPricePerDelivery());
+        intent.putExtra(SubscriptionPaymentActivity.EXTRA_PLAN_DURATION, sub.getPlan().getDuration());
+        startActivity(intent);
     }
 
     private void pauseSubscription() {

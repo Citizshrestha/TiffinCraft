@@ -60,12 +60,6 @@ public class CookProfileActivity extends AppCompatActivity {
             );
         }
         
-        if (binding.tvKitchenNameProfile != null) {
-            binding.tvKitchenNameProfile.setText(
-                (fullName != null && !fullName.isEmpty()) ? fullName + "'s Kitchen" : "Home Cook Kitchen"
-            );
-        }
-
         // Load existing profile image
         loadProfileImage();
 
@@ -121,10 +115,6 @@ public class CookProfileActivity extends AppCompatActivity {
                 }
                 com.tiffincraft.app.models.CookProfile profile = response.body().getProfile();
 
-                if (profile.getKitchenName() != null && !profile.getKitchenName().isEmpty()) {
-                    binding.tvKitchenNameProfile.setText(profile.getKitchenName());
-                }
-
                 // Rating chip: live review average + count
                 java.text.DecimalFormat ratingFmt = new java.text.DecimalFormat("0.0");
                 String ratingLabel = profile.getTotalReviews() > 0
@@ -136,7 +126,7 @@ public class CookProfileActivity extends AppCompatActivity {
                 java.util.Date joined =
                         com.tiffincraft.app.models.ChatMessage.parseServerDate(profile.getUserCreatedAt());
                 binding.tvJoinedDate.setText(joined != null
-                        ? new java.text.SimpleDateFormat("MMM yyyy", java.util.Locale.getDefault()).format(joined)
+                        ? new java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.getDefault()).format(joined)
                         : "—");
 
                 // Kitchen details card
@@ -175,8 +165,9 @@ public class CookProfileActivity extends AppCompatActivity {
                     com.tiffincraft.app.models.CookEarningsTotalsResponse.Totals totals =
                             response.body().getEarnings();
                     binding.tvTotalOrdersProfile.setText(String.valueOf(totals.getTotalOrders()));
+                    // Net of platform commission — what the cook actually keeps, not gross revenue.
                     binding.tvTotalEarningsProfile.setText(
-                            com.tiffincraft.app.utils.CurrencyUtils.formatRupees(totals.getTotalEarned()));
+                            com.tiffincraft.app.utils.CurrencyUtils.formatRupees(totals.getNetEarned()));
                 } else {
                     Log.e(TAG, "Failed to load earnings totals: " + response.code());
                 }
@@ -332,11 +323,6 @@ public class CookProfileActivity extends AppCompatActivity {
                     (fullName != null && !fullName.isEmpty()) ? fullName : "Home Cook"
                 );
             }
-            if (binding.tvKitchenNameProfile != null) {
-                binding.tvKitchenNameProfile.setText(
-                    (fullName != null && !fullName.isEmpty()) ? fullName + "'s Kitchen" : "Home Cook Kitchen"
-                );
-            }
             Toast.makeText(this, "Profile refreshed", Toast.LENGTH_SHORT).show();
         }
     }
@@ -442,6 +428,10 @@ public class CookProfileActivity extends AppCompatActivity {
                     return true;
                 } else if (itemId == R.id.nav_orders) {
                     startActivity(new Intent(CookProfileActivity.this, ManageOrdersActivity.class));
+                    finish();
+                    return true;
+                } else if (itemId == R.id.nav_earnings) {
+                    startActivity(new Intent(CookProfileActivity.this, CookEarningsActivity.class));
                     finish();
                     return true;
                 } else if (itemId == R.id.nav_profile) {

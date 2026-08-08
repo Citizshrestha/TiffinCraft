@@ -123,11 +123,53 @@
                     android:scaleType="fitCenter"
                     android:visibility="gone" />
 
+                <!-- Manual eSewa pay: customer opens the real eSewa app (or
+                     scans the cook's QR from within it), sends the amount,
+                     then uploads the screenshot below for the cook to verify. -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnPayWithEsewa"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:text="Pay with eSewa"
+                    android:textAllCaps="false"
+                    android:textColor="@color/white"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    app:backgroundTint="#60BB46"
+                    app:cornerRadius="12dp"
+                    app:icon="@drawable/ic_arrow_up_right"
+                    app:iconGravity="textStart"
+                    app:iconTint="@color/white" />
+
+                <TextView
+                    android:id="@+id/tvScanToPay"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:layout_gravity="center_horizontal"
+                    android:text="Or scan the cook's eSewa QR (tap to save)"
+                    android:textAlignment="center"
+                    android:textColor="@color/text_subtitle"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/ivCookEsewaQr"
+                    android:layout_width="220dp"
+                    android:layout_height="220dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_gravity="center_horizontal"
+                    android:contentDescription="Cook eSewa payment QR"
+                    android:scaleType="fitCenter"
+                    android:visibility="gone" />
+
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnUploadPayment"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="8dp"
                     android:text="Upload Payment Screenshot"
                     android:textAllCaps="false"
                     android:textColor="@color/white"
@@ -139,6 +181,22 @@
                     app:icon="@drawable/ic_upload"
                     app:iconGravity="textStart"
                     app:iconTint="@color/white" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnRequestRefund"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:text="Request Refund"
+                    android:textAllCaps="false"
+                    android:textColor="@color/error_red"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    app:backgroundTint="@color/white"
+                    app:cornerRadius="12dp"
+                    app:strokeColor="@color/error_red"
+                    app:strokeWidth="1dp" />
 
             </LinearLayout>
 

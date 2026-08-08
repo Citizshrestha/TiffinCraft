@@ -16,6 +16,19 @@
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- Android 11+ (API 30+) package visibility: without this, PackageManager
+         hides other apps from resolveActivity()/queryIntentActivities() by
+         default — so the eSewa deeplink launch would report "not installed"
+         even when the eSewa app genuinely is on the device. -->
+    <queries>
+        <!-- eSewa's real package id, confirmed two ways: `pm list packages`
+             on a device with eSewa installed, and the package= parameter in
+             the intent:// URL eSewa's own rc-links deeplink redirects to.
+             Required on Android 11+ for resolveActivity/setPackage to see the
+             eSewa app at all. -->
+        <package android:name="com.f1soft.esewa"/>
+    </queries>
+
     <application
         android:name=".TiffinCraftApp"
         android:allowBackup="true"
@@ -123,6 +136,14 @@
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
         <activity
+            android:name=".activities.cook.CommissionSettlementActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.CommissionHistoryActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
             android:name=".activities.cook.CookSplashActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
@@ -173,6 +194,27 @@
             android:name=".activities.order.OrderDetailsCookActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
+        <!-- ePay v2 fallback checkout (WebView-hosted, not the deprecated SDK)
+             — used when Intent Payment's own sandbox/deeplink isn't available. -->
+        <activity
+            android:name=".activities.order.EsewaEpayCheckoutActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <!-- eSewa Intent Payment redirect target. redirect_url sent to eSewa
+             during booking is tiffincraft://payment-result — see PaymentResultActivity. -->
+        <activity
+            android:name=".activities.order.PaymentResultActivity"
+            android:exported="true"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="tiffincraft" android:host="payment-result"/>
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".activities.cook.UpdateStatusActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
@@ -199,6 +241,14 @@
 
         <activity
             android:name=".activities.customer.EditCustomerProfileActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.customer.SubscriptionPaymentActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.customer.CustomerSubscriptionsActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
         <activity
@@ -244,6 +294,22 @@
 
         <activity
             android:name=".activities.cook.CookSubscriptionsActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.SubscriptionPlanFormActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.CookSubscribersActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.CookCombosActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.ComboFormActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
         <activity

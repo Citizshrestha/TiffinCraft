@@ -117,8 +117,39 @@ public class NotificationActivity extends AppCompatActivity {
                     intent.putExtra(ChatActivity.EXTRA_CONVERSATION_ID, refId);
                 }
                 break;
+            case "commission_due":
+            case "commission_verified":
+            case "commission_rejected":
+                // No specific ID needed — the screen fetches the cook's
+                // current/past-due settlement itself on open.
+                intent = new Intent(this, com.tiffincraft.app.activities.cook.CommissionSettlementActivity.class);
+                break;
+            case "refund_feedback":
+            case "refund_status":
+                // Sent to the cook (refund_feedback) or customer (refund_status)
+                // with the order id as the reference — same order details screen
+                // as the order-status types above.
+                if (refId != null) {
+                    intent = new Intent(this, isCook ? OrderDetailsCookActivity.class : OrderDetailsCustomerActivity.class);
+                    intent.putExtra("order_id", refId);
+                }
+                break;
+            case "subscription_payment_submitted":
+                // Cook: a customer submitted payment proof — open straight into
+                // the "Needs Review" filter instead of the generic "All" list.
+                intent = new Intent(this, com.tiffincraft.app.activities.cook.CookSubscribersActivity.class);
+                intent.putExtra(com.tiffincraft.app.activities.cook.CookSubscribersActivity.EXTRA_INITIAL_FILTER, "submitted");
+                break;
+            case "subscription_verified":
+            case "subscription_rejected":
+                // Customer: their profile's subscription card already reflects the
+                // live status and re-opens SubscriptionPaymentActivity via "Manage"
+                // if action is still needed — reuses that flow instead of trying to
+                // reconstruct plan/price/QR details from just a notification.
+                intent = new Intent(this, com.tiffincraft.app.activities.customer.CustomerProfileActivity.class);
+                break;
             default:
-                break; // system/unrecognized — nothing to navigate to
+                break; // system/unrecognized (e.g. admin-only refund_requested) — nothing to navigate to
         }
 
         if (intent != null) {

@@ -693,7 +693,8 @@ public class CustomerHomeActivity extends AppCompatActivity {
                 return true;
             } else if (itemId == R.id.nav_profile) {
                 startActivity(new Intent(this, CustomerProfileActivity.class));
-                return false;
+                finish();
+                return true;
             }
 
             return false;
