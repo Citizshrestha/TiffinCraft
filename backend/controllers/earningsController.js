@@ -45,12 +45,16 @@ export const getCookEarningsSummary = async (req, res) => {
         );
         const thisWeekTotal = parseFloat(weekResult.total) || 0;
 
-        // Get this month's total and order count (or filtered month if provided)
+        // Get this month's total and order count (or filtered month if provided).
+        // commission_amount is only set on orders delivered after the commission
+        // feature shipped (NULL on older ones), so COALESCE it to 0 rather than
+        // letting SUM() silently skip those rows' contribution to the total.
         let thisMonthQuery, thisMonthParams;
         if (filterByMonth) {
             thisMonthQuery = `
                 SELECT
                     COALESCE(SUM(total_amount), 0) as total,
+                    COALESCE(SUM(commission_amount), 0) as commission,
                     COUNT(*) as order_count
                 FROM orders
                 WHERE cook_id = ?
@@ -62,6 +66,7 @@ export const getCookEarningsSummary = async (req, res) => {
             thisMonthQuery = `
                 SELECT
                     COALESCE(SUM(total_amount), 0) as total,
+                    COALESCE(SUM(commission_amount), 0) as commission,
                     COUNT(*) as order_count
                 FROM orders
                 WHERE cook_id = ?
@@ -73,6 +78,8 @@ export const getCookEarningsSummary = async (req, res) => {
 
         const [[monthResult]] = await db.promise().query(thisMonthQuery, thisMonthParams);
         const thisMonthTotal = parseFloat(monthResult.total) || 0;
+        const thisMonthCommission = parseFloat(monthResult.commission) || 0;
+        const thisMonthNetTotal = thisMonthTotal - thisMonthCommission;
         const thisMonthOrderCount = parseInt(monthResult.order_count) || 0;
 
         // Get recent transactions (last 10, or filtered by month if provided)
@@ -217,6 +224,8 @@ export const getCookEarningsSummary = async (req, res) => {
             earnings: {
                 thisWeekTotal,
                 thisMonthTotal,
+                thisMonthCommission,
+                thisMonthNetTotal,
                 thisMonthOrderCount,
                 todayTotal,
                 recentTransactions: formattedTransactions,

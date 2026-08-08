@@ -2,6 +2,7 @@ import db from "../config/db.js";
 import bcrypt from "bcryptjs";
 import { sendEmail } from "../utils/emailService.js";
 import { notifyCookApprovalUpdate } from "../utils/notificationHelper.js";
+import { applyDeliveryCommission } from "./commissionController.js";
 
 const ALLOWED_ROLES = ["customer", "cook", "admin"];
 
@@ -622,7 +623,11 @@ export const getAllOrders = async (req, res) => {
     }
 };
 
-const ORDER_STATUSES = ["pending", "confirmed", "preparing", "ready", "delivered", "cancelled", "completed"];
+// Must match orders.status's actual DB enum exactly — "completed" was
+// previously listed here but isn't a valid enum value, so selecting it
+// passed this check yet still failed at the UPDATE with a DB-level error
+// ("Data truncated for column 'status'") under strict SQL mode.
+const ORDER_STATUSES = ["pending", "confirmed", "preparing", "ready", "delivered", "cancelled"];
 
 // PUT /api/admin/orders/:orderId/status
 // Admin updates an order's status (bypasses the cook-ownership check used by the cook app)
@@ -644,6 +649,10 @@ export const updateOrderStatus = async (req, res) => {
         }
 
         await db.promise().query("UPDATE orders SET status = ? WHERE id = ?", [status, orderId]);
+
+        if (status === "delivered") {
+            await applyDeliveryCommission(orderId);
+        }
 
         await db.promise().query(
             `INSERT INTO admin_records (admin_id, action_type, description)

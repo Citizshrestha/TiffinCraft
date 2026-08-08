@@ -29,11 +29,12 @@ router.post(
   uploadDocument
 );
 
-// Upload a cook's payment QR code (eSewa / Khalti / Bank) — cook-only
+// Upload a payment QR code (eSewa / Khalti / Bank) — a cook's own receiving
+// QR, or the admin's platform QR (cooks pay commission into it).
 router.post(
   '/bank-qr',
   protect,
-  roleOnly('cook'),
+  roleOnly('cook', 'admin'),
   uploadSingle('document'),
   uploadBankQr
 );

@@ -13,6 +13,10 @@ import orderRoutes from "./routes/orderRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
+import esewaEpayRoutes from "./routes/esewaEpayRoutes.js";
+import refundRoutes from "./routes/refundRoutes.js";
+import commissionRoutes from "./routes/commissionRoutes.js";
 import customerDashboardRoutes from "./routes/customerDashboardRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import favoritesRoutes from "./routes/favoritesRoutes.js";
@@ -20,7 +24,11 @@ import cartRoutes from "./routes/cartRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import referralRoutes from "./routes/referralRoutes.js";
 import subscriptionRoutes from "./routes/subscriptionRoutes.js";
+import subscriptionPlanRoutes from "./routes/subscriptionPlanRoutes.js";
+import comboRoutes from "./routes/comboRoutes.js";
 import { startSubscriptionJob } from "./jobs/subscriptionOrderJob.js";
+import { startEsewaBookingCleanupJob } from "./jobs/esewaBookingCleanupJob.js";
+import { startCommissionSettlementJob } from "./jobs/commissionSettlementJob.js";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import fs from "fs";
@@ -232,8 +240,14 @@ app.use("/api/favorites", favoritesRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/payments", esewaEpayRoutes);
+app.use("/api/refunds", refundRoutes);
+app.use("/api/commission", commissionRoutes);
 app.use("/api/referrals", referralRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
+app.use("/api/subscription-plans", subscriptionPlanRoutes);
+app.use("/api/combos", comboRoutes);
 
 app.use((_req, res) => {
     res.status(404).json({ message: "Route not found." });
@@ -269,6 +283,12 @@ db.getConnection((err, connection) => {
 
     // Start subscription auto-order cron job (runs daily at 06:00)
     startSubscriptionJob();
+
+    // Auto-cancels stale eSewa BOOKED payments (every 5 min)
+    startEsewaBookingCleanupJob();
+
+    // Generates monthly commission settlement dues for cooks (1st of month)
+    startCommissionSettlementJob();
 
     server.listen(PORT, "0.0.0.0", () => {
         console.log(`\n✅ Server running on port ${PORT}`);

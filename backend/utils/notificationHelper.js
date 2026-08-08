@@ -226,6 +226,256 @@ export const notifyCookApprovalUpdate = async (cookId, approved) => {
 };
 
 /**
+ * Create notification for a confirmed eSewa payment (sent to cook — the
+ * customer already sees it live via the payment-result screen).
+ */
+export const notifyPaymentConfirmed = async (cookId, orderId, customerName, amount) => {
+    return createNotification(
+        cookId,
+        'Payment Received 💳',
+        `${customerName} paid ₹${Number(amount).toFixed(0)} via eSewa for Order #${orderId}`,
+        'payment_success',
+        orderId,
+        'order',
+        {
+            pushData: {
+                type: 'payment_success',
+                orderId: String(orderId)
+            }
+        }
+    );
+};
+
+/**
+ * Create notification for a new refund request (sent to admin).
+ */
+export const notifyRefundRequested = async (adminId, refundRequestId, orderId, requesterName) => {
+    return createNotification(
+        adminId,
+        'Refund Requested',
+        `${requesterName} requested a refund for Order #${orderId}`,
+        'refund_requested',
+        refundRequestId,
+        'refund_request',
+        {}
+    );
+};
+
+/** Human-readable labels for refund_requests.reason — used in the cook-facing notification below. */
+const REFUND_REASON_LABELS = {
+    failed_delivery: 'Failed delivery',
+    cook_mistake: 'Order mistake',
+    customer_cancelled: 'Customer cancelled',
+    other: 'Other issue'
+};
+
+/**
+ * Create notification for a new refund request (sent to the COOK) so they
+ * see what went wrong and can correct it — separate from
+ * notifyRefundRequested (admin) since the cook doesn't process refunds,
+ * they just need the feedback. Only call this when a CUSTOMER filed the
+ * request; a cook filing their own refund shouldn't be told about it.
+ */
+export const notifyRefundFeedbackToCook = async (cookId, orderId, reason, reasonNotes) => {
+    const reasonLabel = REFUND_REASON_LABELS[reason] || reason;
+    const message = `A customer requested a refund for Order #${orderId}: "${reasonLabel}"`
+        + (reasonNotes ? ` — "${reasonNotes}"` : '')
+        + '. Please review to help avoid this next time.';
+    return createNotification(
+        cookId,
+        'Customer Reported an Issue',
+        message,
+        'refund_feedback',
+        orderId,
+        'order',
+        {
+            pushData: {
+                type: 'refund_feedback',
+                orderId: String(orderId)
+            }
+        }
+    );
+};
+
+/**
+ * Create notification when an admin processes a refund (sent to customer).
+ */
+export const notifyRefundProcessed = async (customerId, orderId, status, adminNotes) => {
+    const statusMessages = {
+        approved: 'Your refund request has been approved and is being processed.',
+        rejected: 'Your refund request was reviewed and could not be approved.',
+        processed: 'Your refund has been processed via eSewa.'
+    };
+    return createNotification(
+        customerId,
+        'Refund Update',
+        (statusMessages[status] || `Your refund status: ${status}`) + (adminNotes ? ` (${adminNotes})` : ''),
+        'refund_status',
+        orderId,
+        'order',
+        {
+            pushData: {
+                type: 'refund_status',
+                orderId: String(orderId),
+                status: status || ''
+            }
+        }
+    );
+};
+
+/**
+ * Create notification when a monthly commission settlement is generated
+ * for a cook (sent to the cook).
+ */
+export const notifyCommissionDue = async (cookId, amountDue, month, year) => {
+    const monthLabel = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' });
+    return createNotification(
+        cookId,
+        'Commission Due',
+        `Your platform commission for ${monthLabel} ${year} is ₹${Number(amountDue).toFixed(2)}. Pay via the platform QR in Earnings and upload your payment screenshot.`,
+        'commission_due',
+        null,
+        'commission_settlement',
+        {
+            pushData: {
+                type: 'commission_due',
+                month: String(month),
+                year: String(year)
+            }
+        }
+    );
+};
+
+/**
+ * Create notification when a cook submits proof of commission payment
+ * (sent to admin).
+ */
+export const notifyCommissionSettlementSubmitted = async (adminId, settlementId, cookName, amount) => {
+    return createNotification(
+        adminId,
+        'Commission Payment Submitted',
+        `${cookName} submitted proof of payment for ₹${Number(amount).toFixed(2)} commission.`,
+        'commission_submitted',
+        settlementId,
+        'commission_settlement',
+        {}
+    );
+};
+
+/**
+ * Create notification when an admin verifies or rejects a cook's commission
+ * payment (sent to the cook).
+ */
+export const notifyCommissionSettlementVerified = async (cookId, amount, month, year) => {
+    const monthLabel = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' });
+    return createNotification(
+        cookId,
+        'Commission Payment Verified ✅',
+        `Your ₹${Number(amount).toFixed(2)} commission payment for ${monthLabel} ${year} has been verified. Thank you!`,
+        'commission_verified',
+        null,
+        'commission_settlement',
+        { pushData: { type: 'commission_verified' } }
+    );
+};
+
+export const notifyCommissionSettlementRejected = async (cookId, amount, adminNotes) => {
+    const message = `Your ₹${Number(amount).toFixed(2)} commission payment screenshot could not be verified`
+        + (adminNotes ? ` — "${adminNotes}"` : '')
+        + '. Please re-upload proof of payment.';
+    return createNotification(
+        cookId,
+        'Commission Payment Rejected',
+        message,
+        'commission_rejected',
+        null,
+        'commission_settlement',
+        { pushData: { type: 'commission_rejected' } }
+    );
+};
+
+/**
+ * Create notification when a subscription's recurring delivery is skipped
+ * because one of its meals is currently unavailable (sent to the customer,
+ * who paid for a real, fulfillable delivery every cycle — not silence).
+ */
+export const notifySubscriptionDeliverySkipped = async (customerId, subscriptionId, planName) => {
+    return createNotification(
+        customerId,
+        'Delivery Skipped',
+        `Today's delivery for "${planName}" was skipped — the cook has an item from this plan marked unavailable right now. You have not been charged for it.`,
+        'subscription_delivery_skipped',
+        subscriptionId,
+        'subscription',
+        { pushData: { type: 'subscription_delivery_skipped', subscriptionId: String(subscriptionId) } }
+    );
+};
+
+/** Same event, cook-facing — they're leaving a paying subscriber unfulfilled. */
+export const notifySubscriptionDeliverySkippedToCook = async (cookId, subscriptionId, planName, customerName) => {
+    return createNotification(
+        cookId,
+        'Subscription Delivery Skipped',
+        `Today's delivery of "${planName}" for ${customerName} was skipped because one of the plan's meals is marked unavailable. Restock it so their next cycle isn't missed too.`,
+        'subscription_delivery_skipped',
+        subscriptionId,
+        'subscription',
+        {}
+    );
+};
+
+/**
+ * Create notification when a customer submits proof of payment for a new
+ * subscription (sent to the cook, who must verify it before it activates).
+ */
+export const notifySubscriptionPaymentSubmitted = async (cookId, subscriptionId, customerName, planName) => {
+    return createNotification(
+        cookId,
+        'Subscription Payment Submitted',
+        `${customerName} submitted payment proof for "${planName}". Review and verify to activate their subscription.`,
+        'subscription_payment_submitted',
+        subscriptionId,
+        'subscription',
+        { pushData: { type: 'subscription_payment_submitted', subscriptionId: String(subscriptionId) } }
+    );
+};
+
+/**
+ * Create notification when a cook verifies a subscription payment (sent to
+ * the customer — their subscription is now active).
+ */
+export const notifySubscriptionVerified = async (customerId, subscriptionId, planName) => {
+    return createNotification(
+        customerId,
+        'Subscription Activated 🎉',
+        `Your payment was verified — "${planName}" is now active. Your first delivery is on the way per its schedule.`,
+        'subscription_verified',
+        subscriptionId,
+        'subscription',
+        { pushData: { type: 'subscription_verified', subscriptionId: String(subscriptionId) } }
+    );
+};
+
+/**
+ * Create notification when a cook rejects a subscription payment (sent to
+ * the customer, prompting them to re-upload proof).
+ */
+export const notifySubscriptionRejected = async (customerId, subscriptionId, planName, notes) => {
+    const message = `Your payment proof for "${planName}" could not be verified`
+        + (notes ? ` — "${notes}"` : '')
+        + '. Please re-upload a clearer screenshot.';
+    return createNotification(
+        customerId,
+        'Subscription Payment Rejected',
+        message,
+        'subscription_rejected',
+        subscriptionId,
+        'subscription',
+        { pushData: { type: 'subscription_rejected', subscriptionId: String(subscriptionId) } }
+    );
+};
+
+/**
  * Mark all notifications as read for a user
  */
 export const markAllAsRead = async (userId) => {
@@ -269,6 +519,19 @@ export default {
     notifyNewReview,
     notifyReviewReply,
     notifyCookApprovalUpdate,
+    notifyPaymentConfirmed,
+    notifyRefundRequested,
+    notifyRefundFeedbackToCook,
+    notifyRefundProcessed,
+    notifyCommissionDue,
+    notifyCommissionSettlementSubmitted,
+    notifyCommissionSettlementVerified,
+    notifyCommissionSettlementRejected,
+    notifySubscriptionDeliverySkipped,
+    notifySubscriptionDeliverySkippedToCook,
+    notifySubscriptionPaymentSubmitted,
+    notifySubscriptionVerified,
+    notifySubscriptionRejected,
     markAllAsRead,
     cleanupOldNotifications
 };

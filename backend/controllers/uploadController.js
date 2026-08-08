@@ -195,11 +195,14 @@ export const uploadChatMedia = async (req, res) => {
 
 /**
  * POST /api/upload/bank-qr
- * Upload a cook's payment QR code (eSewa / Khalti / Bank).
- * Stored under cook/<cook name>/Bank Details/<Esewa|Khalti|Bank>/ so QR
- * codes are easy to find per-cook in the Cloudinary media library.
- * If the cook already has a QR of this type, the old asset is deleted
- * first so replacing a QR doesn't leave orphaned files behind.
+ * Upload a payment QR code (eSewa / Khalti / Bank) for either a cook (their
+ * own receiving QR, shown to customers) or the admin (the platform's QR,
+ * shown to cooks paying their commission — see commissionController.js).
+ * Stored under cook/<cook name>/Bank Details/<Esewa|Khalti|Bank>/ or
+ * admin/Platform/Bank Details/<Esewa|Khalti|Bank>/ so QR codes are easy to
+ * find in the Cloudinary media library. If the caller already has a QR of
+ * this type, the old asset is deleted first so replacing one doesn't leave
+ * orphaned files behind.
  */
 const QR_TYPE_LABELS = { esewa: 'Esewa', khalti: 'Khalti', bank: 'Bank' };
 const QR_TYPE_DB_KEYS = { esewa: 'esewa_qr_url', khalti: 'khalti_qr_url', bank: 'bank_qr_url' };
@@ -215,25 +218,37 @@ export const uploadBankQr = async (req, res) => {
       return res.status(400).json({ success: false, message: 'qrType must be one of: esewa, khalti, bank.' });
     }
 
-    const userId = req.user.id;
-    const [profiles] = await db.promise().query(
-      'SELECT cp.kitchen_name, cp.bank_details, u.full_name FROM cook_profiles cp ' +
-      'JOIN users u ON u.id = cp.user_id WHERE cp.user_id = ?',
-      [userId]
-    );
+    const isAdmin = req.user.role === 'admin';
+    let folderName, existingBankDetailsJson;
 
-    if (profiles.length === 0) {
-      return res.status(404).json({ success: false, message: 'Cook profile not found.' });
+    if (isAdmin) {
+      const [[settings]] = await db.promise().query(
+        'SELECT bank_details FROM platform_settings WHERE id = 1'
+      );
+      folderName = 'Platform';
+      existingBankDetailsJson = settings ? settings.bank_details : null;
+    } else {
+      const userId = req.user.id;
+      const [profiles] = await db.promise().query(
+        'SELECT cp.kitchen_name, cp.bank_details, u.full_name FROM cook_profiles cp ' +
+        'JOIN users u ON u.id = cp.user_id WHERE cp.user_id = ?',
+        [userId]
+      );
+
+      if (profiles.length === 0) {
+        return res.status(404).json({ success: false, message: 'Cook profile not found.' });
+      }
+
+      folderName = sanitizeFolderName(profiles[0].kitchen_name || profiles[0].full_name || String(userId))
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      existingBankDetailsJson = profiles[0].bank_details;
     }
-
-    const cookName = sanitizeFolderName(profiles[0].kitchen_name || profiles[0].full_name || String(userId))
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
 
     // Delete the previous QR of this type, if one exists, so re-uploading doesn't
     // leave the old image orphaned in Cloudinary.
     try {
-      const existing = profiles[0].bank_details ? JSON.parse(profiles[0].bank_details) : null;
+      const existing = existingBankDetailsJson ? JSON.parse(existingBankDetailsJson) : null;
       const oldUrl = existing ? existing[QR_TYPE_DB_KEYS[qrType]] : null;
       if (oldUrl) {
         const oldPublicId = extractPublicId(oldUrl);
@@ -243,7 +258,9 @@ export const uploadBankQr = async (req, res) => {
       // Malformed/legacy bank_details JSON — nothing to clean up, continue.
     }
 
-    const folder = `cook/${cookName}/Bank Details/${QR_TYPE_LABELS[qrType]}`;
+    const folder = isAdmin
+      ? `admin/Platform/Bank Details/${QR_TYPE_LABELS[qrType]}`
+      : `cook/${folderName}/Bank Details/${QR_TYPE_LABELS[qrType]}`;
 
     const result = await uploadToCloudinary(req.file.buffer, folder, {
       transformation: [

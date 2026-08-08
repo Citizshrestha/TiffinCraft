@@ -1,5 +1,6 @@
 import db from "../config/db.js";
 import { createNotification, notifyNewOrder, notifyOrderStatusUpdate, notifyOrderCancelled, notifyOrderCancelledToCustomer } from '../utils/notificationHelper.js';
+import { applyDeliveryCommission } from "./commissionController.js";
 
 export const placeOrder = async (req, res) => {
     const connection = await db.promise().getConnection();
@@ -153,9 +154,11 @@ export const getOrderById = async (req, res) => {
             `SELECT o.*,
                     u.full_name as customer_name,
                     u.phone as customer_phone,
+                    u.profile_image as customer_profile_image,
                     cu.full_name as cook_name,
                     cu.phone as cook_phone,
                     cp.kitchen_name,
+                    cp.bank_details AS cook_bank_details,
                     cu.latitude  AS cook_latitude,
                     cu.longitude AS cook_longitude,
                     -- Orders placed before delivery coords were captured have NULL
@@ -197,9 +200,28 @@ export const getOrderById = async (req, res) => {
             [orderId]
         );
 
+        // payment_status = 'paid' is now reached by two different paths — an
+        // eSewa auto-confirmation (nothing left to do) vs. the older manual
+        // screenshot flow (still awaiting the cook's verification). The
+        // client needs to tell them apart to show the right label.
+        const [[esewaPayment]] = await db.promise().query(
+            `SELECT id FROM payments WHERE order_id = ? AND status = 'SUCCESS' LIMIT 1`,
+            [orderId]
+        );
+
         // mysql2 returns DECIMAL columns as strings — coerce so Gson maps them
         // onto Double (same treatment getNearbyCooks applies to its coords).
         const num = (v) => (v === null || v === undefined ? null : parseFloat(v));
+
+        // Cook's eSewa QR for the manual pay flow — the customer scans it in
+        // their own eSewa app. bank_details is a JSON blob (esewa_qr_url /
+        // khalti_qr_url / bank_qr_url); pull just eSewa's, tolerating legacy
+        // rows that are null or malformed.
+        let cookEsewaQrUrl = null;
+        try {
+            if (order.cook_bank_details) cookEsewaQrUrl = JSON.parse(order.cook_bank_details).esewa_qr_url || null;
+        } catch (_) { /* legacy/malformed JSON — no QR */ }
+        delete order.cook_bank_details;
 
         return res.status(200).json({
             success: true,
@@ -209,7 +231,9 @@ export const getOrderById = async (req, res) => {
                 cook_latitude: num(order.cook_latitude),
                 cook_longitude: num(order.cook_longitude),
                 map_customer_latitude: num(order.map_customer_latitude),
-                map_customer_longitude: num(order.map_customer_longitude)
+                map_customer_longitude: num(order.map_customer_longitude),
+                cook_esewa_qr_url: cookEsewaQrUrl,
+                esewa_confirmed: !!esewaPayment
             }
         });
 
@@ -302,8 +326,13 @@ export const getCookOrders = async (req, res) => {
                    u.full_name as customer_name,
                    u.phone as customer_phone,
                    m.name as meal_name,
+                   m.image_url as meal_image,
                    oi.quantity,
-                   oi.price_at_time as meal_price
+                   oi.price_at_time as meal_price,
+                   -- Distinguishes an eSewa auto-confirmation from the older
+                   -- manual-screenshot flow — both reach payment_status='paid'
+                   -- but only the latter still needs the cook to verify anything.
+                   EXISTS(SELECT 1 FROM payments p WHERE p.order_id = o.id AND p.status = 'SUCCESS') AS esewa_confirmed
             FROM orders o
             JOIN users u ON o.customer_id = u.id
             JOIN order_items oi ON o.id = oi.order_id
@@ -320,6 +349,10 @@ export const getCookOrders = async (req, res) => {
         query += ` ORDER BY o.created_at DESC`;
 
         const [orders] = await db.promise().query(query, params);
+
+        // MySQL returns EXISTS(...) as a 0/1 TINYINT — Gson won't map that onto
+        // a Java boolean, so normalize it here (same fix as chat's normalizeMessage).
+        orders.forEach(o => { o.esewa_confirmed = !!o.esewa_confirmed; });
 
         return res.status(200).json({
             success: true,
@@ -388,6 +421,10 @@ export const updateOrderStatus = async (req, res) => {
             "UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?",
             [status, orderId]
         );
+
+        if (status === "delivered") {
+            await applyDeliveryCommission(orderId);
+        }
 
         // Get cook name for notification
         const [cook] = await db.promise().query(
@@ -599,16 +636,18 @@ export const getCookEarnings = async (req, res) => {
         const cookId = req.user.id;
 
         const [summary] = await db.promise().query(
-            `SELECT 
+            `SELECT
                 COUNT(*) as total_orders,
-                SUM(CASE WHEN status = 'delivered' 
+                SUM(CASE WHEN status = 'delivered'
                     THEN total_amount ELSE 0 END) as total_earned,
-                SUM(CASE WHEN DATE(created_at) = CURDATE() 
+                SUM(CASE WHEN status = 'delivered'
+                    THEN COALESCE(commission_amount, 0) ELSE 0 END) as total_commission,
+                SUM(CASE WHEN DATE(created_at) = CURDATE()
                     THEN total_amount ELSE 0 END) as today_earned,
-                SUM(CASE WHEN status = 'delivered' 
+                SUM(CASE WHEN status = 'delivered'
                     AND MONTH(created_at) = MONTH(NOW())
                     THEN total_amount ELSE 0 END) as this_month_earned,
-                COUNT(CASE WHEN status = 'pending' 
+                COUNT(CASE WHEN status = 'pending'
                     THEN 1 END) as pending_orders
              FROM orders
              WHERE cook_id = ?`,
