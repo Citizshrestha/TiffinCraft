@@ -31,6 +31,7 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
     public interface OnOrderActionListener {
         void onActionClick(Order order, String nextStatus);
         void onVerifyPaymentClick(Order order);
+        void onDeleteOrder(Order order);
     }
 
     private final Context context;
@@ -128,6 +129,36 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
         } else {
             holder.btnNextAction.setVisibility(View.GONE);
         }
+
+        // Three-dot menu button - only show for completed/delivered orders
+        boolean canDelete = "delivered".equalsIgnoreCase(status) || "completed".equalsIgnoreCase(status);
+        holder.btnMoreOptions.setVisibility(canDelete ? View.VISIBLE : View.GONE);
+        holder.btnMoreOptions.setOnClickListener(v -> showDeleteConfirmation(v, order));
+    }
+
+    private void showDeleteConfirmation(View anchorView, Order order) {
+        android.widget.PopupMenu popup = new android.widget.PopupMenu(context, anchorView);
+        popup.getMenuInflater().inflate(R.menu.menu_order_options, popup.getMenu());
+
+        popup.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.action_delete_order) {
+                // Show confirmation dialog
+                new androidx.appcompat.app.AlertDialog.Builder(context)
+                        .setTitle("Delete Order")
+                        .setMessage("Are you sure you want to delete Order #" + order.getId() + "? This action cannot be undone.")
+                        .setPositiveButton("Delete", (dialog, which) -> {
+                            if (listener != null) {
+                                listener.onDeleteOrder(order);
+                            }
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+                return true;
+            }
+            return false;
+        });
+
+        popup.show();
     }
 
     private void setupImageCarousel(OrderViewHolder holder, Order order) {
@@ -361,7 +392,7 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
                  tvOrderSummary, tvSpecialInstructions;
         ViewPager2 viewPagerImages;
         ImageView imgMealPlaceholder;
-        ImageButton btnPrevImage, btnNextImage;
+        ImageButton btnPrevImage, btnNextImage, btnMoreOptions;
         LinearLayout layoutIndicators, layoutItemChips, layoutSpecialInstructions;
         MaterialButton btnNextAction, btnVerifyPayment;
 
@@ -378,6 +409,7 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
             imgMealPlaceholder          = itemView.findViewById(R.id.imgMealPlaceholder);
             btnPrevImage                = itemView.findViewById(R.id.btnPrevImage);
             btnNextImage                = itemView.findViewById(R.id.btnNextImage);
+            btnMoreOptions              = itemView.findViewById(R.id.btnMoreOptions);
             layoutIndicators            = itemView.findViewById(R.id.layoutIndicators);
             layoutItemChips             = itemView.findViewById(R.id.layoutItemChips);
             layoutSpecialInstructions   = itemView.findViewById(R.id.layoutSpecialInstructions);

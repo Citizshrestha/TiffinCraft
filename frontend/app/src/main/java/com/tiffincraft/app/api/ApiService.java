@@ -260,6 +260,9 @@ public interface ApiService {
     @PUT("orders/{orderId}/verify-payment")
     Call<RegisterResponse> verifyPayment(@Header("Authorization") String token, @Path("orderId") int orderId, @Body com.google.gson.JsonObject requestBody);
 
+    @DELETE("orders/{orderId}")
+    Call<RegisterResponse> deleteOrder(@Header("Authorization") String token, @Path("orderId") int orderId);
+
     @GET("orders/cook/earnings")
     Call<CookEarningsTotalsResponse> getCookEarningsTotals(@Header("Authorization") String token);
 

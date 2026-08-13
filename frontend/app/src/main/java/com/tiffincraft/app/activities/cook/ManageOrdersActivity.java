@@ -311,6 +311,41 @@ public class ManageOrdersActivity extends AppCompatActivity
         startActivity(intent);
     }
 
+    @Override
+    public void onDeleteOrder(Order order) {
+        String token = "Bearer " + sessionManager.getToken();
+
+        apiService.deleteOrder(token, order.getId())
+                .enqueue(new Callback<com.tiffincraft.app.models.RegisterResponse>() {
+                    @Override
+                    public void onResponse(@NonNull Call<com.tiffincraft.app.models.RegisterResponse> call,
+                                           @NonNull Response<com.tiffincraft.app.models.RegisterResponse> response) {
+                        if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                            Toast.makeText(ManageOrdersActivity.this,
+                                    "Order #" + order.getId() + " deleted successfully",
+                                    Toast.LENGTH_SHORT).show();
+                            
+                            // Remove order from list and update UI
+                            allOrders.remove(order);
+                            applyFilter();
+                        } else {
+                            String errorMsg = "Failed to delete order";
+                            if (response.body() != null && response.body().getMessage() != null) {
+                                errorMsg = response.body().getMessage();
+                            }
+                            Toast.makeText(ManageOrdersActivity.this, errorMsg, Toast.LENGTH_LONG).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull Call<com.tiffincraft.app.models.RegisterResponse> call,
+                                          @NonNull Throwable t) {
+                        Toast.makeText(ManageOrdersActivity.this,
+                                "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
     private String statusLabel(String status) {
         switch (status) {
             case "confirmed":        return "Confirmed";
