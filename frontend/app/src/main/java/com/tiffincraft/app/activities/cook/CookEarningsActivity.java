@@ -303,12 +303,16 @@ public class CookEarningsActivity extends AppCompatActivity {
         leftAxis.enableGridDashedLine(6f, 6f, 0f);
         leftAxis.setAxisMinimum(0f);
         leftAxis.setSpaceTop(20f);
-        leftAxis.setLabelCount(5, false);
+        leftAxis.setLabelCount(5, true); // force exactly 5 labels for clean intervals
         leftAxis.setValueFormatter(new com.github.mikephil.charting.formatter.ValueFormatter() {
-            private final DecimalFormat format = new DecimalFormat("#,##0");
             @Override
             public String getFormattedValue(float value) {
-                return "₹" + format.format(value);
+                if (value == 0) return "₹0";
+                // Format with nice round numbers
+                if (value >= 1000) {
+                    return "₹" + String.format(Locale.getDefault(), "%.0fk", value / 1000);
+                }
+                return "₹" + String.format(Locale.getDefault(), "%.0f", value);
             }
         });
 
@@ -362,6 +366,20 @@ public class CookEarningsActivity extends AppCompatActivity {
             return;
         }
 
+        // Calculate max value and set appropriate Y-axis maximum
+        float maxValue = 0;
+        for (Entry entry : entries) {
+            if (entry.getY() > maxValue) {
+                maxValue = entry.getY();
+            }
+        }
+
+        // Set a nice round maximum for better Y-axis labels
+        float yMax = calculateNiceMaximum(maxValue);
+        YAxis leftAxis = chart.getAxisLeft();
+        leftAxis.setAxisMaximum(yMax);
+        leftAxis.setAxisMinimum(0f);
+
         // Week (7 pts) is fine showing every label; Month (30 pts) and Year (12 pts)
         // both get thinned to ~6 or every 12 months look crammed/unreadable.
         chart.getXAxis().setLabelCount(
@@ -390,6 +408,33 @@ public class CookEarningsActivity extends AppCompatActivity {
         chart.highlightValue(null);
         chart.animateX(400);
         chart.invalidate();
+    }
+
+    /**
+     * Calculate a nice round maximum for Y-axis based on the actual max value.
+     * Returns values like 5, 10, 20, 50, 100, 200, 500, 1000, etc.
+     */
+    private float calculateNiceMaximum(float maxValue) {
+        if (maxValue <= 0) return 10; // default minimum scale
+
+        // Round up to next nice number
+        float magnitude = (float) Math.pow(10, Math.floor(Math.log10(maxValue)));
+        float normalized = maxValue / magnitude;
+
+        float niceMax;
+        if (normalized <= 1) niceMax = 1;
+        else if (normalized <= 2) niceMax = 2;
+        else if (normalized <= 5) niceMax = 5;
+        else niceMax = 10;
+
+        float result = niceMax * magnitude;
+        
+        // Ensure we have some headroom above the max data point
+        if (result <= maxValue) {
+            result = result * 1.25f;
+        }
+        
+        return result;
     }
 
     private String formatTrendLabel(String raw, SimpleDateFormat parseFmt, SimpleDateFormat labelFmt) {

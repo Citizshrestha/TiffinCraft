@@ -7,6 +7,7 @@ public class EarningsTransaction {
     private String paymentMethod;
     private String time;
     private String date;
+    private String imageUrl;  // First meal image from the order
 
     public EarningsTransaction() {
     }
@@ -70,5 +71,13 @@ public class EarningsTransaction {
 
     public void setDate(String date) {
         this.date = date;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 }

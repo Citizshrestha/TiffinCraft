@@ -4,11 +4,15 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.resource.bitmap.CircleCrop;
+import com.bumptech.glide.request.RequestOptions;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.models.EarningsTransaction;
 import com.tiffincraft.app.utils.CurrencyUtils;
@@ -54,6 +58,19 @@ public class EarningsAdapter extends RecyclerView.Adapter<EarningsAdapter.Transa
 
         holder.tvAmount.setText("+ " + CurrencyUtils.formatRupees(t.getAmount()));
 
+        // Load order meal image with circular crop
+        if (t.getImageUrl() != null && !t.getImageUrl().isEmpty()) {
+            Glide.with(context)
+                    .load(t.getImageUrl())
+                    .apply(RequestOptions.bitmapTransform(new CircleCrop()))
+                    .placeholder(R.drawable.circle_icon_green)
+                    .error(R.drawable.circle_icon_green)
+                    .into(holder.ivTransactionImage);
+        } else {
+            // Show placeholder if no image available
+            holder.ivTransactionImage.setImageResource(R.drawable.circle_icon_green);
+        }
+
         if (t.isOnlinePayment()) {
             holder.tvPaymentMethod.setText("Online");
             holder.tvPaymentMethod.setBackgroundResource(R.drawable.status_chip_new);
@@ -79,11 +96,13 @@ public class EarningsAdapter extends RecyclerView.Adapter<EarningsAdapter.Transa
     }
 
     static class TransactionViewHolder extends RecyclerView.ViewHolder {
+        ImageView ivTransactionImage;
         TextView tvTitle, tvSubtitle, tvAmount, tvPaymentMethod;
         View divider;
 
         TransactionViewHolder(@NonNull View itemView) {
             super(itemView);
+            ivTransactionImage = itemView.findViewById(R.id.ivTransactionImage);
             tvTitle          = itemView.findViewById(R.id.tvTransactionTitle);
             tvSubtitle       = itemView.findViewById(R.id.tvTransactionSubtitle);
             tvAmount         = itemView.findViewById(R.id.tvTransactionAmount);

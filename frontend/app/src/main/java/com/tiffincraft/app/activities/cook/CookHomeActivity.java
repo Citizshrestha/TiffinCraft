@@ -600,12 +600,16 @@ public class CookHomeActivity extends AppCompatActivity {
         leftAxis.enableGridDashedLine(6f, 6f, 0f);
         leftAxis.setAxisMinimum(0f);
         leftAxis.setSpaceTop(20f);
-        leftAxis.setLabelCount(5, false);
+        leftAxis.setLabelCount(5, true); // force exactly 5 labels for clean intervals
         leftAxis.setValueFormatter(new com.github.mikephil.charting.formatter.ValueFormatter() {
-            private final java.text.DecimalFormat format = new java.text.DecimalFormat("#,##0");
             @Override
             public String getFormattedValue(float value) {
-                return "₹" + format.format(value);
+                if (value == 0) return "₹0";
+                // Format with nice round numbers
+                if (value >= 1000) {
+                    return "₹" + String.format(java.util.Locale.getDefault(), "%.0fk", value / 1000);
+                }
+                return "₹" + String.format(java.util.Locale.getDefault(), "%.0f", value);
             }
         });
 
@@ -662,6 +666,20 @@ public class CookHomeActivity extends AppCompatActivity {
             return;
         }
 
+        // Calculate max value and set appropriate Y-axis maximum
+        float maxValue = 0;
+        for (Entry entry : entries) {
+            if (entry.getY() > maxValue) {
+                maxValue = entry.getY();
+            }
+        }
+
+        // Set a nice round maximum for better Y-axis labels
+        float yMax = calculateNiceMaximum(maxValue);
+        YAxis leftAxis = chartEarningsTrend.getAxisLeft();
+        leftAxis.setAxisMaximum(yMax);
+        leftAxis.setAxisMinimum(0f);
+
         // Dense 30-point view: thin out X labels so they don't overlap
         chartEarningsTrend.getXAxis().setLabelCount(
                 Math.min(entries.size(), trendRange == 1 ? 6 : entries.size()), false);
@@ -689,6 +707,33 @@ public class CookHomeActivity extends AppCompatActivity {
         chartEarningsTrend.highlightValue(null);
         chartEarningsTrend.animateX(400);
         chartEarningsTrend.invalidate();
+    }
+
+    /**
+     * Calculate a nice round maximum for Y-axis based on the actual max value.
+     * Returns values like 5, 10, 20, 50, 100, 200, 500, 1000, etc.
+     */
+    private float calculateNiceMaximum(float maxValue) {
+        if (maxValue <= 0) return 10; // default minimum scale
+
+        // Round up to next nice number
+        float magnitude = (float) Math.pow(10, Math.floor(Math.log10(maxValue)));
+        float normalized = maxValue / magnitude;
+
+        float niceMax;
+        if (normalized <= 1) niceMax = 1;
+        else if (normalized <= 2) niceMax = 2;
+        else if (normalized <= 5) niceMax = 5;
+        else niceMax = 10;
+
+        float result = niceMax * magnitude;
+        
+        // Ensure we have some headroom above the max data point
+        if (result <= maxValue) {
+            result = result * 1.25f;
+        }
+        
+        return result;
     }
 
     private String formatTrendLabel(String raw, java.text.SimpleDateFormat parseFmt,
