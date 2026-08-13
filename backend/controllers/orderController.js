@@ -867,3 +867,70 @@ export const verifyPayment = async (req, res) => {
         });
     }
 };
+
+
+/**
+ * DELETE /api/orders/:orderId
+ * Cook permanently deletes a completed/delivered order
+ * Only delivered or completed orders can be deleted
+ */
+export const deleteOrder = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+        const { orderId } = req.params;
+
+        // Check order belongs to this cook
+        const [orders] = await db.promise().query(
+            "SELECT * FROM orders WHERE id = ? AND cook_id = ?",
+            [orderId, cookId]
+        );
+
+        if (orders.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Order not found."
+            });
+        }
+
+        const order = orders[0];
+
+        // Only allow deletion of delivered or completed orders
+        if (order.status !== 'delivered' && order.status !== 'completed') {
+            return res.status(403).json({
+                success: false,
+                message: "Only delivered or completed orders can be deleted."
+            });
+        }
+
+        // Delete order items first (foreign key constraint)
+        await db.promise().query(
+            "DELETE FROM order_items WHERE order_id = ?",
+            [orderId]
+        );
+
+        // Delete related notifications
+        await db.promise().query(
+            "DELETE FROM notifications WHERE reference_id = ? AND reference_type = 'order'",
+            [orderId]
+        );
+
+        // Delete the order
+        await db.promise().query(
+            "DELETE FROM orders WHERE id = ?",
+            [orderId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Order deleted successfully."
+        });
+
+    } catch (error) {
+        console.error("deleteOrder error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};

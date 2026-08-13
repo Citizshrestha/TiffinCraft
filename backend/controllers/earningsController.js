@@ -124,14 +124,27 @@ export const getCookEarningsSummary = async (req, res) => {
 
         const [recentTransactions] = await db.promise().query(recentQuery, recentParams);
 
-        // Format recent transactions
-        const formattedTransactions = recentTransactions.map(t => ({
-            orderId: t.order_id,
-            customerName: t.customer_name,
-            amount: parseFloat(t.amount),
-            paymentMethod: t.payment_method || 'cod',
-            time: t.time,
-            date: t.date
+        // Get the first meal image for each transaction
+        const formattedTransactions = await Promise.all(recentTransactions.map(async (t) => {
+            // Fetch the first meal image from order_items
+            const [mealImage] = await db.promise().query(
+                `SELECT m.image_url
+                 FROM order_items oi
+                 JOIN meals m ON oi.meal_id = m.id
+                 WHERE oi.order_id = ?
+                 LIMIT 1`,
+                [t.order_id]
+            );
+
+            return {
+                orderId: t.order_id,
+                customerName: t.customer_name,
+                amount: parseFloat(t.amount),
+                paymentMethod: t.payment_method || 'cod',
+                time: t.time,
+                date: t.date,
+                imageUrl: mealImage.length > 0 ? mealImage[0].image_url : null
+            };
         }));
 
         // Get weekly breakdown (last 7 days)
@@ -302,14 +315,27 @@ export const getCookEarningsTransactions = async (req, res) => {
 
         const [transactions] = await db.promise().query(transactionsQuery, queryParams);
 
-        // Format transactions
-        const formattedTransactions = transactions.map(t => ({
-            orderId: t.order_id,
-            customerName: t.customer_name,
-            amount: parseFloat(t.amount),
-            paymentMethod: t.payment_method || 'cod',
-            time: t.time,
-            date: t.date
+        // Format transactions and get the first meal image for each
+        const formattedTransactions = await Promise.all(transactions.map(async (t) => {
+            // Fetch the first meal image from order_items
+            const [mealImage] = await db.promise().query(
+                `SELECT m.image_url
+                 FROM order_items oi
+                 JOIN meals m ON oi.meal_id = m.id
+                 WHERE oi.order_id = ?
+                 LIMIT 1`,
+                [t.order_id]
+            );
+
+            return {
+                orderId: t.order_id,
+                customerName: t.customer_name,
+                amount: parseFloat(t.amount),
+                paymentMethod: t.payment_method || 'cod',
+                time: t.time,
+                date: t.date,
+                imageUrl: mealImage.length > 0 ? mealImage[0].image_url : null
+            };
         }));
 
         return res.status(200).json({

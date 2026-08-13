@@ -10,7 +10,8 @@ import {
     cookCancelOrder,
     getCookEarnings,
     uploadPaymentScreenshot,
-    verifyPayment
+    verifyPayment,
+    deleteOrder
 } from "../controllers/orderController.js";
 import {
     getCookEarningsSummary,
@@ -31,6 +32,7 @@ router.get("/cook/earnings/transactions", protect, roleOnly("cook"), getCookEarn
 router.put("/:orderId/status", protect, roleOnly("cook"), updateOrderStatus);
 router.put("/:orderId/verify-payment", protect, roleOnly("cook"), verifyPayment);
 router.put("/:orderId/cook-cancel", protect, roleOnly("cook"), cookCancelOrder);
+router.delete("/:orderId", protect, roleOnly("cook"), deleteOrder);
 
 router.get("/:orderId", protect, getOrderById);
 
