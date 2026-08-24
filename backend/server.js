@@ -44,10 +44,54 @@ const server = http.createServer(app);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// ── CORS policy ───────────────────────────────────────────────
+// Defined here rather than further down because Socket.IO (below) needs the
+// same rules as the REST API — previously it had its own, different, and also
+// wrong config.
+//
+// Scope note: CORS is a *browser* protection. The Android app sends no Origin
+// header, and eSewa's return trip into /api/payments/... is a top-level
+// navigation, not an XHR. Neither is affected by anything in this block.
+const allowedOrigins = (process.env.CLIENT_URL || "")
+    .split(",")
+    .map((o) => o.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+
+// Loopback / private-LAN origins, so the Admin dashboard can be developed
+// against a running backend. Gated on NODE_ENV: a real production deploy
+// should not be reachable from whatever a developer happens to be serving.
+const DEV_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?$/;
+
+// Rejections are logged once per origin, not once per request — a misconfigured
+// CLIENT_URL would otherwise flood the log with identical lines.
+const loggedRejections = new Set();
+
+function corsOrigin(origin, callback) {
+    // No Origin header: native app, curl, server-to-server, eSewa callback.
+    // There is no browser here to protect, so CORS has no opinion.
+    if (!origin) return callback(null, true);
+
+    const normalized = origin.replace(/\/$/, "");
+    if (allowedOrigins.includes(normalized)) return callback(null, true);
+    if (process.env.NODE_ENV !== "production" && DEV_ORIGIN.test(normalized)) {
+        return callback(null, true);
+    }
+
+    if (!loggedRejections.has(normalized)) {
+        loggedRejections.add(normalized);
+        console.warn(`⚠️  CORS rejected origin: ${normalized} — add it to CLIENT_URL if it is yours`);
+    }
+    // callback(null, false) omits Access-Control-Allow-Origin, so the browser
+    // blocks the response. Deliberately NOT callback(new Error(...)), which
+    // would return a 500 and make a config typo look like a server crash.
+    return callback(null, false);
+}
+
 const io = new Server(server, {
     cors: {
-        origin: process.env.CLIENT_URL || "*",
-        methods: ["GET", "POST"]
+        origin: corsOrigin,
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
@@ -150,12 +194,17 @@ io.on("connection", (socket) => {
 
 app.set("io", io);
 
-const allowedOrigins = (process.env.CLIENT_URL || '').split(',').filter(Boolean);
-
-console.log("⚠️  CORS: Allowing all origins for development");
+if (allowedOrigins.length) {
+    console.log(`🔒 CORS allowlist: ${allowedOrigins.join(", ")}`);
+} else {
+    console.warn(
+        "⚠️  CORS: CLIENT_URL is empty — browser clients will be blocked. " +
+        "The Android app is unaffected (it sends no Origin header)."
+    );
+}
 
 app.use(cors({
-    origin: true, // Allow all origins in development
+    origin: corsOrigin,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true

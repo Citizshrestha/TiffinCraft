@@ -1,29 +1,60 @@
 import db from "../config/db.js";
 
-const DURATIONS = ["weekly", "monthly"];
+const DURATIONS = ["weekly", "2_weeks", "monthly", "1_week", "1_month"];
 
 /** Validates the items array shared by create/update: non-empty, each meal owned
- *  by this cook, quantity a positive integer. Returns an error string or null. */
+ *  by this cook, quantity a positive integer. Returns { error, menuTotal } — the
+ *  total is what these items cost at full menu price, which the plan price has
+ *  to undercut (see validatePlanPrice). */
 async function validateItems(items, cookId) {
     if (!Array.isArray(items) || items.length === 0) {
-        return "At least one item is required.";
+        return { error: "At least one item is required.", menuTotal: 0 };
     }
     for (const item of items) {
         const qty = parseInt(item.quantity, 10);
         if (!item.meal_id || !Number.isInteger(qty) || qty <= 0) {
-            return "Each item needs a meal_id and a positive integer quantity.";
+            return { error: "Each item needs a meal_id and a positive integer quantity.", menuTotal: 0 };
         }
     }
     const mealIds = items.map(i => parseInt(i.meal_id, 10));
     const [owned] = await db.promise().query(
-        `SELECT id FROM meals WHERE cook_id = ? AND id IN (${mealIds.map(() => "?").join(",")})`,
+        `SELECT id, price FROM meals WHERE cook_id = ? AND id IN (${mealIds.map(() => "?").join(",")})`,
         [cookId, ...mealIds]
     );
     if (owned.length !== new Set(mealIds).size) {
-        return "One or more items reference a meal that isn't yours.";
+        return { error: "One or more items reference a meal that isn't yours.", menuTotal: 0 };
     }
-    return null;
+    const priceById = new Map(owned.map(m => [m.id, parseFloat(m.price)]));
+    const menuTotal = items.reduce(
+        (sum, i) => sum + priceById.get(parseInt(i.meal_id, 10)) * parseInt(i.quantity, 10),
+        0
+    );
+    return { error: null, menuTotal };
 }
+
+/**
+ * A subscription is a single up-front payment, so its price has to be a real
+ * discount on the items' combined menu price — otherwise the customer is paying
+ * the same money for less flexibility. Enforced here and not only in the app,
+ * because the app isn't a trust boundary.
+ * Returns { error, price }.
+ */
+function validatePlanPrice(rawPrice, menuTotal) {
+    if (rawPrice === undefined || rawPrice === null || rawPrice === "") {
+        return { error: "A subscription price is required, and it must be lower than the items' combined menu price." };
+    }
+    const price = Number(rawPrice);
+    if (Number.isNaN(price) || price <= 0) {
+        return { error: "Subscription price must be a positive number." };
+    }
+    if (menuTotal > 0 && price >= menuTotal) {
+        return {
+            error: `Subscription price must be less than the items' combined menu price (₹${menuTotal.toFixed(0)}) — subscribers need a real discount.`
+        };
+    }
+    return { error: null, price };
+}
+
 
 async function fetchPlanWithItems(planId) {
     const [plans] = await db.promise().query(
@@ -47,11 +78,11 @@ async function fetchPlanWithItems(planId) {
 
     const formattedItems = items.map(i => ({ ...i, price: parseFloat(i.price), is_available: !!i.is_available }));
     const individualTotal = formattedItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
-    // The actual per-delivery charge. If the cook set an explicit price (the
-    // whole point of a subscription — a real discount for committing, not
-    // just "the same items, but recurring"), use it; otherwise fall back to
-    // the old auto-summed behavior so plans created before this existed keep
-    // working exactly as they did.
+    // The plan's one-time subscription price. (The column is still named
+    // price_per_delivery for schema-compatibility; it is now the single
+    // up-front price for the plan, not a recurring per-delivery charge.)
+    // Plans created before the price became mandatory can still have NULL here,
+    // so fall back to the summed menu total for those instead of breaking them.
     const pricePerDelivery = plans[0].price_per_delivery !== null
         ? parseFloat(plans[0].price_per_delivery)
         : individualTotal;
@@ -91,22 +122,18 @@ export const createPlan = async (req, res) => {
             return res.status(400).json({ success: false, message: "Plan name is required." });
         }
         if (!DURATIONS.includes(duration)) {
-            return res.status(400).json({ success: false, message: "duration must be 'weekly' or 'monthly'." });
+            return res.status(400).json({ success: false, message: "duration must be 'weekly' (1 week), '2_weeks' (2 weeks), or 'monthly' (1 month)." });
         }
-        // Optional — a cook can leave this unset and let the price auto-sum
-        // from item prices, but a real subscription only makes sense as a
-        // deal, so the form strongly nudges toward setting it.
-        let priceOverride = null;
-        if (price_per_delivery !== undefined && price_per_delivery !== null && price_per_delivery !== "") {
-            const priceNum = Number(price_per_delivery);
-            if (Number.isNaN(priceNum) || priceNum <= 0) {
-                return res.status(400).json({ success: false, message: "price_per_delivery must be a positive number." });
-            }
-            priceOverride = priceNum;
-        }
-        const itemsError = await validateItems(items, cookId);
+        // Items first: the price rule is relative to what these items cost at
+        // menu price, so there's nothing to check the price against until the
+        // items are known-good.
+        const { error: itemsError, menuTotal } = await validateItems(items, cookId);
         if (itemsError) {
             return res.status(400).json({ success: false, message: itemsError });
+        }
+        const { error: priceError, price: planPrice } = validatePlanPrice(price_per_delivery, menuTotal);
+        if (priceError) {
+            return res.status(400).json({ success: false, message: priceError });
         }
 
         const connection = await db.promise().getConnection();
@@ -115,7 +142,7 @@ export const createPlan = async (req, res) => {
 
             const [result] = await connection.query(
                 `INSERT INTO subscription_plans (cook_id, name, duration, description, price_per_delivery) VALUES (?, ?, ?, ?, ?)`,
-                [cookId, name.trim(), duration, description || null, priceOverride]
+                [cookId, name.trim(), duration, description || null, planPrice]
             );
             const planId = result.insertId;
 
@@ -195,7 +222,7 @@ export const updatePlan = async (req, res) => {
         const { name, duration, description, is_active, items, price_per_delivery } = req.body;
 
         const [owned] = await db.promise().query(
-            "SELECT id FROM subscription_plans WHERE id = ? AND cook_id = ?",
+            "SELECT id, price_per_delivery FROM subscription_plans WHERE id = ? AND cook_id = ?",
             [id, cookId]
         );
         if (owned.length === 0) {
@@ -203,18 +230,39 @@ export const updatePlan = async (req, res) => {
         }
 
         if (duration !== undefined && !DURATIONS.includes(duration)) {
-            return res.status(400).json({ success: false, message: "duration must be 'weekly' or 'monthly'." });
+            return res.status(400).json({ success: false, message: "duration must be 'weekly' (1 week), '2_weeks' (2 weeks), or 'monthly' (1 month)." });
         }
+
+        // The price rule is relative to the item set, so a change to either side
+        // can break it. Resolve whichever side wasn't submitted from what's
+        // already stored, then check the pair.
+        let menuTotal = null;
         if (items !== undefined) {
-            const itemsError = await validateItems(items, cookId);
-            if (itemsError) {
-                return res.status(400).json({ success: false, message: itemsError });
+            const validated = await validateItems(items, cookId);
+            if (validated.error) {
+                return res.status(400).json({ success: false, message: validated.error });
             }
+            menuTotal = validated.menuTotal;
         }
-        if (price_per_delivery !== undefined && price_per_delivery !== null && price_per_delivery !== "") {
-            const priceNum = Number(price_per_delivery);
-            if (Number.isNaN(priceNum) || priceNum <= 0) {
-                return res.status(400).json({ success: false, message: "price_per_delivery must be a positive number." });
+        if (price_per_delivery !== undefined) {
+            if (menuTotal === null) {
+                const existing = await fetchPlanWithItems(id);
+                menuTotal = existing ? existing.individual_total : 0;
+            }
+            const { error: priceError } = validatePlanPrice(price_per_delivery, menuTotal);
+            if (priceError) {
+                return res.status(400).json({ success: false, message: priceError });
+            }
+        } else if (menuTotal !== null && owned[0].price_per_delivery !== null) {
+            // Items changed but the price didn't: swapping in cheaper meals can
+            // leave the stored price at or above the new menu total, which would
+            // silently turn the plan into a worse deal than ordering separately.
+            const { error: priceError } = validatePlanPrice(owned[0].price_per_delivery, menuTotal);
+            if (priceError) {
+                return res.status(400).json({
+                    success: false,
+                    message: `${priceError} Lower the plan price in the same update as these items.`
+                });
             }
         }
 
@@ -229,13 +277,12 @@ export const updatePlan = async (req, res) => {
         if (duration !== undefined) { updates.push("duration = ?"); values.push(duration); }
         if (description !== undefined) { updates.push("description = ?"); values.push(description); }
         if (is_active !== undefined) { updates.push("is_active = ?"); values.push(!!is_active); }
-        // Sending "" or null explicitly clears the override back to auto-summed
-        // pricing; omitting the field entirely (undefined) leaves it untouched —
-        // same partial-update convention every other field here already uses.
+        // Clearing the price back to auto-summed is no longer allowed — a plan
+        // priced at the menu total is not a subscription anyone benefits from,
+        // and validatePlanPrice above already rejected "" / null.
         if (price_per_delivery !== undefined) {
-            const cleared = price_per_delivery === null || price_per_delivery === "";
             updates.push("price_per_delivery = ?");
-            values.push(cleared ? null : Number(price_per_delivery));
+            values.push(Number(price_per_delivery));
         }
 
         const connection = await db.promise().getConnection();

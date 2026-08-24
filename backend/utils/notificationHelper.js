@@ -441,6 +441,25 @@ export const notifySubscriptionPaymentSubmitted = async (cookId, subscriptionId,
 };
 
 /**
+ * Create notification when a subscription is paid through eSewa and activated
+ * automatically (sent to the cook). Distinct from
+ * notifySubscriptionPaymentSubmitted: there is nothing for the cook to verify
+ * here — the gateway payment was already confirmed server-side, so this is an
+ * FYI that they have a new paying subscriber, not a task.
+ */
+export const notifySubscriptionPaidToCook = async (cookId, subscriptionId, customerName, planName, amount) => {
+    return createNotification(
+        cookId,
+        'New Paid Subscriber 🎉',
+        `${customerName} paid ₹${Number(amount).toFixed(0)} for "${planName}" via eSewa. Their subscription is active — no verification needed.`,
+        'subscription_paid',
+        subscriptionId,
+        'subscription',
+        { pushData: { type: 'subscription_paid', subscriptionId: String(subscriptionId) } }
+    );
+};
+
+/**
  * Create notification when a cook verifies a subscription payment (sent to
  * the customer — their subscription is now active).
  */

@@ -6,11 +6,20 @@ import {
     notifySubscriptionRejected
 } from "../utils/notificationHelper.js";
 
+export function getDurationDays(duration) {
+    if (duration === "2_weeks" || duration === "biweekly") return 14;
+    if (duration === "monthly" || duration === "1_month") return 30;
+    return 7;
+}
+
 /**
  * POST /api/subscriptions
- * Customer subscribes to a cook's plan. Starts in 'pending_payment' — the
- * subscription does NOT activate here. The customer still has to pay the
- * cook (manual QR, same as a regular order), upload a screenshot via
+ * MANUAL-QR path (customer pays the cook directly and uploads a screenshot).
+ * The gateway path is POST /api/subscriptions/initiate — see
+ * subscriptionPaymentController.js — which is what the app uses by default.
+ *
+ * Starts in 'pending_payment'; the subscription does NOT activate here. The
+ * customer still has to pay the cook, upload a screenshot via
  * uploadSubscriptionScreenshot, and the cook has to verify it via
  * verifySubscriptionPayment before this ever generates a real delivery.
  * start_date/next_delivery_date are placeholders here — they're recomputed
@@ -42,6 +51,9 @@ export const createSubscription = async (req, res) => {
         if (!plan.is_active) {
             return res.status(400).json({ success: false, message: "This plan is no longer available." });
         }
+        if (plan.cook_id === customerId) {
+            return res.status(400).json({ success: false, message: "You can't subscribe to your own plan." });
+        }
 
         // One or more of this plan's meals is currently marked unavailable by
         // the cook — block signup rather than accept payment for something
@@ -55,15 +67,26 @@ export const createSubscription = async (req, res) => {
             });
         }
 
-        const [existing] = await db.promise().query(
-            "SELECT id FROM subscriptions WHERE customer_id = ? AND plan_id = ? AND status != 'cancelled'",
+        // Only a subscription that's actually RUNNING blocks a new one. The
+        // previous check was `status != 'cancelled'`, which also matched
+        // abandoned 'pending_payment' rows — so one tap that never got paid
+        // for permanently locked the customer out of that plan with a flat
+        // "You already have a subscription to this plan."
+        const [live] = await db.promise().query(
+            `SELECT id, status FROM subscriptions
+             WHERE customer_id = ? AND plan_id = ? AND status IN ('active', 'paused')
+               AND (end_date IS NULL OR end_date >= CURDATE())
+             LIMIT 1`,
             [customerId, plan_id]
         );
-        if (existing.length > 0) {
-            return res.status(400).json({ success: false, message: "You already have a subscription to this plan." });
+        if (live.length > 0) {
+            return res.status(409).json({
+                success: false,
+                message: `You already have a ${live[0].status} subscription to this plan. Cancel it first, or wait for it to finish.`
+            });
         }
 
-        const interval = plan.duration === 'weekly' ? 7 : 30;
+        const interval = getDurationDays(plan.duration);
         const startDate = new Date(start_date);
         if (Number.isNaN(startDate.getTime())) {
             return res.status(400).json({ success: false, message: "start_date is invalid." });
@@ -71,9 +94,32 @@ export const createSubscription = async (req, res) => {
         const nextDelivery = new Date(startDate);
         nextDelivery.setDate(nextDelivery.getDate() + interval);
 
+        // Reuse an unpaid attempt for this plan instead of stacking dead rows.
+        const [pending] = await db.promise().query(
+            `SELECT id FROM subscriptions
+             WHERE customer_id = ? AND plan_id = ? AND status = 'pending_payment'
+             ORDER BY id DESC LIMIT 1`,
+            [customerId, plan_id]
+        );
+        if (pending.length > 0) {
+            await db.promise().query(
+                `UPDATE subscriptions
+                 SET delivery_address = ?, start_date = ?, next_delivery_date = ?,
+                     payment_status = 'pending', payment_method = 'manual_qr',
+                     payment_screenshot_url = NULL
+                 WHERE id = ? AND status = 'pending_payment'`,
+                [delivery_address, start_date, nextDelivery.toISOString().split('T')[0], pending[0].id]
+            );
+            return res.status(200).json({
+                success: true,
+                message: "Continuing your unpaid subscription — pay the cook and upload proof to activate it.",
+                subscriptionId: pending[0].id
+            });
+        }
+
         const [result] = await db.promise().query(
-            `INSERT INTO subscriptions (customer_id, cook_id, plan_id, delivery_address, start_date, next_delivery_date, status, payment_status)
-             VALUES (?, ?, ?, ?, ?, ?, 'pending_payment', 'pending')`,
+            `INSERT INTO subscriptions (customer_id, cook_id, plan_id, delivery_address, start_date, next_delivery_date, status, payment_status, payment_method)
+             VALUES (?, ?, ?, ?, ?, ?, 'pending_payment', 'pending', 'manual_qr')`,
             [customerId, plan.cook_id, plan_id, delivery_address, start_date, nextDelivery.toISOString().split('T')[0]]
         );
 
@@ -122,7 +168,7 @@ export const uploadSubscriptionScreenshot = async (req, res) => {
         if (sub.customer_id !== customerId) {
             return res.status(403).json({ success: false, message: "This subscription does not belong to you." });
         }
-        if (!["pending", "rejected"].includes(sub.payment_status)) {
+        if (!["pending", "rejected", "failed"].includes(sub.payment_status)) {
             return res.status(400).json({ success: false, message: `Cannot submit payment proof — this subscription's payment is already "${sub.payment_status}".` });
         }
 
@@ -178,17 +224,23 @@ export const verifySubscriptionPayment = async (req, res) => {
         }
 
         if (status === "verified") {
-            const interval = sub.duration === 'weekly' ? 7 : 30;
+            const interval = getDurationDays(sub.duration);
             const today = new Date();
             const nextDelivery = new Date(today);
             nextDelivery.setDate(nextDelivery.getDate() + interval);
+            // A subscription is a single up-front payment, so the delivery
+            // window it buys is bounded — same rule the gateway path applies
+            // in subscriptionPaymentState.js, enforced in subscriptionOrderJob.js.
+            const endDate = new Date(today);
+            endDate.setDate(endDate.getDate() + interval);
 
             await db.promise().query(
                 `UPDATE subscriptions
                  SET status = 'active', payment_status = 'verified', payment_verified_at = NOW(),
-                     verification_notes = ?, start_date = ?, next_delivery_date = ?
-                 WHERE id = ?`,
-                [notes || null, today.toISOString().split('T')[0], nextDelivery.toISOString().split('T')[0], id]
+                     verification_notes = ?, start_date = ?, end_date = ?, next_delivery_date = ?
+                 WHERE id = ? AND status = 'pending_payment'`,
+                [notes || null, today.toISOString().split('T')[0], endDate.toISOString().split('T')[0],
+                 nextDelivery.toISOString().split('T')[0], id]
             );
             await notifySubscriptionVerified(sub.customer_id, sub.id, sub.plan_name);
         } else {
@@ -349,7 +401,7 @@ export const resumeSubscription = async (req, res) => {
             "SELECT duration FROM subscription_plans WHERE id = ?",
             [sub.plan_id]
         );
-        const interval = plan?.duration === 'weekly' ? 7 : 30;
+        const interval = getDurationDays(plan?.duration);
         const nextDelivery = new Date();
         nextDelivery.setDate(nextDelivery.getDate() + interval);
 

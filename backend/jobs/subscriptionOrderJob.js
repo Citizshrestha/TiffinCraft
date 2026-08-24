@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import db from "../config/db.js";
 import { notifySubscriptionDeliverySkipped, notifySubscriptionDeliverySkippedToCook } from "../utils/notificationHelper.js";
+import { getDurationDays } from "../controllers/subscriptionController.js";
 
 /**
  * Processes every subscription whose next_delivery_date is today: auto-places
@@ -17,7 +18,9 @@ export const processDueSubscriptions = async () => {
              FROM subscriptions s
              JOIN subscription_plans p ON s.plan_id = p.id
              WHERE s.status = 'active'
+             AND s.payment_status = 'verified'
              AND s.next_delivery_date = CURDATE()
+             AND (s.end_date IS NULL OR s.next_delivery_date <= s.end_date)
              AND (s.skipped_dates IS NULL OR JSON_CONTAINS(s.skipped_dates, CAST(CURDATE() AS JSON)) = 0)`
         );
 
@@ -46,7 +49,7 @@ export const processDueSubscriptions = async () => {
                 // cycle, same as any other delivery.
                 const unavailable = allItems.filter(i => !i.is_available);
                 if (unavailable.length > 0) {
-                    const interval = sub.duration === 'weekly' ? 7 : 30;
+                    const interval = getDurationDays(sub.duration);
                     await connection.query(
                         `UPDATE subscriptions SET next_delivery_date = DATE_ADD(next_delivery_date, INTERVAL ? DAY) WHERE id = ?`,
                         [interval, sub.id]
@@ -72,9 +75,14 @@ export const processDueSubscriptions = async () => {
                     ? parseFloat(sub.price_per_delivery)
                     : items.reduce((sum, i) => sum + parseFloat(i.price) * i.quantity, 0);
 
+                // 'paid', not 'cod'/'pending': a subscription is settled ONCE
+                // up front (eSewa, or manual QR the cook verified — either way
+                // payment_status = 'verified' is a precondition of the query
+                // above). Billing the customer again on delivery would charge
+                // them twice for the same food.
                 const [result] = await connection.query(
                     `INSERT INTO orders (customer_id, cook_id, total_amount, delivery_address, status, payment_method, payment_status, special_instructions)
-                     VALUES (?, ?, ?, ?, 'pending', 'cod', 'pending', 'Auto-subscription order')`,
+                     VALUES (?, ?, ?, ?, 'confirmed', 'online', 'paid', 'Auto-subscription order — prepaid')`,
                     [sub.customer_id, sub.cook_id, totalAmount, sub.delivery_address]
                 );
                 const orderId = result.insertId;
@@ -86,11 +94,21 @@ export const processDueSubscriptions = async () => {
                     );
                 }
 
-                // Advance next_delivery_date
-                const interval = sub.duration === 'weekly' ? 7 : 30;
+                // Advance next_delivery_date, and close the subscription out
+                // once the window its single payment bought has been served —
+                // otherwise it sits 'active' advertising deliveries that will
+                // never be generated (the query above filters on end_date).
+                const interval = getDurationDays(sub.duration);
                 await connection.query(
-                    `UPDATE subscriptions SET next_delivery_date = DATE_ADD(next_delivery_date, INTERVAL ? DAY) WHERE id = ?`,
-                    [interval, sub.id]
+                    `UPDATE subscriptions
+                     SET next_delivery_date = DATE_ADD(next_delivery_date, INTERVAL ? DAY),
+                         status = CASE
+                             WHEN end_date IS NOT NULL
+                              AND DATE_ADD(next_delivery_date, INTERVAL ? DAY) > end_date THEN 'completed'
+                             ELSE status
+                         END
+                     WHERE id = ?`,
+                    [interval, interval, sub.id]
                 );
 
                 await connection.commit();

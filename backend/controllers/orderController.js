@@ -321,23 +321,36 @@ export const getCookOrders = async (req, res) => {
         const cookId = req.user.id;
         const { status } = req.query;
 
+        // One row per order (not per item), aggregated the same way as the
+        // customer's order history so the Android cook-side card can render
+        // the identical per-item image carousel + item chips.
         let query = `
-            SELECT o.*,
-                   u.full_name as customer_name,
-                   u.phone as customer_phone,
-                   m.name as meal_name,
-                   m.image_url as meal_image,
-                   oi.quantity,
-                   oi.price_at_time as meal_price,
-                   -- Distinguishes an eSewa auto-confirmation from the older
-                   -- manual-screenshot flow — both reach payment_status='paid'
-                   -- but only the latter still needs the cook to verify anything.
-                   EXISTS(SELECT 1 FROM payments p WHERE p.order_id = o.id AND p.status = 'SUCCESS') AS esewa_confirmed
-            FROM orders o
-            JOIN users u ON o.customer_id = u.id
-            JOIN order_items oi ON o.id = oi.order_id
-            JOIN meals m ON oi.meal_id = m.id
-            WHERE o.cook_id = ?`;
+            SELECT o.id, o.customer_id, o.total_amount, o.status,
+                    o.delivery_address, o.special_instructions,
+                    o.payment_method, o.payment_status, o.payment_screenshot_url,
+                    o.payment_verified_at, o.created_at, o.updated_at,
+                    u.full_name as customer_name,
+                    u.phone as customer_phone,
+                    COUNT(oi.id) as items_count,
+                    GROUP_CONCAT(CONCAT(oi.quantity, '× ', m.name) SEPARATOR ', ') as items_summary,
+                    MIN(m.image_url) as meal_image,
+                    CONCAT('[', GROUP_CONCAT(JSON_OBJECT(
+                        'id', oi.id,
+                        'meal_id', oi.meal_id,
+                        'meal_name', m.name,
+                        'quantity', oi.quantity,
+                        'price_at_time', oi.price_at_time,
+                        'image_url', m.image_url
+                    ) SEPARATOR ','), ']') as items_json,
+                    -- Distinguishes an eSewa auto-confirmation from the older
+                    -- manual-screenshot flow — both reach payment_status='paid'
+                    -- but only the latter still needs the cook to verify anything.
+                    EXISTS(SELECT 1 FROM payments p WHERE p.order_id = o.id AND p.status = 'SUCCESS') AS esewa_confirmed
+             FROM orders o
+             JOIN users u ON o.customer_id = u.id
+             JOIN order_items oi ON o.id = oi.order_id
+             JOIN meals m ON oi.meal_id = m.id
+             WHERE o.cook_id = ?`;
 
         const params = [cookId];
 
@@ -346,13 +359,28 @@ export const getCookOrders = async (req, res) => {
             params.push(status);
         }
 
-        query += ` ORDER BY o.created_at DESC`;
+        query += ` GROUP BY o.id
+                   ORDER BY o.created_at DESC`;
 
         const [orders] = await db.promise().query(query, params);
 
-        // MySQL returns EXISTS(...) as a 0/1 TINYINT — Gson won't map that onto
-        // a Java boolean, so normalize it here (same fix as chat's normalizeMessage).
-        orders.forEach(o => { o.esewa_confirmed = !!o.esewa_confirmed; });
+        orders.forEach(o => {
+            // MySQL returns EXISTS(...) as a 0/1 TINYINT — Gson won't map that
+            // onto a Java boolean, so normalize it here (same fix as chat's normalizeMessage).
+            o.esewa_confirmed = !!o.esewa_confirmed;
+
+            // items_json comes back as a JSON string (or already parsed, depending on
+            // the mysql2 version) — normalize it into a real "items" array per order
+            // so the Android app can render a real per-item image carousel.
+            try {
+                o.items = typeof o.items_json === 'string'
+                    ? JSON.parse(o.items_json)
+                    : (o.items_json || []);
+            } catch (e) {
+                o.items = [];
+            }
+            delete o.items_json;
+        });
 
         return res.status(200).json({
             success: true,

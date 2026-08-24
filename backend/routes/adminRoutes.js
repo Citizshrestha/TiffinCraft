@@ -2,6 +2,7 @@ import { Router } from "express";
 import { protect, roleOnly } from "../middleware/authMiddleware.js";
 import {
     getDashboard,
+    getReports,
     getPendingCooks,
     approveCook,
     rejectCook,
@@ -27,6 +28,7 @@ const router = Router();
 router.use(protect, roleOnly("admin"));
 
 router.get("/dashboard", getDashboard);
+router.get("/reports", getReports);
 router.get("/cooks/pending", getPendingCooks);
 router.get("/cooks", getAllCooks);
 router.post("/cooks", createCook);

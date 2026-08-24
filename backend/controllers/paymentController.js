@@ -4,6 +4,7 @@ import { checkEpayStatus, mapEpayStatus } from "../utils/esewaEpayClient.js";
 import { verifyEsewaSignature } from "../utils/esewaSignature.js";
 import { getPublicBaseUrl } from "../utils/publicUrl.js";
 import { notifyPaymentConfirmed } from "../utils/notificationHelper.js";
+import { applySubscriptionPaymentOutcome, logSubscriptionPaymentEvent } from "../utils/subscriptionPaymentState.js";
 
 export const REDIRECT_URL = "tiffincraft://payment-result";
 
@@ -11,11 +12,28 @@ export const REDIRECT_URL = "tiffincraft://payment-result";
 const TERMINAL_STATUSES = new Set(["SUCCESS", "FAILED", "CANCELED", "REVERTED"]);
 
 /**
+ * The amount eSewa says it actually collected, or null when the payload didn't
+ * carry one. eSewa formats amounts for humans in some responses ("1,200.0"), so
+ * separators are stripped before parsing.
+ */
+function extractEsewaTotalAmount(rawPayload) {
+    const raw = rawPayload?.total_amount ?? rawPayload?.totalAmount;
+    if (raw === undefined || raw === null || raw === "") return null;
+    const parsed = Number(String(raw).replace(/,/g, "").trim());
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
  * Applies a confirmed (server-verified, never client/callback-trusted) eSewa
- * status to a payment + its order. Idempotent — safe to call from both the
- * callback handler and the status-polling endpoint for the same event
- * without double-crediting or double-notifying, since it only acts when the
- * stored payment status actually changes.
+ * status to a payment + whatever it's paying for. Idempotent — safe to call
+ * from both the callback handler and the status-polling endpoint for the same
+ * event without double-crediting or double-notifying, since it only acts when
+ * the stored payment status actually changes.
+ *
+ * A payments row belongs to EITHER an order (order_id) or a subscription
+ * (subscription_id) — never both. The subscription branch delegates to
+ * applySubscriptionPaymentOutcome, which owns that side's own conditional
+ * activation guard.
  */
 export async function applyConfirmedPaymentStatus(payment, confirmedStatus, referenceCode, rawPayload) {
     if (payment.status === confirmedStatus) {
@@ -23,12 +41,46 @@ export async function applyConfirmedPaymentStatus(payment, confirmedStatus, refe
         return payment;
     }
 
-    await db.promise().query(
+    // Conditional on the status not already being what we're about to write:
+    // two concurrent confirmations (callback + poll) both pass the check above,
+    // and this makes exactly one of them the winner.
+    const [applied] = await db.promise().query(
         `UPDATE payments
          SET status = ?, reference_code = COALESCE(?, reference_code), raw_callback_payload = ?, updated_at = NOW()
-         WHERE id = ?`,
-        [confirmedStatus, referenceCode || null, rawPayload ? JSON.stringify(rawPayload) : null, payment.id]
+         WHERE id = ? AND status <> ?`,
+        [confirmedStatus, referenceCode || null, rawPayload ? JSON.stringify(rawPayload) : null, payment.id, confirmedStatus]
     );
+    if (applied.affectedRows === 0) {
+        return { ...payment, status: confirmedStatus };
+    }
+
+    if (payment.subscription_id) {
+        // Server-side amount validation, defence in depth. `payment.amount` was
+        // computed at initiate from the plan price in the DB — never from
+        // anything the app sent — and the ePay signature binds total_amount, so
+        // a short amount here means something is wrong upstream. Treat it as an
+        // unpaid attempt rather than activate a subscription that wasn't paid
+        // for. Tolerance covers float/decimal representation only.
+        const paidAmount = extractEsewaTotalAmount(rawPayload);
+        const expectedAmount = Number(payment.amount);
+        if (confirmedStatus === "SUCCESS" && paidAmount !== null && Number.isFinite(expectedAmount)
+                && paidAmount + 0.01 < expectedAmount) {
+            await logSubscriptionPaymentEvent({
+                subscriptionId: payment.subscription_id,
+                paymentId: payment.id,
+                transactionUuid: payment.transaction_uuid,
+                event: "amount_mismatch",
+                amount: paidAmount,
+                detail: `eSewa confirmed ${paidAmount} but this plan costs ${expectedAmount} — subscription NOT activated.`
+            });
+            console.error(`❌ Amount mismatch on subscription ${payment.subscription_id}: eSewa=${paidAmount}, expected=${expectedAmount}. Refusing to activate.`);
+            await applySubscriptionPaymentOutcome({ ...payment, status: "FAILED" }, "FAILED");
+            return { ...payment, status: confirmedStatus };
+        }
+
+        await applySubscriptionPaymentOutcome({ ...payment, status: confirmedStatus }, confirmedStatus);
+        return { ...payment, status: confirmedStatus };
+    }
 
     if (confirmedStatus === "SUCCESS") {
         const [orders] = await db.promise().query("SELECT * FROM orders WHERE id = ?", [payment.order_id]);
@@ -221,10 +273,17 @@ export const getEsewaPaymentStatus = async (req, res) => {
         const userId = req.user.id;
         const { transactionUuid } = req.params;
 
+        // LEFT JOINs, not INNER: a payments row hangs off an order OR a
+        // subscription, so requiring `orders` would 404 every subscription
+        // checkout. COALESCE picks whichever side actually exists for the
+        // ownership check below.
         const [payments] = await db.promise().query(
-            `SELECT p.*, o.customer_id, o.cook_id
+            `SELECT p.*,
+                    COALESCE(o.customer_id, s.customer_id) AS customer_id,
+                    COALESCE(o.cook_id, s.cook_id)         AS cook_id
              FROM payments p
-             JOIN orders o ON o.id = p.order_id
+             LEFT JOIN orders o ON o.id = p.order_id
+             LEFT JOIN subscriptions s ON s.id = p.subscription_id
              WHERE p.transaction_uuid = ?`,
             [transactionUuid]
         );
@@ -264,6 +323,7 @@ export const getEsewaPaymentStatus = async (req, res) => {
             success: true,
             status: currentStatus,
             order_id: payment.order_id,
+            subscription_id: payment.subscription_id,
             transaction_uuid: payment.transaction_uuid
         });
     } catch (error) {
@@ -336,7 +396,13 @@ export const autoCancelStaleBookings = async () => {
                 }
             }
             await db.promise().query("UPDATE payments SET status = 'CANCELED', updated_at = NOW() WHERE id = ?", [payment.id]);
-            console.log(`🧹 Auto-cancelled stale eSewa payment: payment #${payment.id} (order #${payment.order_id})`);
+            if (payment.subscription_id) {
+                // Leaves the subscription inert and marks it 'failed' so the
+                // customer sees "Payment failed — retry" instead of a
+                // permanently "pending" subscription that grants nothing.
+                await applySubscriptionPaymentOutcome({ ...payment, status: "CANCELED" }, "CANCELED");
+            }
+            console.log(`🧹 Auto-cancelled stale eSewa payment: payment #${payment.id} (${payment.order_id ? `order #${payment.order_id}` : `subscription #${payment.subscription_id}`})`);
         } catch (err) {
             console.error(`❌ autoCancelStaleBookings failed for payment #${payment.id}:`, err.message);
         }
