@@ -11,6 +11,7 @@ export interface BackendUser {
   role: string;
   is_active: 0 | 1 | boolean;
   is_verified?: 0 | 1 | boolean;
+  profile_image?: string | null;
   created_at: string;
 }
 
@@ -22,6 +23,7 @@ export interface User {
   phone: string;
   status: UStatus;
   joined: string;
+  profileImage?: string | null;
 }
 
 export interface CreateUserPayload {
@@ -50,6 +52,7 @@ export function mapBackendUser(u: BackendUser): User {
     phone: u.phone,
     status: u.is_active === 1 || u.is_active === true ? "active" : "inactive",
     joined: formatJoinedDate(u.created_at),
+    profileImage: u.profile_image,
   };
 }
 

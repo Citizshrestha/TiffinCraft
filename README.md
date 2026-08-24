@@ -371,6 +371,8 @@ For issues or questions:
 2. Review API_DOCUMENTATION.md
 3. See IMPLEMENTATION_SUMMARY.md
 
+📧 Email: citizshresthaa@gmail.com
+
 ---
 
 **Built with ❤️ for connecting home cooks with food lovers**

@@ -243,7 +243,16 @@ export function ManageUsersPage() {
               <div className="flex gap-4 items-center py-4 rounded hover:bg-[#f7f8fa] transition-colors -mx-2 px-2">
                 <p style={{width:40,flexShrink:0,fontFamily:"Inter",fontWeight:500,fontSize:13,color:"#9499a6"}}>{(page-1)*PER_PAGE+idx+1}</p>
                 <div style={{width:240,flexShrink:0,display:"flex",alignItems:"center",gap:10}}>
-                  <div style={{width:40,height:40,borderRadius:"50%",background:"#D9DEE6",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  {u.profileImage ? (
+                    <img src={u.profileImage} alt={u.name}
+                      style={{width:40,height:40,borderRadius:"50%",objectFit:"cover",flexShrink:0}}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.removeAttribute('style');
+                      }}
+                    />
+                  ) : null}
+                  <div style={{width:40,height:40,borderRadius:"50%",background:"#D9DEE6",display:u.profileImage?"none":"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                     <span style={{fontFamily:"Inter",fontWeight:700,fontSize:13,color:"#6b7280"}}>{ini(u.name)}</span>
                   </div>
                   <div>
@@ -272,7 +281,16 @@ export function ManageUsersPage() {
       {viewing && (
         <Modal title="User Details" onClose={()=>setViewing(null)}>
           <div className="flex items-center gap-4 mb-5">
-            <div style={{width:64,height:64,borderRadius:"50%",background:"#D9DEE6",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            {viewing.profileImage ? (
+              <img src={viewing.profileImage} alt={viewing.name}
+                style={{width:64,height:64,borderRadius:"50%",objectFit:"cover"}}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextElementSibling?.removeAttribute('style');
+                }}
+              />
+            ) : null}
+            <div style={{width:64,height:64,borderRadius:"50%",background:"#D9DEE6",display:viewing.profileImage?"none":"flex",alignItems:"center",justifyContent:"center"}}>
               <span style={{fontFamily:"Inter",fontWeight:700,fontSize:20,color:"#6b7280"}}>{ini(viewing.name)}</span>
             </div>
             <div>

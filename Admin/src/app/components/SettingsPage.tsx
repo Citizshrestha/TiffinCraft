@@ -6,10 +6,49 @@ import { useToast } from "./Toast";
 interface ProfileForm { name: string; email: string; phone: string; }
 interface PasswordForm { current: string; newPass: string; confirm: string; }
 
-const storedAdmin = getStoredAdmin();
+// Defined at module scope on purpose: nesting these inside SettingsPage gives them a
+// new component identity on every render, which remounts the <input> and drops focus
+// after each keystroke.
+function Field({ label, value, onChange, type="text", error }: {
+  label:string; value:string; onChange:(v:string)=>void; type?:string; error?:string;
+}) {
+  return (
+    <div style={{marginBottom:16}}>
+      <p style={{fontFamily:"Inter",fontWeight:500,fontSize:13,color:"#1c1f29",marginBottom:6}}>{label}</p>
+      <input type={type} value={value} onChange={e=>onChange(e.target.value)}
+        className="w-full px-4 py-3 rounded-[8px] text-[14px] outline-none transition-all"
+        style={{border:`1px solid ${error?"#f25959":"#e5e8ed"}`,fontFamily:"Inter",color:"#1c1f29"}}
+        onFocus={e=>(e.target.style.borderColor=error?"#f25959":"#57b869")}
+        onBlur={e=>(e.target.style.borderColor=error?"#f25959":"#e5e8ed")}/>
+      {error && <p style={{fontFamily:"Inter",fontSize:11,color:"#f25959",marginTop:4}}>{error}</p>}
+    </div>
+  );
+}
+
+function Toggle({ on, onToggle }: { on:boolean; onToggle:()=>void }) {
+  return (
+    <button onClick={onToggle}
+      className="w-10 h-5 rounded-full relative transition-colors duration-150 cursor-pointer shrink-0"
+      style={{background:on?"#57b869":"#e5e8ed",border:"none"}}>
+      <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-150"
+        style={{left:on?"calc(100% - 18px)":2}}/>
+    </button>
+  );
+}
+
+function SuccessBanner({ msg }: { msg:string }) {
+  return (
+    <div style={{background:"rgba(87,184,105,0.1)",border:"1px solid rgba(87,184,105,0.3)",borderRadius:8,padding:"10px 16px",marginBottom:16}}>
+      <p style={{fontFamily:"Inter",fontWeight:500,fontSize:13,color:"#57b869"}}>✓ {msg}</p>
+    </div>
+  );
+}
 
 export function SettingsPage({ onProfileUpdated }: { onProfileUpdated?: (admin: AdminUser) => void }) {
   const { showToast } = useToast();
+
+  // Read per-render, not at module load — at import time the admin has not logged in yet.
+  const storedAdmin = getStoredAdmin();
 
   // Profile state — pre-populated from the logged-in admin's real account
   const [profile, setProfile] = useState<ProfileForm>({
@@ -106,41 +145,6 @@ export function SettingsPage({ onProfileUpdated }: { onProfileUpdated?: (admin: 
     } finally {
       setSavingPwd(false);
     }
-  }
-
-  function Field({ label, value, onChange, type="text", error }: {
-    label:string; value:string; onChange:(v:string)=>void; type?:string; error?:string;
-  }) {
-    return (
-      <div style={{marginBottom:16}}>
-        <p style={{fontFamily:"Inter",fontWeight:500,fontSize:13,color:"#1c1f29",marginBottom:6}}>{label}</p>
-        <input type={type} value={value} onChange={e=>onChange(e.target.value)}
-          className="w-full px-4 py-3 rounded-[8px] text-[14px] outline-none transition-all"
-          style={{border:`1px solid ${error?"#f25959":"#e5e8ed"}`,fontFamily:"Inter",color:"#1c1f29"}}
-          onFocus={e=>(e.target.style.borderColor=error?"#f25959":"#57b869")}
-          onBlur={e=>(e.target.style.borderColor=error?"#f25959":"#e5e8ed")}/>
-        {error && <p style={{fontFamily:"Inter",fontSize:11,color:"#f25959",marginTop:4}}>{error}</p>}
-      </div>
-    );
-  }
-
-  function Toggle({ on, onToggle }: { on:boolean; onToggle:()=>void }) {
-    return (
-      <button onClick={onToggle}
-        className="w-10 h-5 rounded-full relative transition-colors duration-150 cursor-pointer shrink-0"
-        style={{background:on?"#57b869":"#e5e8ed",border:"none"}}>
-        <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-150"
-          style={{left:on?"calc(100% - 18px)":2}}/>
-      </button>
-    );
-  }
-
-  function SuccessBanner({ msg }: { msg:string }) {
-    return (
-      <div style={{background:"rgba(87,184,105,0.1)",border:"1px solid rgba(87,184,105,0.3)",borderRadius:8,padding:"10px 16px",marginBottom:16}}>
-        <p style={{fontFamily:"Inter",fontWeight:500,fontSize:13,color:"#57b869"}}>✓ {msg}</p>
-      </div>
-    );
   }
 
   return (
