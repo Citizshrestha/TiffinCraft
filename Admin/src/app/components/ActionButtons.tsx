@@ -6,7 +6,7 @@ export function ActionButtons({ onView, onEdit, onDelete }: { onView: () => void
     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
       {[
         { fn: onView,   Icon: Eye,     bg: "rgba(120,135,250,0.10)", hover: "rgba(120,135,250,0.22)", color: "#7887fa", title: "View"   },
-        { fn: onEdit,   Icon: Pencil,  bg: "rgba(87,184,105,0.10)",  hover: "rgba(87,184,105,0.22)",  color: "#57b869", title: "Edit"   },
+        { fn: onEdit,   Icon: Pencil,  bg: "rgba(59,130,246,0.10)",  hover: "rgba(59,130,246,0.22)",  color: "#3b82f6", title: "Edit"   },
         { fn: onDelete, Icon: Trash2,  bg: "rgba(242,89,89,0.10)",   hover: "rgba(242,89,89,0.22)",   color: "#f25959", title: "Delete" },
       ].map(({ fn, Icon, bg, hover, color, title }) => (
         <button key={title} title={title}

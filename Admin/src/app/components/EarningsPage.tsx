@@ -64,9 +64,9 @@ const TRANSACTIONS: CommTx[] = [
 /* ─── Style helpers ──────────────────────────────────────────────────────── */
 const pill = (s: string): React.CSSProperties => {
   const map: Record<string,{bg:string;color:string}> = {
-    Collected: {bg:"rgba(87,184,105,0.12)",  color:"#57b869"},
-    Paid:      {bg:"rgba(87,184,105,0.12)",  color:"#57b869"},
-    Active:    {bg:"rgba(87,184,105,0.12)",  color:"#57b869"},
+    Collected: {bg:"rgba(16,185,129,0.12)",  color:"#10b981"},
+    Paid:      {bg:"rgba(16,185,129,0.12)",  color:"#10b981"},
+    Active:    {bg:"rgba(16,185,129,0.12)",  color:"#10b981"},
     Pending:   {bg:"rgba(242,140,64,0.12)",  color:"#f28c40"},
     Inactive:  {bg:"rgba(242,89,89,0.12)",   color:"#f25959"},
     Failed:    {bg:"rgba(242,89,89,0.12)",   color:"#f25959"},
@@ -146,7 +146,7 @@ export function EarningsPage() {
           <div key={s.label} className="bg-white flex flex-col gap-2 p-5 rounded-[12px] flex-1" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <span style={{fontSize:22}}>{s.icon}</span>
-              {s.change && <span style={{fontFamily:"Inter",fontWeight:600,fontSize:12,color:"#57b869"}}>{s.change}</span>}
+              {s.change && <span style={{fontFamily:"Inter",fontWeight:600,fontSize:12,color:"#10b981"}}>{s.change}</span>}
             </div>
             <p style={{fontFamily:"Inter",fontWeight:700,fontSize:26,color:"#1c1f29"}}>{s.value}</p>
             <p style={{fontFamily:"Inter",fontWeight:500,fontSize:13,color:"#1c1f29"}}>{s.label}</p>
@@ -200,7 +200,7 @@ export function EarningsPage() {
             <p style={{fontFamily:"Inter",fontSize:13,color:"#9499a6",marginTop:2}}>4% fixed deducted from every successful delivery</p>
           </div>
           <button onClick={()=>{ setAdding(true); setAddForm(blankRate); setAddErrs({}); }}
-            style={{padding:"10px 18px",borderRadius:8,border:"none",background:"#57b869",fontFamily:"Inter",fontWeight:600,fontSize:13,color:"white",cursor:"pointer"}}>
+            style={{padding:"10px 18px",borderRadius:8,border:"none",background:"#f97316",fontFamily:"Inter",fontWeight:600,fontSize:13,color:"white",cursor:"pointer"}}>
             + Set Commission
           </button>
         </div>
@@ -228,7 +228,7 @@ export function EarningsPage() {
                 <div style={{width:80,flexShrink:0}}><span style={commPill}>{r.commissionPct}%</span></div>
                 <TD w={110}>{r.totalOrders} orders</TD>
                 <TD w={110}>{fmt(r.totalOrderValue)}</TD>
-                <TD w={140} bold accent="#57b869">{fmt(comm)}</TD>
+                <TD w={140} bold accent="#10b981">{fmt(comm)}</TD>
                 <div style={{width:90,flexShrink:0}}><span style={pill(r.status)}>{r.status}</span></div>
                 <div style={{width:110,flexShrink:0}}>
                   <ActionButtons onView={()=>setViewing(r)} onEdit={()=>startEdit(r)} onDelete={()=>setDel(r)}/>
@@ -275,7 +275,7 @@ export function EarningsPage() {
                 <div style={{width:120,flexShrink:0}}>
                   <span style={{fontFamily:"Inter",fontWeight:600,fontSize:13,color:"#f25959"}}>− {fmt(commAmt)}</span>
                 </div>
-                <TD w={120} bold accent="#57b869">{fmt(netAmt)}</TD>
+                <TD w={120} bold accent="#10b981">{fmt(netAmt)}</TD>
                 <div style={{width:110,flexShrink:0}}><span style={pill(c.payoutStatus)}>{c.payoutStatus}</span></div>
                 <TD w={110} accent="#9499a6">{c.dueDate}</TD>
               </div>
@@ -295,7 +295,7 @@ export function EarningsPage() {
               − {fmt(COOK_EARNINGS.reduce((s,c)=>s+Math.round(c.grossEarnings*0.04),0))}
             </span>
           </div>
-          <TD w={120} bold accent="#57b869">
+          <TD w={120} bold accent="#10b981">
             {fmt(COOK_EARNINGS.reduce((s,c)=>s+(c.grossEarnings-Math.round(c.grossEarnings*0.04)),0))}
           </TD>
           <div style={{width:110,flexShrink:0}}/>
@@ -313,7 +313,7 @@ export function EarningsPage() {
             {(["all","Collected","Pending","Failed"] as const).map(t=>(
               <button key={t} onClick={()=>setTxTab(t)}
                 style={{padding:"6px 14px",borderRadius:8,fontSize:12,cursor:"pointer",border:"none",fontFamily:"Inter",fontWeight:500,
-                  background:txTab===t?"#57b869":"#f2f5f7",color:txTab===t?"#fff":"#9499a6"}}>
+                  background:txTab===t?"#3b82f6":"#f2f5f7",color:txTab===t?"#fff":"#9499a6"}}>
                 {t==="all"?"All":t}
               </button>
             ))}
@@ -338,7 +338,7 @@ export function EarningsPage() {
                 <TD w={160}>{t.kitchen}</TD>
                 <TD w={100} bold>{fmt(t.orderAmt)}</TD>
                 <div style={{width:70,flexShrink:0}}><span style={commPill}>{t.pct}%</span></div>
-                <TD w={110} bold accent="#57b869">{fmt(comm)}</TD>
+                <TD w={110} bold accent="#10b981">{fmt(comm)}</TD>
                 <TD w={110} bold accent="#1c1f29">{fmt(cookGet)}</TD>
                 <div style={{width:110,flexShrink:0}}><span style={pill(t.status)}>{t.status}</span></div>
                 <TD w={110} accent="#9499a6">{t.date}</TD>
@@ -366,7 +366,7 @@ export function EarningsPage() {
           <DetailRow label="Commission Rate"  value={<span style={{fontFamily:"Inter",fontWeight:700,fontSize:18,color:"#7887fa"}}>{viewing.commissionPct}%</span>}/>
           <DetailRow label="Total Orders"     value={`${viewing.totalOrders} orders`}/>
           <DetailRow label="Total Order Value" value={fmt(viewing.totalOrderValue)}/>
-          <DetailRow label="Commission Earned" value={<span style={{fontWeight:700,color:"#57b869"}}>{fmt(Math.round(viewing.totalOrderValue*viewing.commissionPct/100))}</span>}/>
+          <DetailRow label="Commission Earned" value={<span style={{fontWeight:700,color:"#10b981"}}>{fmt(Math.round(viewing.totalOrderValue*viewing.commissionPct/100))}</span>}/>
           <DetailRow label="Cook Net Earnings" value={fmt(viewing.totalOrderValue - Math.round(viewing.totalOrderValue*viewing.commissionPct/100))}/>
           <DetailRow label="Status"           value={<span style={pill(viewing.status)}>{viewing.status}</span>}/>
         </Modal>
@@ -379,7 +379,7 @@ export function EarningsPage() {
             <p style={{fontFamily:"Inter",fontSize:12,color:"#9499a6",lineHeight:1.6}}>
               On a <strong style={{color:"#1c1f29"}}>₹400 order</strong> from <strong style={{color:"#1c1f29"}}>{draft.kitchen}</strong>:<br/>
               TiffinCraft earns <strong style={{color:"#7887fa"}}>₹{Math.round(400*draft.commissionPct/100)}</strong> ({draft.commissionPct}%) &nbsp;|&nbsp;
-              Cook receives <strong style={{color:"#57b869"}}>₹{400-Math.round(400*draft.commissionPct/100)}</strong>
+              Cook receives <strong style={{color:"#10b981"}}>₹{400-Math.round(400*draft.commissionPct/100)}</strong>
             </p>
           </div>
           <FormField label="Kitchen Name" value={draft.kitchen} onChange={v=>setDraft({...draft,kitchen:v})}/>
@@ -398,7 +398,7 @@ export function EarningsPage() {
             <p style={{fontFamily:"Inter",fontWeight:600,fontSize:13,color:"#7887fa",marginBottom:4}}>ℹ️ How it works</p>
             <p style={{fontFamily:"Inter",fontSize:12,color:"#9499a6",lineHeight:1.6}}>
               On a <strong style={{color:"#1c1f29"}}>₹400 order</strong> at <strong style={{color:"#7887fa"}}>{addForm.commissionPct}%</strong>, TiffinCraft earns{" "}
-              <strong style={{color:"#57b869"}}>₹{Math.round(400*addForm.commissionPct/100)}</strong> and the cook receives{" "}
+              <strong style={{color:"#10b981"}}>₹{Math.round(400*addForm.commissionPct/100)}</strong> and the cook receives{" "}
               <strong style={{color:"#1c1f29"}}>₹{400-Math.round(400*addForm.commissionPct/100)}</strong>.
             </p>
           </div>

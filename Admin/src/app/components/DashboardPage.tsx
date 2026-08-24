@@ -32,7 +32,7 @@ function KpiCard({ label, value, sub }: { label:string; value:string; sub:string
     <div className="bg-white flex flex-col gap-2 p-5 rounded-[12px] flex-1" style={{boxShadow:"0px 1px 3px rgba(0,0,0,0.06)"}}>
       <p style={{fontFamily:"Inter",fontWeight:400,fontSize:13,color:"#9499a6"}}>{label}</p>
       <p style={{fontFamily:"Inter",fontWeight:700,fontSize:32,color:"#1c1f29"}}>{value}</p>
-      <p style={{fontFamily:"Inter",fontWeight:600,fontSize:13,color:"#57b869"}}>{sub}</p>
+      <p style={{fontFamily:"Inter",fontWeight:600,fontSize:13,color:"#10b981"}}>{sub}</p>
     </div>
   );
 }
@@ -47,7 +47,7 @@ function ChartCard({ title, value, change, data, color, gradientId, dataKey }: {
         <p style={{fontFamily:"Inter",fontWeight:600,fontSize:16,color:"#1c1f29",marginBottom:4}}>{title}</p>
         <div className="flex items-center gap-2">
           <p style={{fontFamily:"Inter",fontWeight:700,fontSize:28,color:"#1c1f29"}}>{value}</p>
-          <p style={{fontFamily:"Inter",fontWeight:600,fontSize:14,color:"#57b869"}}>{change}</p>
+          <p style={{fontFamily:"Inter",fontWeight:600,fontSize:14,color:"#10b981"}}>{change}</p>
         </div>
       </div>
       <div className="h-[140px] rounded-[8px] overflow-hidden bg-[#fafafc]">
@@ -98,11 +98,6 @@ export function DashboardPage({ onNavigate }: { onNavigate:(page:string)=>void }
 
   useEffect(() => { load(); }, [load]);
 
-  const today = new Date();
-  const weekAgo = new Date(today);
-  weekAgo.setDate(today.getDate() - 6);
-  const dateRangeLabel = `${weekAgo.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})} - ${today.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}`;
-
   if (loading) {
     return (
       <div className="flex flex-col gap-6">
@@ -115,7 +110,7 @@ export function DashboardPage({ onNavigate }: { onNavigate:(page:string)=>void }
     return (
       <div className="flex flex-col gap-6">
         <p style={{fontFamily:"Inter",fontSize:14,color:"#f25959",marginBottom:12}}>{loadError || "Failed to load dashboard."}</p>
-        <button onClick={load} style={{width:160,background:"#57b869",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:13,padding:"10px 16px",borderRadius:8,cursor:"pointer"}}>Retry</button>
+        <button onClick={load} style={{width:160,background:"#f97316",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:13,padding:"10px 16px",borderRadius:8,cursor:"pointer"}}>Retry</button>
       </div>
     );
   }
@@ -135,18 +130,6 @@ export function DashboardPage({ onNavigate }: { onNavigate:(page:string)=>void }
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p style={{fontFamily:"Inter",fontWeight:700,fontSize:24,color:"#1c1f29"}}>Welcome back, Admin! 👋</p>
-          <p style={{fontFamily:"Inter",fontWeight:400,fontSize:14,color:"#9499a6",marginTop:4}}>Here's what's happening with TiffinCraft today.</p>
-        </div>
-        <div className="flex items-center px-3 py-2 rounded-[6px] self-start shrink-0"
-          style={{border:"1px solid #e5e8ed",background:"white",fontFamily:"Inter",fontWeight:400,fontSize:13,color:"#9499a6"}}>
-          📅 {dateRangeLabel}
-        </div>
-      </div>
-
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard label="Total Users"   value={formatNumber(dashboard.total_users)}   sub={`${formatNumber(dashboard.total_customers)} customers`}/>
@@ -212,7 +195,14 @@ export function DashboardPage({ onNavigate }: { onNavigate:(page:string)=>void }
               <div className="flex items-center justify-between py-1 cursor-pointer hover:bg-[#f7f8fa] -mx-2 px-2 rounded transition-colors"
                 onClick={()=>onNavigate("cooks")}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#D9DEE6] shrink-0"/>
+                  <div className="relative w-10 h-10 shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-[#D9DEE6]"/>
+                    {cook.profile_image && (
+                      <img src={cook.profile_image} alt={cook.kitchen_name || "Cook"}
+                        className="w-10 h-10 rounded-full object-cover absolute inset-0"
+                        onError={e=>((e.currentTarget as HTMLImageElement).style.display="none")}/>
+                    )}
+                  </div>
                   <div>
                     <p style={{fontFamily:"Inter",fontWeight:500,fontSize:14,color:"#1c1f29"}}>{cook.kitchen_name || "Unnamed Kitchen"}</p>
                     <p style={{fontFamily:"Inter",fontSize:12,color:"#b2b8bf"}}>{formatNumber(cook.total_orders)}+ orders</p>

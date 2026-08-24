@@ -100,7 +100,7 @@ export function FormField({
           style={base}
           value={value}
           onChange={e => onChange(e.target.value)}
-          onFocus={e => (e.target.style.borderColor = "#57b869")}
+          onFocus={e => (e.target.style.borderColor = "#3b82f6")}
           onBlur={e => (e.target.style.borderColor = "#e5e8ed")}
         >
           {options.map(o => <option key={o} value={o}>{o}</option>)}
@@ -111,7 +111,7 @@ export function FormField({
           style={base}
           value={value}
           onChange={e => onChange(e.target.value)}
-          onFocus={e => (e.target.style.borderColor = "#57b869")}
+          onFocus={e => (e.target.style.borderColor = "#3b82f6")}
           onBlur={e => (e.target.style.borderColor = "#e5e8ed")}
         />
       )}
@@ -142,7 +142,7 @@ export function SaveCancel({
       <button
         onClick={onSave}
         disabled={saving}
-        style={{ flex: 1, padding: "12px 0", borderRadius: 8, border: "none", background: "#57b869", fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: "white", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1 }}
+        style={{ flex: 1, padding: "12px 0", borderRadius: 8, border: "none", background: "#3b82f6", fontFamily: "Inter", fontWeight: 600, fontSize: 14, color: "white", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1 }}
       >
         {saving ? "Saving..." : saveLabel}
       </button>

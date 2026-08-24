@@ -277,7 +277,7 @@ export function MealsPage() {
         </div>
         <button onClick={()=>{setAdding(true);setAddForm(blankAdd);setAddErrs({});}}
           className="self-start shrink-0"
-          style={{background:"#57b869",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:14,padding:"12px 20px",borderRadius:8,cursor:"pointer"}}>
+          style={{background:"#f97316",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:14,padding:"12px 20px",borderRadius:8,cursor:"pointer"}}>
           + Add Meal
         </button>
       </div>
@@ -313,7 +313,7 @@ export function MealsPage() {
         {["all",...allCategories].map(c=>(
           <button key={c} onClick={()=>setCatFilter(c)}
             style={{padding:"8px 14px",borderRadius:8,fontSize:12,cursor:"pointer",border:"none",fontFamily:"Inter",fontWeight:500,
-              background:catFilter===c?"#57b869":"#f2f5f7",color:catFilter===c?"#fff":"#9499a6"}}>
+              background:catFilter===c?"#3b82f6":"#f2f5f7",color:catFilter===c?"#fff":"#9499a6"}}>
             {c==="all"?"All":c}
           </button>
         ))}
@@ -344,8 +344,8 @@ export function MealsPage() {
                 <span style={{background:"#f2f5f7",fontFamily:"Inter",fontWeight:500,fontSize:11,color:"#9499a6",padding:"3px 8px",borderRadius:6}}>{m.category}</span>
               </div>
               <div className="flex items-center justify-between mb-3">
-                <p style={{fontFamily:"Inter",fontSize:12,color:m.available?"#57b869":"#9499a6"}}>{m.available?"Available":"Unavailable"}</p>
-                <button onClick={()=>toggleAvailability(m)} style={{width:40,height:20,borderRadius:10,border:"none",background:m.available?"#57b869":"#e5e8ed",position:"relative",cursor:"pointer",transition:"background 150ms"}}>
+                <p style={{fontFamily:"Inter",fontSize:12,color:m.available?"#10b981":"#9499a6"}}>{m.available?"Available":"Unavailable"}</p>
+                <button onClick={()=>toggleAvailability(m)} style={{width:40,height:20,borderRadius:10,border:"none",background:m.available?"#10b981":"#e5e8ed",position:"relative",cursor:"pointer",transition:"background 150ms"}}>
                   <div style={{position:"absolute",top:2,left:m.available?"calc(100% - 18px)":2,width:16,height:16,borderRadius:8,background:"white",transition:"left 150ms"}}/>
                 </button>
               </div>
@@ -378,7 +378,7 @@ export function MealsPage() {
           <DetailRow label="Price"        value={formatPrice(viewing.price)}/>
           <DetailRow label="Category"     value={viewing.category}/>
           <DetailRow label="Diet"         value={viewing.isVegetarian === undefined ? "N/A" : (viewing.isVegetarian ? "🟢 Vegetarian" : "🔴 Non-Vegetarian")}/>
-          <DetailRow label="Availability" value={<span style={{color:viewing.available?"#57b869":"#9499a6",fontWeight:600}}>{viewing.available?"✓ Available":"✗ Unavailable"}</span>}/>
+          <DetailRow label="Availability" value={<span style={{color:viewing.available?"#10b981":"#9499a6",fontWeight:600}}>{viewing.available?"✓ Available":"✗ Unavailable"}</span>}/>
         </Modal>
       )}
 

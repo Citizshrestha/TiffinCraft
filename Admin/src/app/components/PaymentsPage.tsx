@@ -99,7 +99,7 @@ export function PaymentsPage() {
         {STAT_TABS.map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)}
             style={{padding:"10px 16px",borderRadius:8,fontSize:13,cursor:"pointer",border:"none",fontFamily:"Inter",fontWeight:500,
-              background:tab===t.id?"#57b869":"#f2f5f7",color:tab===t.id?"#fff":"#9499a6"}}>
+              background:tab===t.id?"#3b82f6":"#f2f5f7",color:tab===t.id?"#fff":"#9499a6"}}>
             {t.label}
           </button>
         ))}

@@ -122,7 +122,7 @@ export function RefundsPage() {
         {STAT_TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             style={{ padding: "10px 16px", borderRadius: 8, fontSize: 13, cursor: "pointer", border: "none", fontFamily: "Inter", fontWeight: 500,
-              background: tab === t.id ? "#57b869" : "#f2f5f7", color: tab === t.id ? "#fff" : "#9499a6" }}>
+              background: tab === t.id ? "#3b82f6" : "#f2f5f7", color: tab === t.id ? "#fff" : "#9499a6" }}>
             {t.label}
           </button>
         ))}
@@ -174,8 +174,8 @@ export function RefundsPage() {
                     </button>
                     {r.status !== "processed" && r.status !== "rejected" && (
                       <button title="Process" onClick={() => startProcess(r)}
-                        style={{ width: 32, height: 32, borderRadius: 6, border: "none", background: "rgba(87,184,105,0.10)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                        <CheckCircle2 size={14} color="#57b869" />
+                        style={{ width: 32, height: 32, borderRadius: 6, border: "none", background: "rgba(16,185,129,0.10)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                        <CheckCircle2 size={14} color="#10b981" />
                       </button>
                     )}
                   </div>

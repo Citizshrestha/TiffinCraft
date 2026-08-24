@@ -98,7 +98,7 @@ export function ReviewsPage() {
           {["all","5","4","3","2","1"].map(r=>(
             <button key={r} onClick={()=>setRatingFilter(r)}
               style={{padding:"10px 14px",borderRadius:8,fontSize:13,cursor:"pointer",border:"none",fontFamily:"Inter",fontWeight:500,
-                background:ratingFilter===r?"#57b869":"#f2f5f7",color:ratingFilter===r?"#fff":"#9499a6"}}>
+                background:ratingFilter===r?"#3b82f6":"#f2f5f7",color:ratingFilter===r?"#fff":"#9499a6"}}>
               {r==="all" ? "All Stars" : `${"⭐".repeat(parseInt(r))} ${r}`}
             </button>
           ))}
@@ -127,8 +127,8 @@ export function ReviewsPage() {
                 <p style={{width:240,flexShrink:0,fontFamily:"Inter",fontSize:13,color:"#1c1f29",fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.comment}</p>
                 <div style={{width:70,flexShrink:0}}>
                   <span style={{padding:"3px 8px",borderRadius:12,fontSize:11,fontFamily:"Inter",fontWeight:600,
-                    background:r.reply?"rgba(87,184,105,0.12)":"rgba(242,140,64,0.12)",
-                    color:r.reply?"#57b869":"#f28c40"}}>
+                    background:r.reply?"rgba(16,185,129,0.12)":"rgba(242,140,64,0.12)",
+                    color:r.reply?"#10b981":"#f28c40"}}>
                     {r.reply?"Yes":"No"}
                   </span>
                 </div>
@@ -165,7 +165,7 @@ export function ReviewsPage() {
           <DetailRow label="Cook / Kitchen" value={viewing.cook}/>
           <DetailRow label="Comment"        value={<span style={{fontStyle:"italic"}}>{viewing.comment}</span>}/>
           <DetailRow label="Date"           value={viewing.date}/>
-          {viewing.reply && <DetailRow label="Admin Reply" value={<span style={{color:"#57b869"}}>{viewing.reply}</span>}/>}
+          {viewing.reply && <DetailRow label="Admin Reply" value={<span style={{color:"#10b981"}}>{viewing.reply}</span>}/>}
         </Modal>
       )}
 
@@ -184,11 +184,11 @@ export function ReviewsPage() {
             style={{border:`1px solid ${replyErr?"#f25959":"#e5e8ed"}`,fontFamily:"Inter",fontSize:14,color:"#1c1f29"}}
             placeholder="Write a reply..." value={reply}
             onChange={e=>{ setReply(e.target.value); setReplyErr(""); }}
-            onFocus={e=>(e.target.style.borderColor="#57b869")} onBlur={e=>(e.target.style.borderColor=replyErr?"#f25959":"#e5e8ed")}/>
+            onFocus={e=>(e.target.style.borderColor="#3b82f6")} onBlur={e=>(e.target.style.borderColor=replyErr?"#f25959":"#e5e8ed")}/>
           {replyErr && <p style={{fontFamily:"Inter",fontSize:11,color:"#f25959",marginTop:4}}>{replyErr}</p>}
           <div className="flex gap-3 mt-3">
             <button onClick={()=>setReplying(null)} style={{flex:1,padding:"12px 0",borderRadius:8,border:"1px solid #e5e8ed",background:"white",fontFamily:"Inter",fontWeight:500,fontSize:14,color:"#9499a6",cursor:"pointer"}}>Cancel</button>
-            <button onClick={sendReply} style={{flex:1,padding:"12px 0",borderRadius:8,border:"none",background:"#57b869",fontFamily:"Inter",fontWeight:600,fontSize:14,color:"white",cursor:"pointer"}}>
+            <button onClick={sendReply} style={{flex:1,padding:"12px 0",borderRadius:8,border:"none",background:"#3b82f6",fontFamily:"Inter",fontWeight:600,fontSize:14,color:"white",cursor:"pointer"}}>
               {replying.reply ? "Update Reply" : "Send Reply"}
             </button>
           </div>

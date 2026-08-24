@@ -196,7 +196,7 @@ export function ManageUsersPage() {
         </div>
         <button onClick={()=>{setAdding(true);setAddForm(blank);setAddErrs({});}}
           className="self-start shrink-0"
-          style={{background:"#57b869",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:14,padding:"12px 20px",borderRadius:8,cursor:"pointer"}}>
+          style={{background:"#f97316",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:14,padding:"12px 20px",borderRadius:8,cursor:"pointer"}}>
           + Add User
         </button>
       </div>
@@ -205,7 +205,7 @@ export function ManageUsersPage() {
         {TABS.map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)}
             style={{padding:"10px 16px",borderRadius:8,fontSize:13,cursor:"pointer",border:"none",fontFamily:"Inter",fontWeight:500,
-              background:tab===t.id?"#57b869":"#f2f5f7",color:tab===t.id?"#fff":"#9499a6"}}>
+              background:tab===t.id?"#3b82f6":"#f2f5f7",color:tab===t.id?"#fff":"#9499a6"}}>
             {t.label}
           </button>
         ))}
@@ -232,7 +232,7 @@ export function ManageUsersPage() {
           {!loading && loadError && (
             <div style={{textAlign:"center",padding:"32px 0"}}>
               <p style={{fontFamily:"Inter",fontSize:14,color:"#f25959",marginBottom:12}}>{loadError}</p>
-              <button onClick={loadUsers} style={{background:"#57b869",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:13,padding:"8px 16px",borderRadius:8,cursor:"pointer"}}>Retry</button>
+              <button onClick={loadUsers} style={{background:"#f97316",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:13,padding:"8px 16px",borderRadius:8,cursor:"pointer"}}>Retry</button>
             </div>
           )}
           {!loading && !loadError && visible.length === 0 && (

@@ -140,7 +140,7 @@ export function NotificationBell({ onNavigate, dark = false }: { onNavigate: (pa
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "Inter", fontWeight: 600, fontSize: 12, color: "#57b869" }}
+                style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "Inter", fontWeight: 600, fontSize: 12, color: "#3b82f6" }}
               >
                 Mark all read
               </button>
@@ -179,7 +179,7 @@ export function NotificationBell({ onNavigate, dark = false }: { onNavigate: (pa
                     <p style={{ fontFamily: "Inter", fontSize: 11, color: "#c3c7cf", marginTop: 4 }}>{timeAgo(n.createdAt)}</p>
                   </div>
                   {!n.isRead && (
-                    <span style={{ width: 8, height: 8, borderRadius: 4, background: "#57b869", flexShrink: 0, marginTop: 6 }} />
+                    <span style={{ width: 8, height: 8, borderRadius: 4, background: "#3b82f6", flexShrink: 0, marginTop: 6 }} />
                   )}
                 </button>
               );

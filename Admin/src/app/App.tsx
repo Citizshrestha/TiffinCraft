@@ -185,8 +185,13 @@ export default function App() {
     setActivePage("dashboard");
   }
 
+  const today = new Date();
+  const weekAgo = new Date(today);
+  weekAgo.setDate(today.getDate() - 6);
+  const dateRangeLabel = `${weekAgo.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})} - ${today.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}`;
+
   return (
-    <div className="flex min-h-screen" style={{ background: "#f2f2f5", fontFamily: "Inter, sans-serif" }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: "#f2f2f5", fontFamily: "Inter, sans-serif" }}>
       <Sidebar
         activePage={activePage}
         onNavigate={setActivePage}
@@ -196,7 +201,7 @@ export default function App() {
         mobileOpen={sidebarOpen}
         onCloseMobile={() => setSidebarOpen(false)}
       />
-      <div className="flex-1 min-w-0 flex flex-col lg:ml-[260px]">
+      <div className="flex-1 min-w-0 flex flex-col h-screen lg:ml-[260px]">
         {/* Mobile top bar — hamburger opens the sidebar drawer; hidden on lg+ */}
         <header
           className="lg:hidden sticky top-0 z-30 flex items-center gap-3 px-4 py-3"
@@ -219,13 +224,27 @@ export default function App() {
           <NotificationBell dark onNavigate={setActivePage} />
         </header>
 
-        {/* Desktop top bar — just the bell, right-aligned; hidden below lg where
-            the mobile header above already carries it. */}
+        {/* Desktop top bar — greeting + date range on the left, bell on the right.
+            The page content scrolls inside <main> below, so this bar never moves. */}
         <header
-          className="hidden lg:flex sticky top-0 z-30 items-center justify-end px-8 py-3"
+          className="hidden lg:flex sticky top-0 z-30 items-center justify-between px-8 py-3 shrink-0"
           style={{ background: "#f2f2f5" }}
         >
-          <NotificationBell onNavigate={setActivePage} />
+          <div>
+            <p style={{ fontFamily: "Inter", fontWeight: 700, fontSize: 24, color: "#1c1f29" }}>
+              Welcome back, Admin! 👋
+            </p>
+            <p style={{ fontFamily: "Inter", fontWeight: 400, fontSize: 14, color: "#9499a6", marginTop: 4 }}>
+              Here's what's happening with TiffinCraft today.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center px-3 py-2 rounded-[6px]"
+              style={{ border: "1px solid #e5e8ed", background: "white", fontFamily: "Inter", fontWeight: 400, fontSize: 13, color: "#9499a6" }}>
+              📅 {dateRangeLabel}
+            </div>
+            <NotificationBell onNavigate={setActivePage} />
+          </div>
         </header>
 
         <main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">

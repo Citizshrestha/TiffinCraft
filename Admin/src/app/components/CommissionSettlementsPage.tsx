@@ -216,7 +216,7 @@ export function CommissionSettlementsPage() {
             />
             <span style={{ fontFamily: "Inter", fontSize: 14, color: "#9499a6" }}>%</span>
             <button onClick={handleSaveRate} disabled={savingRate}
-              style={{ background: "#57b869", border: "none", fontFamily: "Inter", fontWeight: 600, color: "white", fontSize: 13, padding: "10px 14px", borderRadius: 8, cursor: savingRate ? "not-allowed" : "pointer", opacity: savingRate ? 0.7 : 1 }}>
+              style={{ background: "#3b82f6", border: "none", fontFamily: "Inter", fontWeight: 600, color: "white", fontSize: 13, padding: "10px 14px", borderRadius: 8, cursor: savingRate ? "not-allowed" : "pointer", opacity: savingRate ? 0.7 : 1 }}>
               {savingRate ? "Saving…" : "Save"}
             </button>
           </div>
@@ -270,7 +270,7 @@ export function CommissionSettlementsPage() {
         {STAT_TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             style={{ padding: "10px 16px", borderRadius: 8, fontSize: 13, cursor: "pointer", border: "none", fontFamily: "Inter", fontWeight: 500,
-              background: tab === t.id ? "#57b869" : "#f2f5f7", color: tab === t.id ? "#fff" : "#9499a6" }}>
+              background: tab === t.id ? "#3b82f6" : "#f2f5f7", color: tab === t.id ? "#fff" : "#9499a6" }}>
             {t.label}
           </button>
         ))}
@@ -321,8 +321,8 @@ export function CommissionSettlementsPage() {
                     </button>
                     {r.status === "submitted" && (
                       <button title="Verify / Reject" onClick={() => startProcess(r)}
-                        style={{ width: 32, height: 32, borderRadius: 6, border: "none", background: "rgba(87,184,105,0.10)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                        <CheckCircle2 size={14} color="#57b869" />
+                        style={{ width: 32, height: 32, borderRadius: 6, border: "none", background: "rgba(16,185,129,0.10)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                        <CheckCircle2 size={14} color="#10b981" />
                       </button>
                     )}
                   </div>

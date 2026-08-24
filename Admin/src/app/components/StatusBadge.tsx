@@ -31,25 +31,25 @@ const statusConfig: Record<
   { bg: string; color: string; label: string }
 > = {
   delivered: {
-    bg: "rgba(87,184,105,0.12)",
-    color: "#57b869",
+    bg: "rgba(16,185,129,0.12)",
+    color: "#10b981",
     label: "Delivered",
   },
   completed: {
-    bg: "rgba(87,184,105,0.12)",
-    color: "#57b869",
+    bg: "rgba(16,185,129,0.12)",
+    color: "#10b981",
     label: "Completed",
   },
-  active: { bg: "rgba(87,184,105,0.15)", color: "#57b869", label: "Active" },
-  paid: { bg: "rgba(87,184,105,0.12)", color: "#57b869", label: "Paid" },
+  active: { bg: "rgba(16,185,129,0.15)", color: "#10b981", label: "Active" },
+  paid: { bg: "rgba(16,185,129,0.12)", color: "#10b981", label: "Paid" },
   accepted: {
-    bg: "rgba(87,184,105,0.12)",
-    color: "#57b869",
+    bg: "rgba(16,185,129,0.12)",
+    color: "#10b981",
     label: "Accepted",
   },
   verified: {
-    bg: "rgba(87,184,105,0.12)",
-    color: "#57b869",
+    bg: "rgba(16,185,129,0.12)",
+    color: "#10b981",
     label: "Verified",
   },
   processing: {
@@ -89,8 +89,8 @@ const statusConfig: Record<
     label: "Unverified",
   },
   confirmed: {
-    bg: "rgba(87,184,105,0.12)",
-    color: "#57b869",
+    bg: "rgba(16,185,129,0.12)",
+    color: "#10b981",
     label: "Confirmed",
   },
   preparing: {
@@ -114,8 +114,8 @@ const statusConfig: Record<
     label: "Under Review",
   },
   approved: {
-    bg: "rgba(87,184,105,0.12)",
-    color: "#57b869",
+    bg: "rgba(16,185,129,0.12)",
+    color: "#10b981",
     label: "Approved",
   },
   rejected: {

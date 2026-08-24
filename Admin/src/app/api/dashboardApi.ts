@@ -25,6 +25,7 @@ export interface TopCook {
   kitchen_name: string | null;
   rating: number | string;
   total_orders: number;
+  profile_image?: string | null;
 }
 
 export interface DailyMetric {

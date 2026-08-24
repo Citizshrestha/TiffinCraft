@@ -235,7 +235,7 @@ export function CooksPage() {
         </div>
         <button onClick={()=>{setAdding(true);setAddForm(blankAdd);setAddErrs({});}}
           className="self-start shrink-0"
-          style={{background:"#57b869",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:14,padding:"12px 20px",borderRadius:8,cursor:"pointer"}}>
+          style={{background:"#f97316",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:14,padding:"12px 20px",borderRadius:8,cursor:"pointer"}}>
           + Add Cook
         </button>
       </div>
@@ -247,7 +247,7 @@ export function CooksPage() {
           style={{
             fontFamily:"Inter",fontWeight:600,fontSize:13,padding:"8px 18px",borderRadius:8,cursor:"pointer",
             border: showPending ? "1px solid #e5e8ed" : "none",
-            background: showPending ? "white" : "#57b869",
+            background: showPending ? "white" : "#3b82f6",
             color: showPending ? "#1c1f29" : "white",
           }}
         >
@@ -258,7 +258,7 @@ export function CooksPage() {
           style={{
             fontFamily:"Inter",fontWeight:600,fontSize:13,padding:"8px 18px",borderRadius:8,cursor:"pointer",
             border: showPending ? "none" : "1px solid #e5e8ed",
-            background: showPending ? "#57b869" : "white",
+            background: showPending ? "#3b82f6" : "white",
             color: showPending ? "white" : "#1c1f29",
           }}
         >
@@ -281,7 +281,7 @@ export function CooksPage() {
           {!loading && loadError && (
             <div style={{textAlign:"center",padding:"32px 0"}}>
               <p style={{fontFamily:"Inter",fontSize:14,color:"#f25959",marginBottom:12}}>{loadError}</p>
-              <button onClick={loadPendingCooks} style={{background:"#57b869",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:13,padding:"8px 16px",borderRadius:8,cursor:"pointer"}}>Retry</button>
+              <button onClick={loadPendingCooks} style={{background:"#f97316",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:13,padding:"8px 16px",borderRadius:8,cursor:"pointer"}}>Retry</button>
             </div>
           )}
           {!loading && !loadError && pendingRows.length === 0 && (
@@ -329,7 +329,7 @@ export function CooksPage() {
                   onClick={() => handleApprove(c)}
                   disabled={approvingId === c.id}
                   style={{
-                    background:"#57b869",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",
+                    background:"#10b981",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",
                     fontSize:13,padding:"8px 20px",borderRadius:8,cursor: approvingId === c.id ? "not-allowed" : "pointer",
                     opacity: approvingId === c.id ? 0.7 : 1,
                   }}
@@ -375,7 +375,7 @@ export function CooksPage() {
               {!loading && loadError && (
                 <div style={{textAlign:"center",padding:"32px 0"}}>
                   <p style={{fontFamily:"Inter",fontSize:14,color:"#f25959",marginBottom:12}}>{loadError}</p>
-                  <button onClick={loadCooks} style={{background:"#57b869",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:13,padding:"8px 16px",borderRadius:8,cursor:"pointer"}}>Retry</button>
+                  <button onClick={loadCooks} style={{background:"#f97316",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:13,padding:"8px 16px",borderRadius:8,cursor:"pointer"}}>Retry</button>
                 </div>
               )}
               {!loading && !loadError && visible.length===0&&<p style={{fontFamily:"Inter",fontSize:14,color:"#9499a6",textAlign:"center",padding:"32px 0"}}>No cooks found.</p>}

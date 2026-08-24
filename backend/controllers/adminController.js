@@ -46,8 +46,10 @@ export const getDashboard = async (req, res) => {
         );
 
         const [topCooks] = await db.promise().query(
-            `SELECT cp.user_id, cp.kitchen_name, cp.rating, cp.total_orders
+            `SELECT cp.user_id, cp.kitchen_name, cp.rating, cp.total_orders,
+                    u.profile_image
              FROM cook_profiles cp
+             JOIN users u ON cp.user_id = u.id
              ORDER BY cp.rating DESC, cp.total_orders DESC
              LIMIT 5`
         );

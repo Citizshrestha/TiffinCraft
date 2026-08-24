@@ -18,7 +18,7 @@ function Field({ label, value, onChange, type="text", error }: {
       <input type={type} value={value} onChange={e=>onChange(e.target.value)}
         className="w-full px-4 py-3 rounded-[8px] text-[14px] outline-none transition-all"
         style={{border:`1px solid ${error?"#f25959":"#e5e8ed"}`,fontFamily:"Inter",color:"#1c1f29"}}
-        onFocus={e=>(e.target.style.borderColor=error?"#f25959":"#57b869")}
+        onFocus={e=>(e.target.style.borderColor=error?"#f25959":"#3b82f6")}
         onBlur={e=>(e.target.style.borderColor=error?"#f25959":"#e5e8ed")}/>
       {error && <p style={{fontFamily:"Inter",fontSize:11,color:"#f25959",marginTop:4}}>{error}</p>}
     </div>

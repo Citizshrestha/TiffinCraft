@@ -120,7 +120,7 @@ export function ReportsPage() {
     return (
       <div className="flex flex-col gap-6">
         <p style={{fontFamily:"Inter",fontSize:14,color:"#f25959"}}>{loadError || "Failed to load reports."}</p>
-        <button onClick={load} style={{width:160,background:"#57b869",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:13,padding:"10px 16px",borderRadius:8,cursor:"pointer"}}>Retry</button>
+        <button onClick={load} style={{width:160,background:"#f97316",border:"none",fontFamily:"Inter",fontWeight:600,color:"white",fontSize:13,padding:"10px 16px",borderRadius:8,cursor:"pointer"}}>Retry</button>
       </div>
     );
   }
@@ -147,7 +147,7 @@ export function ReportsPage() {
         </div>
         <button onClick={handleExport}
           className="flex items-center gap-2 px-5 py-3 rounded-[8px] text-white text-[14px] cursor-pointer transition-all duration-150 hover:brightness-95 self-start shrink-0"
-          style={{background:"#57b869",fontFamily:"Inter",fontWeight:600,border:"none"}}>
+          style={{background:"#f97316",fontFamily:"Inter",fontWeight:600,border:"none"}}>
           📊 Export Report
         </button>
       </div>
@@ -157,7 +157,7 @@ export function ReportsPage() {
         <MetricCard icon="📦" value={num(totals.total_orders).toLocaleString("en-IN")} label="Total Orders"
           change={pctChange(periods.prev_orders, periods.cur_orders)} changeColor="#7887fa"/>
         <MetricCard icon="💰" value={formatCompactCurrency(totals.total_revenue)} label="Total Revenue"
-          change={pctChange(periods.prev_revenue, periods.cur_revenue)} changeColor="#57b869"/>
+          change={pctChange(periods.prev_revenue, periods.cur_revenue)} changeColor="#10b981"/>
         <MetricCard icon="👥" value={num(periods.cur_active_users).toLocaleString("en-IN")} label="Active Users (30d)"
           change={pctChange(periods.prev_active_users, periods.cur_active_users)} changeColor="#f28c40"/>
         <MetricCard icon="💳" value={formatCurrency(totals.avg_order_value)} label="Avg Order Value"

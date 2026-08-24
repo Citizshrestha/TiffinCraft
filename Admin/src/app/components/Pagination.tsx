@@ -63,7 +63,7 @@ export function Pagination({
             style={
               current === p
                 ? {
-                    background: "#57b869",
+                    background: "#3b82f6",
                     color: "#ffffff",
                     fontFamily: "Inter",
                     fontWeight: 500,
@@ -98,7 +98,7 @@ export function Pagination({
               style={
                 current === total
                   ? {
-                      background: "#57b869",
+                      background: "#3b82f6",
                       color: "#ffffff",
                       fontFamily: "Inter",
                       fontWeight: 500,
