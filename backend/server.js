@@ -179,12 +179,29 @@ app.get("/", (_req, res) => {
     });
 });
 
+// Deliberately does NOT touch the database. An external uptime monitor hits
+// this every 5 minutes to keep the free-tier host awake, and TiDB Cloud
+// Serverless is billed per Request Unit — a DB round-trip per ping would burn
+// quota forever to answer a question ("is the process up?") that needs no DB.
+// Use /api/health/db when you actually want to check the database.
 app.get("/api/health", (_req, res) => {
+    res.status(200).json({
+        status: "ok",
+        uptime_seconds: Math.floor(process.uptime()),
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Deeper check: verifies a pooled connection can actually be acquired.
+// Not for the keep-alive pinger — for humans and deploy smoke tests.
+app.get("/api/health/db", (_req, res) => {
     db.getConnection((err, connection) => {
         if (err) {
             return res.status(503).json({
                 status: "error",
                 database: "disconnected",
+                // err.message only — never err.stack or the pool config, which
+                // would surface the host and user in a public response.
                 error: err.message,
                 timestamp: new Date().toISOString()
             });
@@ -262,6 +279,50 @@ app.use((err, _req, res, _next) => {
 
 const PORT = process.env.PORT || 5000;
 
+// ── Environment preflight ─────────────────────────────────────
+// Follows the same "fail loud at boot, not silently at the first real payment"
+// principle already used in esewaClient.js. On a hosted deploy the only thing
+// you get is the build log, so every missing variable has to announce itself
+// there rather than surfacing as a confusing 500 an hour later.
+(function preflightEnv() {
+    const isProd = process.env.NODE_ENV === "production";
+
+    // Without these the process cannot function correctly at all.
+    const fatal = ["DB_HOST", "DB_USER", "DB_NAME", "JWT_SECRET"].filter((k) => !process.env[k]);
+    if (fatal.length) {
+        console.error(`❌ Missing required environment variable(s): ${fatal.join(", ")}`);
+        console.error("   Set them in your host's dashboard (or .env locally) and redeploy.");
+        process.exit(1);
+    }
+
+    if (!isProd) return;
+
+    // Production-only. Each of these degrades or breaks a feature rather than
+    // stopping boot, so they warn instead of exiting — but they are loud,
+    // because NODE_ENV=production disables every sandbox/dev fallback.
+    const checks = [
+        ["PUBLIC_BASE_URL", "eSewa redirect/callback URLs will fall back to an unreachable LAN address — payments cannot complete"],
+        ["ESEWA_EPAY_PRODUCT_CODE", "ePay v2 sandbox defaults are disabled in production — subscription payment forms would be signed with null"],
+        ["ESEWA_EPAY_SECRET_KEY", "ePay v2 signature key missing — eSewa will reject every payment form"],
+        ["ESEWA_EPAY_FORM_URL", "ePay v2 form endpoint missing — no default exists in production"],
+        ["ESEWA_EPAY_STATUS_URL", "ePay v2 status endpoint missing — server-side payment re-verification cannot run"],
+        ["CLIENT_URL", "admin dashboard origin unset — CORS and emailed links fall back to defaults"],
+        ["SMTP_HOST", "transactional email (verification, approvals) will not send"]
+    ];
+    const missing = checks.filter(([k]) => !process.env[k]);
+    if (missing.length) {
+        console.warn(`\n⚠️  NODE_ENV=production but ${missing.length} variable(s) are unset:`);
+        missing.forEach(([k, why]) => console.warn(`   • ${k} — ${why}`));
+        console.warn("");
+    }
+
+    if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+        && !process.env.FIREBASE_SERVICE_ACCOUNT_PATH
+        && !process.env.FIREBASE_PROJECT_ID) {
+        console.warn("⚠️  No Firebase credentials — push notifications are disabled (the API still works).");
+    }
+})();
+
 db.getConnection((err, connection) => {
     if (err) {
         console.error("❌ Database connection failed:", err.message);
@@ -292,9 +353,18 @@ db.getConnection((err, connection) => {
 
     server.listen(PORT, "0.0.0.0", () => {
         console.log(`\n✅ Server running on port ${PORT}`);
-        console.log(`🌐 Local:            http://localhost:${PORT}`);
-        console.log(`📱 Android Emulator: http://10.0.2.2:${PORT}`);
-        console.log(`🔍 Health check:     http://localhost:${PORT}/api/health`);
+        if (process.env.NODE_ENV === "production") {
+            // The LAN/emulator addresses below are meaningless on a hosted
+            // box; print what an operator can actually reach instead.
+            const base = process.env.PUBLIC_BASE_URL || "(PUBLIC_BASE_URL not set)";
+            console.log(`🌍 Public base:      ${base}`);
+            console.log(`🔍 Health check:     ${base}/api/health`);
+            console.log(`🩺 DB health:        ${base}/api/health/db`);
+        } else {
+            console.log(`🌐 Local:            http://localhost:${PORT}`);
+            console.log(`📱 Android Emulator: http://10.0.2.2:${PORT}`);
+            console.log(`🔍 Health check:     http://localhost:${PORT}/api/health`);
+        }
         console.log(`🔌 Socket.IO:        ready\n`);
     });
 });

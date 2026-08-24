@@ -11,12 +11,43 @@ let firebaseApp = null;
 
 /**
  * Initialize Firebase Admin SDK for FCM push notifications.
- * Expects the service-account JSON path in FIREBASE_SERVICE_ACCOUNT_PATH env var,
- * OR places the JSON keys in individual env vars (FIREBASE_PROJECT_ID, etc.).
+ *
+ * Credential sources, in priority order:
+ *   1. FIREBASE_SERVICE_ACCOUNT_JSON — the whole service-account JSON as a
+ *      single env var. This is the deployment path (Render, Heroku, Docker):
+ *      hosts give you env vars, not a filesystem to drop secrets onto.
+ *   2. FIREBASE_SERVICE_ACCOUNT_PATH — path to the JSON file (local dev).
+ *   3. FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.
+ *
+ * Never throws: an unconfigured Firebase disables push notifications, it does
+ * not take the API down with it.
  */
 export const initFirebase = () => {
   if (firebaseApp) return firebaseApp;
 
+  // 1. Full JSON in one env var — the production/hosted path.
+  const saJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (saJson && saJson.trim()) {
+    try {
+      const serviceAccount = JSON.parse(saJson);
+      // Pasting into a dashboard textarea commonly turns the real newlines in
+      // private_key into literal backslash-n. Repair rather than fail.
+      if (typeof serviceAccount.private_key === "string") {
+        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
+      }
+      firebaseApp = initializeApp({ credential: cert(serviceAccount) });
+      console.log("✅ Firebase Admin initialized (FIREBASE_SERVICE_ACCOUNT_JSON)");
+      return firebaseApp;
+    } catch (err) {
+      // Deliberately does not echo the value — it contains a private key.
+      console.error(
+        `❌ FIREBASE_SERVICE_ACCOUNT_JSON is set but unusable (${err.message}). ` +
+        "Expected the entire service-account JSON as one value. Falling through."
+      );
+    }
+  }
+
+  // 2. Service-account file on disk — local development.
   const saPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
   if (saPath && existsSync(saPath)) {
     const serviceAccount = JSON.parse(readFileSync(saPath, "utf-8"));
@@ -27,7 +58,7 @@ export const initFirebase = () => {
     return firebaseApp;
   }
 
-  // Fallback: individual env vars (for deployment without a local file)
+  // 3. Fallback: individual env vars
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_PRIVATE_KEY;
@@ -45,8 +76,9 @@ export const initFirebase = () => {
   }
 
   console.warn(
-    "⚠️  Firebase not configured — set FIREBASE_SERVICE_ACCOUNT_PATH or " +
-    "FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY to enable FCM."
+    "⚠️  Firebase not configured — set FIREBASE_SERVICE_ACCOUNT_JSON (recommended for " +
+    "hosted deploys), or FIREBASE_SERVICE_ACCOUNT_PATH, or FIREBASE_PROJECT_ID + " +
+    "FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY, to enable FCM push notifications."
   );
   return null;
 };

@@ -84,6 +84,78 @@ export const getDashboard = async (req, res) => {
     }
 };
 
+// GET /api/admin/reports
+export const getReports = async (req, res) => {
+    try {
+        const [[totals]] = await db.promise().query(
+            `SELECT
+                COUNT(*) as total_orders,
+                COALESCE(SUM(CASE WHEN status IN ('delivered', 'completed')
+                    THEN total_amount ELSE 0 END), 0) as total_revenue,
+                COALESCE(AVG(CASE WHEN status IN ('delivered', 'completed')
+                    THEN total_amount END), 0) as avg_order_value
+             FROM orders`
+        );
+
+        // Last 30 days vs the 30 days before that, for the change badges.
+        const [[periods]] = await db.promise().query(
+            `SELECT
+                SUM(CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                    THEN 1 ELSE 0 END) as cur_orders,
+                SUM(CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+                    AND created_at < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                    THEN 1 ELSE 0 END) as prev_orders,
+                COALESCE(SUM(CASE WHEN status IN ('delivered', 'completed')
+                    AND created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                    THEN total_amount ELSE 0 END), 0) as cur_revenue,
+                COALESCE(SUM(CASE WHEN status IN ('delivered', 'completed')
+                    AND created_at >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+                    AND created_at < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                    THEN total_amount ELSE 0 END), 0) as prev_revenue,
+                COUNT(DISTINCT CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                    THEN customer_id END) as cur_active_users,
+                COUNT(DISTINCT CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+                    AND created_at < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                    THEN customer_id END) as prev_active_users
+             FROM orders`
+        );
+
+        const [statusBreakdown] = await db.promise().query(
+            `SELECT status, COUNT(*) as count
+             FROM orders
+             GROUP BY status`
+        );
+
+        // DATE_FORMAT keeps this a plain string so the client can key on it
+        // without timezone drift.
+        const [revenueByDay] = await db.promise().query(
+            `SELECT DATE_FORMAT(created_at, '%Y-%m-%d') as date,
+                    COUNT(*) as orders,
+                    COALESCE(SUM(CASE WHEN status IN ('delivered', 'completed')
+                        THEN total_amount ELSE 0 END), 0) as revenue
+             FROM orders
+             WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+             GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+             ORDER BY date ASC`
+        );
+
+        return res.status(200).json({
+            success: true,
+            totals,
+            periods,
+            statusBreakdown,
+            revenueByDay
+        });
+
+    } catch (error) {
+        console.error("getReports error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error."
+        });
+    }
+};
+
 // GET /api/admin/cooks/pending
 export const getPendingCooks = async (req, res) => {
     try {
@@ -174,7 +246,7 @@ export const approveCook = async (req, res) => {
                         Log in to your account to manage your menu and start cooking!
                     </p>
                     <div style="text-align: center; margin: 24px 0;">
-                        <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}"
+                        <a href="${process.env.CLIENT_URL?.split(',')[0].trim() || process.env.PUBLIC_BASE_URL || 'http://localhost:3000'}"
                            style="background: #4CAF50; color: white; padding: 12px 32px;
                                   border-radius: 8px; text-decoration: none; font-weight: bold;">
                             Get Started
@@ -315,7 +387,7 @@ export const getAllUsers = async (req, res) => {
         const { role } = req.query;
 
         let query = `SELECT id, full_name, email, phone, role,
-                            is_active, is_verified, created_at
+                            is_active, is_verified, profile_image, created_at
                      FROM users WHERE 1=1`;
         const params = [];
 
