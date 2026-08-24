@@ -129,7 +129,7 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
             String planName = sub.getPlanName() != null ? sub.getPlanName() : "Subscription";
             String kitchen = sub.getPlan() != null && sub.getPlan().getKitchenName() != null
                     ? sub.getPlan().getKitchenName() : null;
-            String durationLabel = "weekly".equals(sub.getDuration()) ? "1 Week" : "1 Month";
+            String durationLabel = sub.getDurationLabel();
 
             tvPlanName.setText(planName);
             tvKitchenName.setText((kitchen != null ? "From " + kitchen + " · " : "") + durationLabel);
@@ -150,7 +150,25 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
         String status = sub.getStatus();
         String paymentStatus = sub.getPaymentStatus();
 
+        btnManage.setVisibility(View.VISIBLE);
+
         if ("pending_payment".equals(status)) {
+            // A gateway payment that failed or was abandoned retries through
+            // eSewa, not the upload-proof screen — the two paths are told apart
+            // by payment_method, which the server sets, never guessed here.
+            if (sub.isEsewaPayment()) {
+                boolean failed = "failed".equals(paymentStatus);
+                chip.setText(failed ? "Payment Failed" : "Payment Pending");
+                chip.setBackgroundResource(failed ? R.drawable.status_chip_sold_out : R.drawable.status_chip_pending);
+                chip.setTextColor(failed ? getColor(R.color.sub_error) : getColor(R.color.status_pending_text));
+                detail.setText(failed
+                        ? "The payment didn't go through, so this subscription was never activated. Nothing was charged — you can retry."
+                        : "This subscription activates as soon as your eSewa payment is confirmed.");
+                btnManage.setText(failed ? "Retry Payment" : "Pay Now");
+                btnManage.setOnClickListener(v -> retryEsewaSubscriptionPayment(sub));
+                return;
+            }
+
             switch (paymentStatus != null ? paymentStatus : "pending") {
                 case "submitted":
                     chip.setText("Awaiting Verification");
@@ -166,6 +184,13 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
                     detail.setText(sub.getVerificationNotes() != null && !sub.getVerificationNotes().isEmpty()
                             ? sub.getVerificationNotes() : "Payment proof couldn't be verified — please re-upload.");
                     btnManage.setText("Re-upload Proof");
+                    break;
+                case "failed":
+                    chip.setText("Payment Failed");
+                    chip.setBackgroundResource(R.drawable.status_chip_sold_out);
+                    chip.setTextColor(getColor(R.color.sub_error));
+                    detail.setText("This payment didn't complete, so the subscription was never activated. You can try again.");
+                    btnManage.setText("Try Again");
                     break;
                 default:
                     chip.setText("Payment Pending");
@@ -198,6 +223,18 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
             return;
         }
 
+        if ("completed".equals(status)) {
+            // The paid cycle ran to the end of end_date. Distinct from cancelled:
+            // it finished normally, and resubscribing is the natural next step.
+            chip.setText("Completed");
+            chip.setBackgroundResource(R.drawable.status_chip_delivered);
+            chip.setTextColor(getColor(R.color.status_delivered_text));
+            detail.setText("All deliveries in this plan were completed. Subscribe again to continue.");
+            btnManage.setText("Subscribe Again");
+            btnManage.setOnClickListener(v -> openCookProfile(sub));
+            return;
+        }
+
         // active
         chip.setText("Active");
         chip.setBackgroundResource(R.drawable.status_chip_delivered);
@@ -205,6 +242,30 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
         detail.setText("Next delivery: " + formatShortDate(sub.getNextDeliveryDate()));
         btnManage.setText("Manage");
         btnManage.setOnClickListener(v -> showManageDialog(sub));
+    }
+
+    /**
+     * Sends an unpaid/failed eSewa subscription back through the gateway.
+     * /api/subscriptions/initiate reuses the existing pending_payment row rather
+     * than creating a second one, so retrying can't leave duplicates behind.
+     */
+    private void retryEsewaSubscriptionPayment(SubscriptionResponse.Subscription sub) {
+        Intent intent = new Intent(this, com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.class);
+        intent.putExtra(com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.EXTRA_MODE,
+                com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.MODE_SUBSCRIPTION);
+        intent.putExtra(com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.EXTRA_PLAN_ID, sub.getPlanId());
+        intent.putExtra(com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.EXTRA_COOK_ID, sub.getCookId());
+        intent.putExtra(com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.EXTRA_DELIVERY_ADDRESS,
+                sub.getDeliveryAddress());
+        intent.putExtra(com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.EXTRA_PLAN_NAME,
+                sub.getPlanName());
+        startActivity(intent);
+    }
+
+    private void openCookProfile(SubscriptionResponse.Subscription sub) {
+        Intent intent = new Intent(this, com.tiffincraft.app.activities.meal.CookDetailsActivity.class);
+        intent.putExtra(com.tiffincraft.app.activities.meal.CookDetailsActivity.EXTRA_COOK_ID, sub.getCookId());
+        startActivity(intent);
     }
 
     private void showManageDialog(SubscriptionResponse.Subscription sub) {

@@ -1,6 +1,7 @@
 package com.tiffincraft.app.activities.cook;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -47,6 +48,8 @@ public class CookSubscribersActivity extends AppCompatActivity {
      *  "payment submitted" notification) instead of the default "all". */
     public static final String EXTRA_INITIAL_FILTER = "initial_filter";
 
+    private static final int REQUEST_ADD_SUBSCRIPTION = 5001;
+
     private ApiService apiService;
     private SessionManager sessionManager;
 
@@ -73,6 +76,8 @@ public class CookSubscribersActivity extends AppCompatActivity {
         chipOther = findViewById(R.id.chipOther);
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
+        findViewById(R.id.fabAddSubscription).setOnClickListener(v ->
+                startActivityForResult(new Intent(this, SubscriptionPlanFormActivity.class), REQUEST_ADD_SUBSCRIPTION));
 
         chipAll.setOnClickListener(v -> setFilter("all"));
         chipSubmitted.setOnClickListener(v -> setFilter("submitted"));
@@ -92,6 +97,14 @@ public class CookSubscribersActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         loadSubscribers();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_ADD_SUBSCRIPTION && resultCode == RESULT_OK) {
+            Toast.makeText(this, "Subscription plan created successfully", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void setFilter(String filter) {

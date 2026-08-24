@@ -112,17 +112,14 @@ public class CookCombosActivity extends AppCompatActivity {
 
         LayoutInflater inflater = LayoutInflater.from(this);
         for (ComboResponse.Combo combo : combos) {
-            // Reuses subscription plans' list-item layout — its view IDs are
-            // content-agnostic (name/meta/summary/toggle/edit/delete), no
-            // need for a near-duplicate layout file just for combos.
-            View card = inflater.inflate(R.layout.item_subscription_plan_manage, layoutCombos, false);
+            View card = inflater.inflate(R.layout.item_combo_deal_manage, layoutCombos, false);
 
-            TextView tvName = card.findViewById(R.id.tvPlanName);
-            TextView tvMeta = card.findViewById(R.id.tvPlanMeta);
-            TextView tvItemsSummary = card.findViewById(R.id.tvPlanItemsSummary);
+            TextView tvName = card.findViewById(R.id.tvComboName);
+            TextView tvMeta = card.findViewById(R.id.tvComboMeta);
+            TextView tvItemsSummary = card.findViewById(R.id.tvComboItemsSummary);
             SwitchCompat switchActive = card.findViewById(R.id.switchActive);
-            MaterialButton btnEdit = card.findViewById(R.id.btnEditPlan);
-            MaterialButton btnDelete = card.findViewById(R.id.btnDeletePlan);
+            MaterialButton btnEdit = card.findViewById(R.id.btnEditCombo);
+            MaterialButton btnDelete = card.findViewById(R.id.btnDeleteCombo);
 
             int itemCount = combo.getItems() != null ? combo.getItems().size() : 0;
             tvName.setText(combo.getName());
@@ -132,8 +129,6 @@ public class CookCombosActivity extends AppCompatActivity {
             if (combo.getSavings() > 0) {
                 meta += String.format(Locale.getDefault(), " (save ₹%.0f)", combo.getSavings());
             }
-            // Combo is turned on but can't actually be bought right now because
-            // one of its meals is 86'd — same reasoning as CookSubscriptionsActivity.
             if (combo.isActive() && !combo.isAvailable()) {
                 meta += " · ⚠ item unavailable";
             }

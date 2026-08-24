@@ -36,10 +36,22 @@ public class SubscriptionResponse {
         private int planId;
 
         @SerializedName("status")
-        private String status; // pending_payment | active | paused | cancelled
+        private String status; // pending_payment | active | paused | cancelled | completed
 
         @SerializedName("payment_status")
-        private String paymentStatus; // pending | submitted | verified | rejected
+        private String paymentStatus; // pending | submitted | verified | rejected | failed
+
+        /**
+         * "esewa" or "manual_qr". Decides how an unpaid subscription is retried:
+         * eSewa rows go back through the gateway, manual_qr rows go back to the
+         * upload-proof screen. Never inferred from payment_status.
+         */
+        @SerializedName("payment_method")
+        private String paymentMethod;
+
+        /** Last day this paid cycle covers; null for open-ended legacy rows. */
+        @SerializedName("end_date")
+        private String endDate;
 
         @SerializedName("payment_screenshot_url")
         private String paymentScreenshotUrl;
@@ -94,6 +106,19 @@ public class SubscriptionResponse {
             return paymentStatus;
         }
 
+        public String getPaymentMethod() {
+            return paymentMethod;
+        }
+
+        /** True when this subscription is (or was) paid through the eSewa gateway. */
+        public boolean isEsewaPayment() {
+            return "esewa".equals(paymentMethod);
+        }
+
+        public String getEndDate() {
+            return endDate;
+        }
+
         public String getPaymentScreenshotUrl() {
             return paymentScreenshotUrl;
         }
@@ -132,6 +157,13 @@ public class SubscriptionResponse {
 
         public String getCustomerPhone() {
             return customerPhone;
+        }
+
+        public String getDurationLabel() {
+            String dur = getDuration();
+            if ("2_weeks".equals(dur) || "biweekly".equals(dur) || "2_week".equals(dur)) return "2 Weeks";
+            if ("monthly".equals(dur) || "1_month".equals(dur) || "1_months".equals(dur)) return "1 Month";
+            return "1 Week";
         }
     }
 }

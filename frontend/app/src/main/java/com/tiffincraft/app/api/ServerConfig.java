@@ -2,6 +2,8 @@ package com.tiffincraft.app.api;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.Uri;
+import android.util.Log;
 
 import org.json.JSONObject;
 
@@ -12,49 +14,59 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 /**
- * Auto-discovery of the backend's current network address.
+ * Resolves the backend's network address.
  *
- * PROBLEM THIS SOLVES:
- * The dev backend is exposed via localtunnel, whose public URL changes every
- * time the tunnel process restarts (PC reboot, network drop, crash, etc).
- * Previously the Android app had this URL hardcoded in RetrofitClient, which
- * meant every tunnel restart required manually editing the URL and rebuilding
- * the APK — the exact "backend error on login/register" issue.
+ * HISTORY — why this class looks the way it does:
+ * The dev backend used to be exposed via localtunnel, whose public URL changed
+ * on every tunnel restart. Hardcoding it in RetrofitClient meant a manual edit
+ * plus an APK rebuild each time, so this class was added to discover the
+ * current address at runtime from GET /api/config.
  *
- * FIX:
- * The backend exposes GET /api/config (added specifically for this) which
- * reports both:
- *   - lan:    the backend's LAN address (http://<pc-lan-ip>:5000) — reachable
- *             directly whenever the phone is on the same WiFi as the PC.
- *   - tunnel: the current localtunnel public URL (for off-WiFi access).
+ * NOW:
+ * The backend is deployed at a stable HTTPS address (see DEFAULT_BASE_URL), so
+ * there is nothing to discover in normal operation. Discovery is retained but
+ * OFF by default — enable it with {@link #setLanDiscoveryEnabled} only when
+ * pointing the app at a backend on the local network.
  *
- * This class queries /api/config directly via the PC's LAN IP (fast, doesn't
- * depend on the tunnel at all while on the same WiFi) and caches whichever
- * URL is confirmed reachable. RetrofitClient reads from this cache, and
- * FailoverInterceptor re-runs discovery automatically if a request ever fails
- * — so the app self-heals without needing a rebuild or reinstall.
+ * Leaving discovery on against the hosted backend is not merely redundant, it
+ * is harmful: /api/config reports the server's own view of itself, which on a
+ * hosted box is a private address inside the provider's network. Adopting it
+ * would cache a permanently unreachable host. {@link #discoverAndCacheSync}
+ * guards against this by refusing any address whose host differs from the one
+ * it just queried.
  */
 public class ServerConfig {
 
-    private static final String PREFS_NAME = "TiffinCraftServerConfig";
+    private static final String TAG = "ServerConfig";
+
+    // Bumped to "…V2" when the backend moved from the dev PC to the hosted
+    // deployment. Any device that ran an earlier build has the old LAN address
+    // sitting in active_base_url, and that cache WINS over the constants below
+    // — so without a new prefs file, upgrading installs would keep dialling a
+    // PC that is no longer serving them. A new name orphans the old file and
+    // every device falls through to DEFAULT_BASE_URL exactly once.
+    private static final String PREFS_NAME = "TiffinCraftServerConfigV2";
     private static final String KEY_ACTIVE_BASE_URL = "active_base_url";
     private static final String KEY_ACTIVE_SERVER_URL = "active_server_url";
     private static final String KEY_LAN_HOST = "lan_host";
 
-    // Seed values — only used before the first successful discovery ever
-    // happens (fresh install). After that, the cache is kept up to date
-    // automatically. If your PC's LAN IP changes permanently (new router,
-    // etc.), update DEFAULT_LAN_HOST here, or simply let it fail over once —
-    // it will still recover automatically as long as this fallback tunnel URL
-    // (or the LAN IP) is reachable at least once.
-    // IMPORTANT: The LAN host is the primary route when both phones and PC
-    // share the same WiFi — it's fast, doesn't depend on the tunnel, and is
-    // the fallback when the tunnel URL goes stale.
-    private static final String DEFAULT_LAN_HOST = "192.168.100.115:5000";
-    private static final String DEFAULT_BASE_URL = "http://192.168.100.115:5000/api/";
-    private static final String DEFAULT_SERVER_URL = "http://192.168.100.115:5000";
+    // The hosted backend. Unlike the old localtunnel setup this address is
+    // stable, so it is the real default rather than a seed value to be
+    // discovered past.
+    private static final String DEFAULT_BASE_URL = "https://tiffincraft-xsrh.onrender.com/api/";
+    private static final String DEFAULT_SERVER_URL = "https://tiffincraft-xsrh.onrender.com";
 
-    private static final int DISCOVERY_TIMEOUT_MS = 3000;
+    // Only consulted by discoverAndCacheSync(), which is now opt-in (see
+    // setLanDiscoveryEnabled). Kept so a developer can still point the app at
+    // a laptop running the backend locally.
+    private static final String DEFAULT_LAN_HOST = "192.168.100.115:5000";
+
+    private static final String KEY_LAN_DISCOVERY = "lan_discovery_enabled";
+
+    // Render's free tier spins the instance down after 15 minutes idle; the
+    // next request then pays a cold start. 3s was tuned for a LAN hop and
+    // would abandon a waking instance as unreachable.
+    private static final int DISCOVERY_TIMEOUT_MS = 8000;
 
     private ServerConfig() {
     }
@@ -83,19 +95,52 @@ public class ServerConfig {
         prefs(context).edit().putString(KEY_LAN_HOST, hostPort).apply();
     }
 
+    /**
+     * LAN rediscovery is OFF by default. Turn it on only when running against a
+     * backend on the local network; against the hosted deployment there is
+     * nothing to discover and it can only do harm (see discoverAndCacheSync).
+     */
+    public static void setLanDiscoveryEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_LAN_DISCOVERY, enabled).apply();
+    }
+
+    public static boolean isLanDiscoveryEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_LAN_DISCOVERY, false);
+    }
+
+    /** Discards any cached address, so the next read falls back to DEFAULT_BASE_URL. */
+    public static void resetToDefault(Context context) {
+        prefs(context).edit()
+                .remove(KEY_ACTIVE_BASE_URL)
+                .remove(KEY_ACTIVE_SERVER_URL)
+                .apply();
+    }
+
     private static SharedPreferences prefs(Context context) {
         return context.getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
     /**
-     * Synchronously discovers the current live backend URL by querying
-     * /api/config via the PC's LAN IP. MUST be called off the main thread.
+     * Opt-in developer aid: rediscovers a backend on the local network via
+     * /api/config. MUST be called off the main thread.
      *
-     * @return the newly discovered + cached base URL, or null if discovery failed
-     *         (e.g. phone is not on the same WiFi as the PC right now).
+     * Returns null immediately unless LAN discovery has been explicitly
+     * enabled. With the backend at a stable HTTPS address there is nothing to
+     * discover, and leaving this on was actively dangerous — see the host-match
+     * guard below.
+     *
+     * @return the newly discovered + cached base URL, or null if discovery is
+     *         disabled, failed, or returned an address we refuse to adopt.
      */
     public static String discoverAndCacheSync(Context context) {
+        if (!isLanDiscoveryEnabled(context)) {
+            return null;
+        }
+
         String lanHost = getLanHost(context);
+        // Host portion only — lanHost carries a port, the discovered URL may not.
+        int colon = lanHost.indexOf(':');
+        String queriedHost = colon >= 0 ? lanHost.substring(0, colon) : lanHost;
 
         OkHttpClient client = new OkHttpClient.Builder()
                 .connectTimeout(DISCOVERY_TIMEOUT_MS, TimeUnit.MILLISECONDS)
@@ -130,10 +175,27 @@ public class ServerConfig {
                 activeServerUrl = tunnel.optString("serverUrl", null);
             }
 
-            if (activeBaseUrl != null && activeServerUrl != null) {
-                saveActive(context, activeBaseUrl, activeServerUrl);
-                return activeBaseUrl;
+            if (activeBaseUrl == null || activeServerUrl == null) {
+                return null;
             }
+
+            // Only adopt an address on the SAME host we just proved reachable.
+            // /api/config reports the server's own view of itself, which on a
+            // hosted box is a private address inside the provider's network —
+            // the live deploy returns http://10.27.232.60:10000/api/. Adopting
+            // that is unrecoverable: the app caches a dead host, and every
+            // later request, including this discovery call, then fails against
+            // it. Comparing hosts catches that without banning private ranges
+            // outright, so a developer whose own LAN is 10.x still works.
+            String discoveredHost = Uri.parse(activeBaseUrl).getHost();
+            if (discoveredHost == null || !discoveredHost.equals(queriedHost)) {
+                Log.w(TAG, "Refusing discovered host '" + discoveredHost
+                        + "' — does not match the queried host '" + queriedHost + "'");
+                return null;
+            }
+
+            saveActive(context, activeBaseUrl, activeServerUrl);
+            return activeBaseUrl;
         } catch (Exception e) {
             // LAN unreachable right now (different network, PC off, etc).
             // Caller falls back to the last cached / compiled default URL.

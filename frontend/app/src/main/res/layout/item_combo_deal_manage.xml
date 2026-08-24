@@ -8,8 +8,8 @@
     app:cardBackgroundColor="@color/white"
     app:cardCornerRadius="16dp"
     app:cardElevation="0dp"
-    app:strokeColor="#EFEFEF"
-    app:strokeWidth="1dp">
+    app:strokeColor="#FFE0B2"
+    app:strokeWidth="1.5dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -17,6 +17,7 @@
         android:orientation="vertical"
         android:padding="16dp">
 
+        <!-- Top row: Name, Bundle badge, switch -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -36,38 +37,37 @@
                     android:orientation="horizontal">
 
                     <TextView
-                        android:id="@+id/tvPlanName"
+                        android:id="@+id/tvComboName"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textColor="#111111"
                         android:textSize="15.5sp"
                         android:textStyle="bold"
-                        tools:text="Weekly Lunch Combo" />
+                        tools:text="Lunch Feast Combo" />
 
                     <TextView
-                        android:id="@+id/tvPlanDurationBadge"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
-                        android:background="@drawable/chip_selected_green"
+                        android:background="@drawable/chip_unselected"
                         android:paddingStart="8dp"
                         android:paddingTop="2dp"
                         android:paddingEnd="8dp"
                         android:paddingBottom="2dp"
-                        android:textColor="@color/dark_green"
+                        android:text="Combo Deal"
+                        android:textColor="#FF9800"
                         android:textSize="10.5sp"
-                        android:textStyle="bold"
-                        tools:text="1 Week" />
+                        android:textStyle="bold" />
                 </LinearLayout>
 
                 <TextView
-                    android:id="@+id/tvPlanMeta"
+                    android:id="@+id/tvComboMeta"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
                     android:textColor="#888888"
                     android:textSize="12sp"
-                    tools:text="2 items · ₹670 one-time" />
+                    tools:text="2 items · ₹450 (save ₹80)" />
             </LinearLayout>
 
             <androidx.appcompat.widget.SwitchCompat
@@ -77,7 +77,7 @@
         </LinearLayout>
 
         <TextView
-            android:id="@+id/tvPlanItemsSummary"
+            android:id="@+id/tvComboItemsSummary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -85,6 +85,7 @@
             android:textSize="12.5sp"
             tools:text="1x Pasta, 2x Grilled Hot Dog" />
 
+        <!-- Actions -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -92,20 +93,20 @@
             android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnEditPlan"
+                android:id="@+id/btnEditCombo"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="40dp"
                 android:layout_weight="1"
                 android:text="Edit"
                 android:textAllCaps="false"
-                android:textColor="@color/green_primary_dark"
+                android:textColor="#FF9800"
                 android:textSize="13sp"
                 app:cornerRadius="10dp"
-                app:strokeColor="@color/green_primary" />
+                app:strokeColor="#FF9800" />
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnDeletePlan"
+                android:id="@+id/btnDeleteCombo"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="40dp"

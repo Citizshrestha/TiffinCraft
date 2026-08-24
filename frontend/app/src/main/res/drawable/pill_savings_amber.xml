@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Savings/value tag behind the amber "Save ₹X" text. Small radius (not a
+     full pill) so it reads as a price tag rather than a status chip. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/sub_savings_pill_bg" />
+    <corners android:radius="6dp" />
+</shape>

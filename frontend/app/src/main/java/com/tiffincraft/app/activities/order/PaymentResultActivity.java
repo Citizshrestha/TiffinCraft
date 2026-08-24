@@ -50,6 +50,9 @@ public class PaymentResultActivity extends AppCompatActivity {
 
     private String transactionUuid;
     private int orderId = -1;
+    private int subscriptionId = -1;
+    /** True when the pending payment was for a subscription, not an order. */
+    private boolean subscriptionMode = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,15 +69,20 @@ public class PaymentResultActivity extends AppCompatActivity {
         apiService = RetrofitClient.getInstance(this).getApiService();
         sessionManager = new SessionManager(this);
 
-        btnBackToOrders.setOnClickListener(v -> goToOrderHistory());
-
         transactionUuid = sessionManager.getPendingEsewaTransactionUuid();
         orderId = sessionManager.getPendingEsewaOrderId();
+        subscriptionId = sessionManager.getPendingEsewaSubscriptionId();
+        // Which flow this was is read from our own durable state, never from the
+        // returned deeplink — a redirect can be replayed or hand-crafted.
+        subscriptionMode = subscriptionId > 0;
+
+        btnBackToOrders.setText(subscriptionMode ? "My Subscriptions" : "Back to Orders");
+        btnBackToOrders.setOnClickListener(v -> goToLanding());
 
         if (transactionUuid == null || transactionUuid.isEmpty()) {
             showTerminalState(false, "No Payment In Progress",
                     "We couldn't find a payment to check. If you completed a payment, check its status from your order details.",
-                    "Back to Orders", this::goToOrderHistory);
+                    subscriptionMode ? "My Subscriptions" : "Back to Orders", this::goToLanding);
             return;
         }
 
@@ -106,36 +114,50 @@ public class PaymentResultActivity extends AppCompatActivity {
         switch (status) {
             case "SUCCESS":
                 sessionManager.clearPendingEsewaTransaction();
-                showTerminalState(true, "Payment Successful!",
-                        "Your order has been confirmed and the cook has been notified.",
-                        "Track Order", () -> {
-                            Intent intent = new Intent(this, TrackOrderActivity.class);
-                            intent.putExtra("order_id", orderId);
-                            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-                            startActivity(intent);
-                            finish();
-                        });
+                if (subscriptionMode) {
+                    // The backend only reports SUCCESS after it re-checked with
+                    // eSewa's status API and flipped the subscription to active,
+                    // so this is the first point at which claiming "Subscribed"
+                    // is actually true.
+                    showTerminalState(true, "Subscribed successfully!",
+                            "Your payment is confirmed and your subscription is now active. The cook has been notified.",
+                            "View Subscription", this::goToSubscriptions);
+                } else {
+                    showTerminalState(true, "Payment Successful!",
+                            "Your order has been confirmed and the cook has been notified.",
+                            "Track Order", () -> {
+                                Intent intent = new Intent(this, TrackOrderActivity.class);
+                                intent.putExtra("order_id", orderId);
+                                intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                                startActivity(intent);
+                                finish();
+                            });
+                }
                 break;
 
             case "FAILED":
                 sessionManager.clearPendingEsewaTransaction();
                 showTerminalState(false, "Payment Failed",
-                        "Your payment could not be completed. No amount was charged — you can try again.",
-                        "Retry Payment", this::finish);
+                        subscriptionMode
+                                ? "Your payment could not be completed, so the subscription was not activated. No amount was charged and no meals were added — you can retry from My Subscriptions."
+                                : "Your payment could not be completed. No amount was charged — you can try again.",
+                        "Retry Payment", subscriptionMode ? this::goToSubscriptions : this::finish);
                 break;
 
             case "CANCELED":
                 sessionManager.clearPendingEsewaTransaction();
                 showTerminalState(false, "Payment Cancelled",
-                        "You cancelled the payment in the eSewa app. You can try again anytime.",
-                        "Retry Payment", this::finish);
+                        subscriptionMode
+                                ? "You cancelled the payment, so the subscription stays inactive. Nothing was charged — you can retry it from My Subscriptions."
+                                : "You cancelled the payment in the eSewa app. You can try again anytime.",
+                        "Retry Payment", subscriptionMode ? this::goToSubscriptions : this::finish);
                 break;
 
             case "REVERTED":
                 sessionManager.clearPendingEsewaTransaction();
                 showTerminalState(false, "Payment Reverted",
                         "This payment was reverted by eSewa. Contact support if you weren't expecting this.",
-                        "Back to Orders", this::goToOrderHistory);
+                        subscriptionMode ? "My Subscriptions" : "Back to Orders", this::goToLanding);
                 break;
 
             case "BOOKED":
@@ -155,7 +177,9 @@ public class PaymentResultActivity extends AppCompatActivity {
             imgStatusIcon.setImageResource(R.drawable.ic_clock);
             imgStatusIcon.setImageTintList(android.content.res.ColorStateList.valueOf(getColor(R.color.orange_warm)));
             tvStatusTitle.setText("Still Confirming…");
-            tvStatusMessage.setText("This is taking longer than usual. You can check again, or come back later — your order will update automatically once eSewa confirms.");
+            tvStatusMessage.setText(subscriptionMode
+                    ? "This is taking longer than usual. You can check again, or come back later — your subscription activates automatically once eSewa confirms the payment. Nothing is active until then."
+                    : "This is taking longer than usual. You can check again, or come back later — your order will update automatically once eSewa confirms.");
             btnPrimaryAction.setVisibility(View.VISIBLE);
             btnPrimaryAction.setText("Refresh Status");
             btnPrimaryAction.setOnClickListener(v -> {
@@ -193,6 +217,22 @@ public class PaymentResultActivity extends AppCompatActivity {
         btnPrimaryAction.setOnClickListener(v -> primaryAction.run());
 
         btnBackToOrders.setVisibility(View.VISIBLE);
+    }
+
+    private void goToLanding() {
+        if (subscriptionMode) {
+            goToSubscriptions();
+        } else {
+            goToOrderHistory();
+        }
+    }
+
+    private void goToSubscriptions() {
+        Intent intent = new Intent(this,
+                com.tiffincraft.app.activities.customer.CustomerSubscriptionsActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+        finish();
     }
 
     private void goToOrderHistory() {

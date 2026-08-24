@@ -24,6 +24,7 @@ import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.EpayInitiateResponse;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.ApiErrorMessage;
 
 import java.util.Map;
 
@@ -46,6 +47,18 @@ import retrofit2.Response;
  */
 public class EsewaEpayCheckoutActivity extends AppCompatActivity {
 
+    /** "order" (default) or {@link #MODE_SUBSCRIPTION}. */
+    public static final String EXTRA_MODE = "checkout_mode";
+    public static final String MODE_ORDER = "order";
+    public static final String MODE_SUBSCRIPTION = "subscription";
+
+    public static final String EXTRA_PLAN_ID = "plan_id";
+    public static final String EXTRA_COOK_ID = "cook_id";
+    public static final String EXTRA_DELIVERY_ADDRESS = "delivery_address";
+    public static final String EXTRA_PLAN_NAME = "plan_name";
+
+    private static final String TAG = "EpayCheckout";
+
     private WebView webView;
     private ProgressBar progressBar;
     private TextView tvOpenInBrowser;
@@ -53,6 +66,11 @@ public class EsewaEpayCheckoutActivity extends AppCompatActivity {
     private SessionManager sessionManager;
     private int orderId = -1;
     private String transactionUuid;
+
+    private boolean subscriptionMode = false;
+    private int planId = -1;
+    private int cookId = -1;
+    private String deliveryAddress;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -63,10 +81,23 @@ public class EsewaEpayCheckoutActivity extends AppCompatActivity {
         apiService = RetrofitClient.getInstance(this).getApiService();
         sessionManager = new SessionManager(this);
 
-        orderId = getIntent().getIntExtra("order_id", -1);
-        if (orderId == -1) {
-            finish();
-            return;
+        subscriptionMode = MODE_SUBSCRIPTION.equals(getIntent().getStringExtra(EXTRA_MODE));
+
+        if (subscriptionMode) {
+            planId = getIntent().getIntExtra(EXTRA_PLAN_ID, -1);
+            cookId = getIntent().getIntExtra(EXTRA_COOK_ID, -1);
+            deliveryAddress = getIntent().getStringExtra(EXTRA_DELIVERY_ADDRESS);
+            if (planId == -1 || cookId == -1) {
+                Toast.makeText(this, "Missing plan details. Please try again.", Toast.LENGTH_LONG).show();
+                finish();
+                return;
+            }
+        } else {
+            orderId = getIntent().getIntExtra("order_id", -1);
+            if (orderId == -1) {
+                finish();
+                return;
+            }
         }
 
         ImageButton btnBack = findViewById(R.id.btnBack);
@@ -143,9 +174,24 @@ public class EsewaEpayCheckoutActivity extends AppCompatActivity {
     private void startCheckout() {
         String token = "Bearer " + sessionManager.getToken();
         com.google.gson.JsonObject body = new com.google.gson.JsonObject();
-        body.addProperty("order_id", orderId);
 
-        apiService.initiateEpayPayment(token, body).enqueue(new Callback<EpayInitiateResponse>() {
+        Call<EpayInitiateResponse> call;
+        if (subscriptionMode) {
+            // No amount and no customer_id are sent: the backend charges the
+            // plan price stored in the DB and identifies the customer from the
+            // JWT, so a tampered client can't change what it pays.
+            body.addProperty("cook_id", cookId);
+            body.addProperty("plan_id", planId);
+            if (deliveryAddress != null && !deliveryAddress.isEmpty()) {
+                body.addProperty("delivery_address", deliveryAddress);
+            }
+            call = apiService.initiateSubscriptionPayment(token, body);
+        } else {
+            body.addProperty("order_id", orderId);
+            call = apiService.initiateEpayPayment(token, body);
+        }
+
+        call.enqueue(new Callback<EpayInitiateResponse>() {
             @Override
             public void onResponse(@NonNull Call<EpayInitiateResponse> call, @NonNull Response<EpayInitiateResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()
@@ -154,20 +200,40 @@ public class EsewaEpayCheckoutActivity extends AppCompatActivity {
                     // Saved now (not just after redirect) so PaymentResultActivity
                     // can find this transaction even if the process is killed
                     // while the user is inside eSewa's hosted checkout.
-                    sessionManager.savePendingEsewaTransaction(body.getTransactionUuid(), orderId);
+                    if (subscriptionMode) {
+                        sessionManager.savePendingEsewaSubscription(
+                                body.getTransactionUuid(), body.getSubscriptionId());
+                    } else {
+                        sessionManager.savePendingEsewaTransaction(body.getTransactionUuid(), orderId);
+                    }
                     transactionUuid = body.getTransactionUuid();
                     tvOpenInBrowser.setVisibility(View.VISIBLE);
                     loadAutoSubmitForm(body.getFormUrl(), body.getFields());
-                } else {
-                    Toast.makeText(EsewaEpayCheckoutActivity.this,
-                            "Could not start eSewa checkout. Please try again.", Toast.LENGTH_LONG).show();
-                    finish();
+                    return;
                 }
+
+                // A 2xx with success=false still carries a real reason in the body;
+                // anything else puts it in errorBody(). Both are surfaced verbatim
+                // instead of being collapsed into one generic string — this is how
+                // "you already have an active subscription", "this plan is
+                // unavailable" and "session expired" stay distinguishable.
+                String reason;
+                if (response.isSuccessful() && response.body() != null && response.body().getMessage() != null) {
+                    reason = response.body().getMessage();
+                    android.util.Log.e(TAG, "HTTP 200 but success=false: " + reason);
+                } else {
+                    reason = ApiErrorMessage.from(response, subscriptionMode
+                            ? "Could not start the subscription payment. Please try again."
+                            : "Could not start eSewa checkout. Please try again.");
+                }
+                Toast.makeText(EsewaEpayCheckoutActivity.this, reason, Toast.LENGTH_LONG).show();
+                finish();
             }
 
             @Override
             public void onFailure(@NonNull Call<EpayInitiateResponse> call, @NonNull Throwable t) {
-                Toast.makeText(EsewaEpayCheckoutActivity.this, "Network error: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(EsewaEpayCheckoutActivity.this,
+                        ApiErrorMessage.fromFailure(t), Toast.LENGTH_LONG).show();
                 finish();
             }
         });

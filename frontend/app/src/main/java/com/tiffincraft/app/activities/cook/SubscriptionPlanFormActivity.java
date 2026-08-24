@@ -40,10 +40,11 @@ import retrofit2.Response;
  * Full-screen form for both creating and editing a cook's subscription plan.
  * Items are always picked from the cook's own menu — a plan item borrows its
  * name/description/price live from `meals`, only quantity is plan-specific.
- * Price per delivery is an optional cook-set override — see
- * subscriptionPlanController.js for why that matters: without it, a plan
- * just charges the summed menu price on repeat, which is worse value than
- * ordering daily and defeats the point of subscribing.
+ * The subscription price is a single up-front payment for the whole plan, and it
+ * is required to be lower than the items' combined menu price — see
+ * subscriptionPlanController.js, which enforces the same rule server-side.
+ * A plan priced at or above the menu total is strictly worse for the customer
+ * than ordering the same food separately, so it isn't a plan worth publishing.
  */
 public class SubscriptionPlanFormActivity extends AppCompatActivity {
 
@@ -52,7 +53,7 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
     private SessionManager sessionManager;
     private ApiService apiService;
 
-    private TextView tvFormTitle, tvNoMeals, chipWeekly, chipMonthly, tvSavingsPreview;
+    private TextView tvFormTitle, tvNoMeals, chipWeekly, chipTwoWeeks, chipMonthly, tvSavingsPreview;
     private TextInputEditText etPlanName, etPlanDescription, etPlanPrice;
     private LinearLayout layoutSelectableMeals;
     private MaterialButton btnSavePlan;
@@ -102,6 +103,7 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
         etPlanPrice = findViewById(R.id.etPlanPrice);
         tvSavingsPreview = findViewById(R.id.tvPlanSavingsPreview);
         chipWeekly = findViewById(R.id.chipWeekly);
+        chipTwoWeeks = findViewById(R.id.chipTwoWeeks);
         chipMonthly = findViewById(R.id.chipMonthly);
         layoutSelectableMeals = findViewById(R.id.layoutSelectableMeals);
         tvNoMeals = findViewById(R.id.tvNoMeals);
@@ -113,6 +115,10 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
             duration = "weekly";
             updateDurationChips();
         });
+        chipTwoWeeks.setOnClickListener(v -> {
+            duration = "2_weeks";
+            updateDurationChips();
+        });
         chipMonthly.setOnClickListener(v -> {
             duration = "monthly";
             updateDurationChips();
@@ -121,11 +127,18 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
     }
 
     private void updateDurationChips() {
-        boolean weekly = "weekly".equals(duration);
-        chipWeekly.setBackground(ContextCompat.getDrawable(this, weekly ? R.drawable.chip_selected_green : R.drawable.chip_unselected));
-        chipWeekly.setTextColor(ContextCompat.getColor(this, weekly ? R.color.dark_green : android.R.color.darker_gray));
-        chipMonthly.setBackground(ContextCompat.getDrawable(this, !weekly ? R.drawable.chip_selected_green : R.drawable.chip_unselected));
-        chipMonthly.setTextColor(ContextCompat.getColor(this, !weekly ? R.color.dark_green : android.R.color.darker_gray));
+        boolean isWeekly = "weekly".equals(duration) || "1_week".equals(duration);
+        boolean isTwoWeeks = "2_weeks".equals(duration) || "biweekly".equals(duration) || "2_week".equals(duration);
+        boolean isMonthly = "monthly".equals(duration) || "1_month".equals(duration);
+
+        chipWeekly.setBackground(ContextCompat.getDrawable(this, isWeekly ? R.drawable.chip_selected_green : R.drawable.chip_unselected));
+        chipWeekly.setTextColor(ContextCompat.getColor(this, isWeekly ? R.color.dark_green : android.R.color.darker_gray));
+
+        chipTwoWeeks.setBackground(ContextCompat.getDrawable(this, isTwoWeeks ? R.drawable.chip_selected_green : R.drawable.chip_unselected));
+        chipTwoWeeks.setTextColor(ContextCompat.getColor(this, isTwoWeeks ? R.color.dark_green : android.R.color.darker_gray));
+
+        chipMonthly.setBackground(ContextCompat.getDrawable(this, isMonthly ? R.drawable.chip_selected_green : R.drawable.chip_unselected));
+        chipMonthly.setTextColor(ContextCompat.getColor(this, isMonthly ? R.color.dark_green : android.R.color.darker_gray));
     }
 
     private void loadMyMeals() {
@@ -248,8 +261,10 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
         updateSavingsPreview();
     }
 
-    /** Live "Save ₹X vs ordering these separately" preview as the cook builds the plan. */
-    private void updateSavingsPreview() {
+    /** What the currently-selected items would cost ordered separately at menu
+     *  price. The plan price has to come in under this — both the live preview
+     *  and savePlan's validation are judged against it, so it lives in one place. */
+    private double computeIndividualTotal() {
         double individualTotal = 0;
         for (Map.Entry<Integer, View> entry : rowsByMealId.entrySet()) {
             View row = entry.getValue();
@@ -260,6 +275,12 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
                 if (meal != null) individualTotal += meal.getPrice() * qty;
             }
         }
+        return individualTotal;
+    }
+
+    /** Live "Save ₹X vs ordering these separately" preview as the cook builds the plan. */
+    private void updateSavingsPreview() {
+        double individualTotal = computeIndividualTotal();
 
         String priceText = etPlanPrice.getText() != null ? etPlanPrice.getText().toString().trim() : "";
         double setPrice;
@@ -275,11 +296,11 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
         }
 
         if (setPrice <= 0) {
-            // No price set yet — show what auto-summed pricing would charge, so
-            // the cook sees the number they're implicitly choosing by leaving
-            // this blank.
+            // No price yet — show the ceiling the price has to beat, so the cook
+            // knows the target before they start typing rather than after a
+            // rejected save.
             tvSavingsPreview.setText(String.format(Locale.getDefault(),
-                    "Without a price, this charges ₹%.0f/delivery — the full menu price, no discount.", individualTotal));
+                    "These items cost ₹%.0f ordered separately. Set a subscription price below that.", individualTotal));
             tvSavingsPreview.setVisibility(View.VISIBLE);
             return;
         }
@@ -287,10 +308,11 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
         double savings = individualTotal - setPrice;
         if (savings > 0) {
             tvSavingsPreview.setText(String.format(Locale.getDefault(),
-                    "Subscribers save ₹%.0f per delivery vs. ordering these separately (₹%.0f)", savings, individualTotal));
+                    "Subscribers save ₹%.0f vs. ordering these separately (₹%.0f)", savings, individualTotal));
         } else {
-            tvSavingsPreview.setText("This isn't cheaper than ordering the items separately (₹"
-                    + String.format(Locale.getDefault(), "%.0f", individualTotal) + ") — subscribers won't see any benefit.");
+            tvSavingsPreview.setText(String.format(Locale.getDefault(),
+                    "₹%.0f isn't cheaper than ordering these separately (₹%.0f) — set a lower price to save this plan.",
+                    setPrice, individualTotal));
         }
         tvSavingsPreview.setVisibility(View.VISIBLE);
     }
@@ -313,18 +335,6 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
             return;
         }
 
-        Double price = null;
-        if (!priceText.isEmpty()) {
-            try {
-                price = Double.parseDouble(priceText);
-                if (price <= 0) throw new NumberFormatException();
-            } catch (NumberFormatException e) {
-                etPlanPrice.setError("Enter a valid price, or leave blank");
-                etPlanPrice.requestFocus();
-                return;
-            }
-        }
-
         List<SubscriptionPlanRequest.Item> items = new ArrayList<>();
         for (Map.Entry<Integer, View> entry : rowsByMealId.entrySet()) {
             View row = entry.getValue();
@@ -337,6 +347,27 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
 
         if (items.isEmpty()) {
             Toast.makeText(this, "Select at least one item for this plan", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Price is validated after the items, because the rule is relative to
+        // them: a subscription is one up-front payment, so it only makes sense
+        // if it undercuts what the same items cost ordered separately. The
+        // server enforces this too — this is just the fast, local feedback.
+        double individualTotal = computeIndividualTotal();
+        double price;
+        try {
+            price = Double.parseDouble(priceText);
+            if (price <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException e) {
+            etPlanPrice.setError("Enter the one-time subscription price");
+            etPlanPrice.requestFocus();
+            return;
+        }
+        if (individualTotal > 0 && price >= individualTotal) {
+            etPlanPrice.setError(String.format(Locale.getDefault(),
+                    "Must be less than ₹%.0f — the price of these items ordered separately", individualTotal));
+            etPlanPrice.requestFocus();
             return;
         }
 

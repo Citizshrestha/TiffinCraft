@@ -14,6 +14,7 @@ import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.models.Meal;
+import com.tiffincraft.app.utils.CurrencyUtils;
 import com.tiffincraft.app.utils.ImageUrlHelper;
 
 import java.util.List;
@@ -50,7 +51,7 @@ public class MealAdapter extends RecyclerView.Adapter<MealAdapter.MealViewHolder
         
         holder.tvMealName.setText(meal.getName());
         holder.tvMealDescription.setText(meal.getDescription());
-        holder.tvMealPrice.setText("₹" + meal.getPrice());
+        holder.tvMealPrice.setText(CurrencyUtils.formatRupees(meal.getPrice()));
         
         // Load meal image with category-based placeholders
         int placeholderImage = R.drawable.meal_veg_thali; // Default

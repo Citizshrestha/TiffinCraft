@@ -37,13 +37,11 @@ public class SplashActivity extends AppCompatActivity {
         final long startTime = System.currentTimeMillis();
         executor = Executors.newSingleThreadExecutor();
 
-        // PROACTIVE URL DISCOVERY:
-        // Previously the app only re-discovered the backend URL reactively,
-        // after a request had already failed (see FailoverInterceptor). That
-        // still meant the very first login/register attempt after a tunnel
-        // restart would fail once before self-healing. Running discovery
-        // here at app startup means RetrofitClient is rebuilt with the
-        // freshest known URL BEFORE the user ever reaches the login screen.
+        // Startup URL discovery. Only does real work when LAN discovery has been
+        // explicitly enabled (see ServerConfig) — against the hosted backend it
+        // returns null immediately, which is why the resetInstance() below is
+        // the part that still matters: it rebuilds Retrofit from whatever
+        // address is currently cached.
         Future<String> discoveryFuture = executor.submit(
                 () -> ServerConfig.discoverAndCacheSync(getApplicationContext()));
 

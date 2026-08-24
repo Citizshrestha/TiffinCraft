@@ -479,7 +479,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private String getNetworkErrorMessage(Throwable t) {
         if (t instanceof java.net.UnknownHostException) {
-            return "Cannot reach server. Check if backend is running on http://10.0.2.2:5000";
+            return "Cannot reach the server. Check your internet connection and try again.";
         } else if (t instanceof java.net.SocketTimeoutException) {
             return "Connection timeout. Server is taking too long to respond.";
         } else if (t instanceof java.net.ConnectException) {

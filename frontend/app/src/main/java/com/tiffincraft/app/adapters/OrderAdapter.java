@@ -17,11 +17,11 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.google.android.material.button.MaterialButton;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.models.Order;
+import com.tiffincraft.app.utils.ImageUrlHelper;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -61,7 +61,9 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
         Order order = orders.get(position);
 
         // Items count
-        int totalItems = order.getQuantity() > 0 ? order.getQuantity() : 1;
+        int totalItems = order.getItemsCount() > 0
+                ? order.getItemsCount()
+                : Math.max(order.getQuantity(), 1);
         holder.tvItemsCount.setText(totalItems + (totalItems == 1 ? " item in order" : " items in order"));
 
         // Setup image carousel
@@ -75,8 +77,10 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
         holder.tvStatus.setText(formatStatus(status));
         applyStatusStyle(holder.tvStatus, status);
 
-        // Order date
-        holder.tvOrderDate.setText("Takeaway · " + formatDateShort(order.getCreatedAt()));
+        // Payment method + date (same row style as the customer's card)
+        String paymentLabel = "cod".equalsIgnoreCase(order.getPaymentMethod())
+                ? "Cash on Delivery" : "Online Payment";
+        holder.tvOrderDate.setText(paymentLabel + " · " + formatDateShort(order.getCreatedAt()));
 
         // Order ID
         holder.tvOrderId.setText("Order #" + order.getId());
@@ -88,11 +92,16 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
         );
 
         // Order summary
-        String mealName = order.getMealName();
-        int qty = order.getQuantity();
-        holder.tvOrderSummary.setText(
-                qty + "× " + (mealName != null ? mealName : "Meal")
-        );
+        String itemsSummary = order.getItemsSummary();
+        if (itemsSummary != null && !itemsSummary.isEmpty()) {
+            holder.tvOrderSummary.setText(itemsSummary);
+        } else {
+            String mealName = order.getMealName();
+            int qty = order.getQuantity();
+            holder.tvOrderSummary.setText(
+                    qty + "× " + (mealName != null ? mealName : "Meal")
+            );
+        }
 
         // Special instructions
         String specialInstructions = order.getSpecialInstructions();
@@ -162,25 +171,26 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
     }
 
     private void setupImageCarousel(OrderViewHolder holder, Order order) {
-        String mealImage = order.getMealImage();
+        // Real per-item carousel (one page per order item, with its own image) —
+        // identical behavior to the customer's card. Falls back to the single
+        // representative image when no per-item data came back.
+        List<Order.OrderItem> items = order.getItems();
 
-        if (mealImage != null && !mealImage.isEmpty()) {
-            List<String> images = new ArrayList<>(Arrays.asList(mealImage));
-
+        if (items != null && !items.isEmpty()) {
             holder.imgMealPlaceholder.setVisibility(View.GONE);
             holder.viewPagerImages.setVisibility(View.VISIBLE);
 
-            OrderImageAdapter imageAdapter = new OrderImageAdapter(context, images);
-            holder.viewPagerImages.setAdapter(imageAdapter);
+            OrderItemCarouselAdapter carouselAdapter =
+                    new OrderItemCarouselAdapter(items, order.getSpecialInstructions());
+            holder.viewPagerImages.setAdapter(carouselAdapter);
 
-            // Show/hide navigation arrows
-            if (images.size() > 1) {
+            if (items.size() > 1) {
                 holder.btnPrevImage.setVisibility(View.VISIBLE);
                 holder.btnNextImage.setVisibility(View.VISIBLE);
                 holder.layoutIndicators.setVisibility(View.VISIBLE);
 
-                setupCarouselNavigation(holder, images.size());
-                setupIndicators(holder, images.size());
+                setupCarouselNavigation(holder, items.size());
+                setupIndicators(holder, items.size());
             } else {
                 holder.btnPrevImage.setVisibility(View.GONE);
                 holder.btnNextImage.setVisibility(View.GONE);
@@ -192,6 +202,11 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
             holder.btnPrevImage.setVisibility(View.GONE);
             holder.btnNextImage.setVisibility(View.GONE);
             holder.layoutIndicators.setVisibility(View.GONE);
+
+            String mealImage = order.getMealImage();
+            if (mealImage != null && !mealImage.isEmpty()) {
+                ImageUrlHelper.load(holder.imgMealPlaceholder, mealImage, R.drawable.ic_meal);
+            }
         }
     }
 
@@ -251,11 +266,17 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
     private void setupItemChips(OrderViewHolder holder, Order order) {
         holder.layoutItemChips.removeAllViews();
 
-        String mealName = order.getMealName();
-        int qty = order.getQuantity();
-
-        if (mealName != null && !mealName.isEmpty()) {
-            addItemChip(holder.layoutItemChips, qty + "× " + mealName);
+        String itemsSummary = order.getItemsSummary();
+        if (itemsSummary != null && !itemsSummary.isEmpty()) {
+            for (String chipText : itemsSummary.split(",\\s*")) {
+                addItemChip(holder.layoutItemChips, chipText);
+            }
+        } else {
+            String mealName = order.getMealName();
+            int qty = order.getQuantity();
+            if (mealName != null && !mealName.isEmpty()) {
+                addItemChip(holder.layoutItemChips, qty + "× " + mealName);
+            }
         }
     }
 
@@ -268,15 +289,11 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
         params.setMarginEnd(dpToPx(8));
         chip.setLayoutParams(params);
 
-        chip.setText(text);
-        chip.setTextSize(12);
+        chip.setText(text.trim());
+        chip.setTextSize(11.5f);
         chip.setTextColor(0xFF2E7D32);
-        chip.setPadding(dpToPx(12), dpToPx(6), dpToPx(12), dpToPx(6));
-
-        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setColor(0xFFE8F5E9);
-        bg.setCornerRadius(dpToPx(16));
-        chip.setBackground(bg);
+        chip.setBackgroundResource(R.drawable.bg_pill_green_soft);
+        chip.setPadding(dpToPx(10), dpToPx(6), dpToPx(10), dpToPx(6));
 
         container.addView(chip);
     }
@@ -301,28 +318,27 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
     }
 
     private void applyStatusStyle(TextView tv, String status) {
-        int bg, fg, iconRes;
-        switch (status) {
+        // Same drawable chips + colors as the customer's order card for a consistent look.
+        String s = status != null ? status.toLowerCase(Locale.US) : "";
+        int bgRes, fg, iconRes;
+        switch (s) {
             case "pending":
-                bg = 0xFFFFF3E0; fg = 0xFFE65100; iconRes = R.drawable.ic_clock; break;
+                bgRes = R.drawable.status_chip_new;             fg = 0xFF1565C0; iconRes = R.drawable.ic_clock;        break;
             case "confirmed":
-                bg = 0xFFE3F2FD; fg = 0xFF1565C0; iconRes = R.drawable.ic_check_circle; break;
+                bgRes = R.drawable.status_chip_delivered;       fg = 0xFF2E7D32; iconRes = R.drawable.ic_check_circle; break;
             case "preparing":
-                bg = 0xFFF3E5F5; fg = 0xFF6A1B9A; iconRes = R.drawable.ic_clock; break;
+                bgRes = R.drawable.status_chip_preparing;       fg = 0xFFA8660B; iconRes = R.drawable.ic_clock;        break;
             case "ready":
-                bg = 0xFFE8F5E9; fg = 0xFF2E7D32; iconRes = R.drawable.ic_check_circle; break;
+                bgRes = R.drawable.status_chip_out_for_delivery; fg = 0xFF1565C0; iconRes = R.drawable.ic_check_circle; break;
             case "delivered":
-                bg = 0xFFE8F5E9; fg = 0xFF2E7D32; iconRes = R.drawable.ic_check_circle; break;
+                bgRes = R.drawable.status_chip_delivered;       fg = 0xFF2E7D32; iconRes = R.drawable.ic_check_circle; break;
             case "cancelled":
-                bg = 0xFFFFEBEE; fg = 0xFFC62828; iconRes = R.drawable.ic_close; break;
+                bgRes = R.drawable.status_chip_sold_out;        fg = 0xFFC62828; iconRes = R.drawable.ic_close;        break;
             default:
-                bg = 0xFFF5F5F5; fg = 0xFF555555; iconRes = R.drawable.ic_info; break;
+                bgRes = R.drawable.status_chip_new;             fg = 0xFF555555; iconRes = R.drawable.ic_info;         break;
         }
 
-        android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
-        gd.setColor(bg);
-        gd.setCornerRadius(dpToPx(20));
-        tv.setBackground(gd);
+        tv.setBackgroundResource(bgRes);
         tv.setTextColor(fg);
 
         tv.setCompoundDrawablesRelativeWithIntrinsicBounds(iconRes, 0, 0, 0);

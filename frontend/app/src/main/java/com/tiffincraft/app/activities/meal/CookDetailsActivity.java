@@ -565,15 +565,21 @@ public class CookDetailsActivity extends AppCompatActivity {
         layoutSubscriptionPlansHeader.setVisibility(View.VISIBLE);
         layoutSubscriptionPlans.setVisibility(View.VISIBLE);
 
+        int bestValueIndex = pickBestValuePlan(plans);
+
         LayoutInflater inflater = LayoutInflater.from(this);
-        for (SubscriptionPlanResponse.Plan plan : plans) {
+        for (int index = 0; index < plans.size(); index++) {
+            SubscriptionPlanResponse.Plan plan = plans.get(index);
             View row = inflater.inflate(R.layout.item_subscription_plan_public, layoutSubscriptionPlans, false);
 
+            com.google.android.material.card.MaterialCardView card = row.findViewById(R.id.cardPlan);
+            TextView tvRibbon = row.findViewById(R.id.tvBestValueRibbon);
             TextView tvName = row.findViewById(R.id.tvPlanName);
             TextView tvDuration = row.findViewById(R.id.tvPlanDuration);
             TextView tvDescription = row.findViewById(R.id.tvPlanDescription);
             TextView tvItems = row.findViewById(R.id.tvPlanItems);
             TextView tvPrice = row.findViewById(R.id.tvPlanPrice);
+            TextView tvPerMeal = row.findViewById(R.id.tvPlanPerMeal);
             TextView tvOriginalPrice = row.findViewById(R.id.tvPlanOriginalPrice);
             TextView tvSavings = row.findViewById(R.id.tvPlanSavings);
             MaterialButton btnSubscribe = row.findViewById(R.id.btnSubscribePlan);
@@ -585,6 +591,8 @@ public class CookDetailsActivity extends AppCompatActivity {
             if (plan.getDescription() != null && !plan.getDescription().isEmpty()) {
                 tvDescription.setText(plan.getDescription());
                 tvDescription.setVisibility(View.VISIBLE);
+            } else {
+                tvDescription.setVisibility(View.GONE);
             }
 
             StringBuilder itemsSummary = new StringBuilder();
@@ -598,16 +606,39 @@ public class CookDetailsActivity extends AppCompatActivity {
             }
             tvItems.setText(itemsSummary.toString());
 
-            tvPrice.setText(String.format(Locale.getDefault(), "₹%.0f / delivery", plan.getPricePerDelivery()));
+            tvPrice.setText(formatRupees(plan.getPricePerDelivery()));
+
+            // Per-meal price is what actually makes two plans comparable — a
+            // ₹1,400 plan and a ₹900 plan say nothing until you know how many
+            // meals each one buys.
+            int mealCount = countMeals(plan);
+            if (mealCount > 1) {
+                tvPerMeal.setText(String.format(Locale.getDefault(), "%s/meal · %d meals per cycle",
+                        formatRupees(plan.getPricePerDelivery() / mealCount), mealCount));
+            } else {
+                tvPerMeal.setText("Per delivery cycle");
+            }
 
             if (plan.getSavings() > 0) {
-                tvOriginalPrice.setText(String.format(Locale.getDefault(), "₹%.0f", plan.getIndividualTotal()));
+                tvOriginalPrice.setText(formatRupees(plan.getIndividualTotal()));
                 tvOriginalPrice.setVisibility(View.VISIBLE);
-                tvSavings.setText(String.format(Locale.getDefault(), "Save ₹%.0f vs. ordering separately", plan.getSavings()));
+                tvSavings.setText(String.format(Locale.getDefault(), "SAVE %s", formatRupees(plan.getSavings())));
                 tvSavings.setVisibility(View.VISIBLE);
             } else {
                 tvOriginalPrice.setVisibility(View.GONE);
                 tvSavings.setVisibility(View.GONE);
+            }
+
+            // Recommended plan: amber stroke + ribbon, set here rather than in a
+            // second layout file so there is only one card layout to maintain.
+            if (index == bestValueIndex) {
+                card.setStrokeWidth(dpToPx(2));
+                card.setStrokeColor(ContextCompat.getColor(this, R.color.sub_accent_amber_deep));
+                tvRibbon.setVisibility(View.VISIBLE);
+            } else {
+                card.setStrokeWidth(dpToPx(1));
+                card.setStrokeColor(ContextCompat.getColor(this, R.color.sub_card_border));
+                tvRibbon.setVisibility(View.GONE);
             }
 
             if (plan.isAvailable()) {
@@ -628,6 +659,60 @@ public class CookDetailsActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Index of the plan to mark "Best Value", or -1 for none.
+     *
+     * Highest absolute savings wins; ties break to the cheaper plan so the badge
+     * points at the lower commitment. Requires real savings and more than one
+     * plan — badging the only plan on screen, or a plan that saves nothing, is
+     * noise that trains people to ignore the badge.
+     */
+    private int pickBestValuePlan(List<SubscriptionPlanResponse.Plan> plans) {
+        if (plans.size() < 2) return -1;
+
+        int best = -1;
+        for (int i = 0; i < plans.size(); i++) {
+            SubscriptionPlanResponse.Plan p = plans.get(i);
+            if (!p.isAvailable() || p.getSavings() <= 0) continue;
+            if (best == -1) {
+                best = i;
+                continue;
+            }
+            SubscriptionPlanResponse.Plan current = plans.get(best);
+            if (p.getSavings() > current.getSavings()
+                    || (p.getSavings() == current.getSavings()
+                        && p.getPricePerDelivery() < current.getPricePerDelivery())) {
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    /** Total meals in one delivery cycle (quantities summed, not distinct dishes). */
+    private int countMeals(SubscriptionPlanResponse.Plan plan) {
+        if (plan.getItems() == null) return 0;
+        int total = 0;
+        for (SubscriptionPlanResponse.PlanItem item : plan.getItems()) {
+            total += Math.max(1, item.getQuantity());
+        }
+        return total;
+    }
+
+    private String formatRupees(double amount) {
+        return "₹" + String.format(Locale.getDefault(), "%,.0f", amount);
+    }
+
+    private int dpToPx(int dp) {
+        return Math.round(dp * getResources().getDisplayMetrics().density);
+    }
+
+    /**
+     * Explicit confirmation step before any money moves.
+     *
+     * Nothing is created on the server from here — that only happens once the
+     * customer confirms, and even then the record is created as
+     * pending_payment by /api/subscriptions/initiate.
+     */
     private void showSubscribeDialog(SubscriptionPlanResponse.Plan plan) {
         android.app.Dialog dialog = new android.app.Dialog(this);
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
@@ -642,6 +727,9 @@ public class CookDetailsActivity extends AppCompatActivity {
         }
 
         TextView tvName = view.findViewById(R.id.tvDialogPlanName);
+        TextView tvCookName = view.findViewById(R.id.tvDialogCookName);
+        TextView tvMealCount = view.findViewById(R.id.tvDialogMealCount);
+        TextView tvDialogItems = view.findViewById(R.id.tvDialogItems);
         TextView tvPrice = view.findViewById(R.id.tvDialogPrice);
         TextView tvOriginalPrice = view.findViewById(R.id.tvDialogOriginalPrice);
         tvOriginalPrice.setPaintFlags(tvOriginalPrice.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
@@ -652,13 +740,32 @@ public class CookDetailsActivity extends AppCompatActivity {
         MaterialButton btnConfirm = view.findViewById(R.id.btnDialogConfirm);
 
         tvName.setText(plan.getName());
-        tvPrice.setText(String.format(Locale.getDefault(), "₹%.0f", plan.getPricePerDelivery()));
+
+        String cookLabel = plan.getKitchenName() != null && !plan.getKitchenName().isEmpty()
+                ? plan.getKitchenName()
+                : (plan.getCookName() != null && !plan.getCookName().isEmpty()
+                    ? plan.getCookName() : cookDisplayName);
+        tvCookName.setText(cookLabel != null && !cookLabel.isEmpty() ? "from " + cookLabel : "");
+
+        int mealCount = countMeals(plan);
+        tvMealCount.setText(mealCount == 1 ? "1 meal" : mealCount + " meals");
+
+        StringBuilder itemsSummary = new StringBuilder();
+        if (plan.getItems() != null) {
+            for (int i = 0; i < plan.getItems().size(); i++) {
+                SubscriptionPlanResponse.PlanItem item = plan.getItems().get(i);
+                if (i > 0) itemsSummary.append(", ");
+                itemsSummary.append(item.getQuantity()).append("x ").append(item.getName());
+            }
+        }
+        tvDialogItems.setText(itemsSummary.toString());
+
+        tvPrice.setText(formatRupees(plan.getPricePerDelivery()));
         tvDuration.setText(plan.getDurationLabel());
         if (plan.getSavings() > 0) {
-            tvOriginalPrice.setText(String.format(Locale.getDefault(), "₹%.0f", plan.getIndividualTotal()));
+            tvOriginalPrice.setText(formatRupees(plan.getIndividualTotal()));
             tvOriginalPrice.setVisibility(View.VISIBLE);
-            tvSavings.setText(String.format(Locale.getDefault(),
-                    "You save ₹%.0f per delivery vs. ordering separately", plan.getSavings()));
+            tvSavings.setText(String.format(Locale.getDefault(), "SAVE %s", formatRupees(plan.getSavings())));
             tvSavings.setVisibility(View.VISIBLE);
         } else {
             tvOriginalPrice.setVisibility(View.GONE);
@@ -688,47 +795,34 @@ public class CookDetailsActivity extends AppCompatActivity {
                 return;
             }
             dialog.dismiss();
-            subscribeToPlan(plan, address);
+            startSubscriptionCheckout(plan, address);
         });
 
         dialog.show();
     }
 
-    private void subscribeToPlan(SubscriptionPlanResponse.Plan plan, String deliveryAddress) {
-        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
-        String token = "Bearer " + sessionManager.getToken();
+    /**
+     * Hands off to the eSewa checkout, which calls /api/subscriptions/initiate.
+     *
+     * No subscription is created here and no amount is sent from the device —
+     * the backend charges the plan price it has stored, creates the row as
+     * pending_payment, and only activates it after independently verifying the
+     * payment with eSewa. See EsewaEpayCheckoutActivity's subscription mode.
+     */
+    private void startSubscriptionCheckout(SubscriptionPlanResponse.Plan plan, String deliveryAddress) {
+        if (sessionManager.getToken() == null || sessionManager.getToken().isEmpty()) {
+            Toast.makeText(this, "Your session expired. Please log in again.", Toast.LENGTH_LONG).show();
+            return;
+        }
 
-        apiService.createSubscription(token,
-                new CreateCustomerSubscriptionRequest(plan.getId(), deliveryAddress, today)
-        ).enqueue(new Callback<com.tiffincraft.app.models.CreateSubscriptionResponse>() {
-            @Override
-            public void onResponse(Call<com.tiffincraft.app.models.CreateSubscriptionResponse> call,
-                                    Response<com.tiffincraft.app.models.CreateSubscriptionResponse> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                    // Subscribing no longer activates anything — the customer still has to
-                    // pay the cook and get verified. Hand off to that flow instead of
-                    // claiming "Subscribed!" here.
-                    Intent intent = new Intent(CookDetailsActivity.this,
-                            com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.class);
-                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_SUBSCRIPTION_ID,
-                            response.body().getSubscriptionId());
-                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_PLAN_NAME, plan.getName());
-                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_PLAN_PRICE, plan.getPricePerDelivery());
-                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_PLAN_DURATION, plan.getDuration());
-                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_COOK_ESEWA_QR_URL, cookEsewaQrUrl);
-                    startActivity(intent);
-                } else {
-                    String msg = response.body() != null && response.body().getMessage() != null
-                            ? response.body().getMessage() : "Failed to subscribe";
-                    Toast.makeText(CookDetailsActivity.this, msg, Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<com.tiffincraft.app.models.CreateSubscriptionResponse> call, Throwable t) {
-                Toast.makeText(CookDetailsActivity.this, "Network error. Try again.", Toast.LENGTH_SHORT).show();
-            }
-        });
+        Intent intent = new Intent(this, com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.class);
+        intent.putExtra(com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.EXTRA_MODE,
+                com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.MODE_SUBSCRIPTION);
+        intent.putExtra(com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.EXTRA_PLAN_ID, plan.getId());
+        intent.putExtra(com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.EXTRA_COOK_ID, cookId);
+        intent.putExtra(com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.EXTRA_DELIVERY_ADDRESS, deliveryAddress);
+        intent.putExtra(com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.EXTRA_PLAN_NAME, plan.getName());
+        startActivity(intent);
     }
 
     // ─────────────────────────────────────────────

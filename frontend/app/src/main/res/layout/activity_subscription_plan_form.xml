@@ -163,33 +163,48 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:background="@drawable/chip_selected_green"
-                        android:paddingStart="18dp"
+                        android:paddingStart="16dp"
                         android:paddingTop="10dp"
-                        android:paddingEnd="18dp"
+                        android:paddingEnd="16dp"
                         android:paddingBottom="10dp"
                         android:text="1 Week"
                         android:textColor="@color/dark_green"
-                        android:textSize="13.5sp"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/chipTwoWeeks"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/chip_unselected"
+                        android:paddingStart="16dp"
+                        android:paddingTop="10dp"
+                        android:paddingEnd="16dp"
+                        android:paddingBottom="10dp"
+                        android:text="2 Weeks"
+                        android:textColor="@android:color/darker_gray"
+                        android:textSize="13sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/chipMonthly"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
+                        android:layout_marginStart="8dp"
                         android:background="@drawable/chip_unselected"
-                        android:paddingStart="18dp"
+                        android:paddingStart="16dp"
                         android:paddingTop="10dp"
-                        android:paddingEnd="18dp"
+                        android:paddingEnd="16dp"
                         android:paddingBottom="10dp"
                         android:text="1 Month"
                         android:textColor="@android:color/darker_gray"
-                        android:textSize="13.5sp"
+                        android:textSize="13sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- ============ PRICE PER DELIVERY ============ -->
+            <!-- ============ SUBSCRIPTION PRICE (one-time) ============ -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -201,7 +216,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Price Per Delivery (recommended)"
+                    android:text="Subscription Price (one-time)"
                     android:textColor="#333333"
                     android:textSize="13sp"
                     android:textStyle="bold" />
@@ -210,7 +225,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="Set a real subscriber price, lower than the items' combined menu price — that discount is the whole reason someone subscribes instead of ordering daily. Leave blank to just charge the full menu price each delivery."
+                    android:text="What the subscriber pays once, up front, for this plan. It must be lower than the items' combined menu price — that discount is the whole reason someone subscribes instead of ordering the same food separately."
                     android:textColor="#999999"
                     android:textSize="12sp" />
 
@@ -232,7 +247,7 @@
                         android:id="@+id/etPlanPrice"
                         android:layout_width="match_parent"
                         android:layout_height="52dp"
-                        android:hint="e.g. 60 per delivery"
+                        android:hint="e.g. 1400 if the items total ₹1550"
                         android:inputType="numberDecimal"
                         android:textColor="#111111"
                         android:textSize="14sp" />
@@ -306,7 +321,7 @@
         android:layout_width="match_parent"
         android:layout_height="54dp"
         android:layout_margin="20dp"
-        android:backgroundTint="@color/green_primary"
+        android:backgroundTint="@color/cta_button_tint"
         android:text="Save Plan"
         android:textAllCaps="false"
         android:textColor="@color/white"

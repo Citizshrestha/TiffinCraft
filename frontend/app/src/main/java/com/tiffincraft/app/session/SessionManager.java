@@ -14,6 +14,7 @@ public class SessionManager {
     private static final String KEY_PROFILE_IMAGE = "profileImage";
     private static final String KEY_PENDING_ESEWA_TXN = "pendingEsewaTransactionUuid";
     private static final String KEY_PENDING_ESEWA_ORDER = "pendingEsewaOrderId";
+    private static final String KEY_PENDING_ESEWA_SUBSCRIPTION = "pendingEsewaSubscriptionId";
 
     private final SharedPreferences prefs;
     private final SharedPreferences.Editor editor;
@@ -94,6 +95,21 @@ public class SessionManager {
     public void savePendingEsewaTransaction(String transactionUuid, int orderId) {
         editor.putString(KEY_PENDING_ESEWA_TXN, transactionUuid);
         editor.putInt(KEY_PENDING_ESEWA_ORDER, orderId);
+        editor.remove(KEY_PENDING_ESEWA_SUBSCRIPTION);
+        editor.apply();
+    }
+
+    /**
+     * Same contract as {@link #savePendingEsewaTransaction} but for a
+     * subscription payment. Stored separately so PaymentResultActivity can tell
+     * an order payment from a subscription payment and show the right copy and
+     * destination — the transaction_uuid alone doesn't say which it was, and the
+     * redirect URI must never be trusted for that either.
+     */
+    public void savePendingEsewaSubscription(String transactionUuid, int subscriptionId) {
+        editor.putString(KEY_PENDING_ESEWA_TXN, transactionUuid);
+        editor.putInt(KEY_PENDING_ESEWA_SUBSCRIPTION, subscriptionId);
+        editor.remove(KEY_PENDING_ESEWA_ORDER);
         editor.apply();
     }
 
@@ -105,9 +121,14 @@ public class SessionManager {
         return prefs.getInt(KEY_PENDING_ESEWA_ORDER, -1);
     }
 
+    public int getPendingEsewaSubscriptionId() {
+        return prefs.getInt(KEY_PENDING_ESEWA_SUBSCRIPTION, -1);
+    }
+
     public void clearPendingEsewaTransaction() {
         editor.remove(KEY_PENDING_ESEWA_TXN);
         editor.remove(KEY_PENDING_ESEWA_ORDER);
+        editor.remove(KEY_PENDING_ESEWA_SUBSCRIPTION);
         editor.apply();
     }
 

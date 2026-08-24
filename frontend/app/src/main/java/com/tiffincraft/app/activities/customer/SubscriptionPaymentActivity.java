@@ -82,7 +82,7 @@ public class SubscriptionPaymentActivity extends AppCompatActivity {
 
         binding.tvPlanName.setText(planName != null ? planName : "Subscription");
         binding.tvPlanPrice.setText(CurrencyUtils.formatRupees(planPrice));
-        binding.tvPlanDurationLabel.setText("per delivery · " + ("weekly".equals(planDuration) ? "1 Week" : "1 Month"));
+        binding.tvPlanDurationLabel.setText("one-time payment · " + ("weekly".equals(planDuration) ? "1 Week" : "1 Month"));
 
         if (cookEsewaQrUrl != null && !cookEsewaQrUrl.isEmpty()) {
             Glide.with(this).load(cookEsewaQrUrl)

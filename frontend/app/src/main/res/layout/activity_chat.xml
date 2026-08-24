@@ -83,7 +83,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Online"
-                    android:textColor="#4CAF50"
+                    android:textColor="#00897B"
                     android:textSize="12sp" />
 
             </LinearLayout>
@@ -200,7 +200,7 @@
         <View
             android:layout_width="3dp"
             android:layout_height="28dp"
-            android:background="#4CAF50" />
+            android:background="#00897B" />
 
         <ImageView
             android:layout_width="18dp"
@@ -208,7 +208,7 @@
             android:layout_marginStart="10dp"
             android:contentDescription="Editing"
             android:src="@drawable/ic_edit"
-            app:tint="#4CAF50" />
+            app:tint="#00897B" />
 
         <TextView
             android:layout_width="0dp"
@@ -216,7 +216,7 @@
             android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:text="Editing message"
-            android:textColor="#4CAF50"
+            android:textColor="#00897B"
             android:textSize="13sp"
             android:textStyle="bold" />
 

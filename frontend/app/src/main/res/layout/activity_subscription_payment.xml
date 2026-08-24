@@ -109,7 +109,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="per delivery · 1 Week"
+                    android:text="one-time payment · 1 Week"
                     android:textColor="#DCEDC8"
                     android:textSize="13sp" />
             </LinearLayout>

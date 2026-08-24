@@ -59,7 +59,7 @@ public class ChatPanelManager {
     private ChatListAdapter adapter;
     private RecyclerView    rvChatList;
     private TextView        tvContactCount;
-    private TextView        tabChats, tabContacts, tabChannels;
+    private TextView        tabChats, tabContacts;
     private TextView        chatFabBadge;
 
     private ApiService     apiService;
@@ -132,12 +132,9 @@ public class ChatPanelManager {
         // Tabs
         tabChats    = panelView.findViewById(R.id.tabChats);
         tabContacts = panelView.findViewById(R.id.tabContacts);
-        tabChannels = panelView.findViewById(R.id.tabChannels);
 
         tabChats.setOnClickListener(v -> switchTab(false));
         tabContacts.setOnClickListener(v -> switchTab(true));
-        tabChannels.setOnClickListener(v ->
-                Toast.makeText(activity, "Channels coming soon", Toast.LENGTH_SHORT).show());
 
         // RecyclerView
         rvChatList = panelView.findViewById(R.id.rvChatList);

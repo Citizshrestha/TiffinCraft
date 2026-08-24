@@ -20,9 +20,10 @@ public class SubscriptionPlanRequest {
     @SerializedName("items")
     private List<Item> items;
 
-    // Explicit per-delivery price a cook sets so a subscription is an actual
-    // deal, not just the summed menu price on repeat — see subscriptionPlanController.js.
-    // Null/omitted keeps the old auto-summed pricing.
+    // The plan's one-time subscription price. Required, and the server rejects
+    // anything not below the items' combined menu price — see
+    // subscriptionPlanController.js. The wire name is still price_per_delivery
+    // because that's the column name; it is not a recurring charge.
     @SerializedName("price_per_delivery")
     private Double pricePerDelivery;
 

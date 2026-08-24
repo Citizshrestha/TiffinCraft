@@ -137,6 +137,7 @@ public class CookSubscriptionsActivity extends AppCompatActivity {
             View card = inflater.inflate(R.layout.item_subscription_plan_manage, layoutPlans, false);
 
             TextView tvName = card.findViewById(R.id.tvPlanName);
+            TextView tvDurationBadge = card.findViewById(R.id.tvPlanDurationBadge);
             TextView tvMeta = card.findViewById(R.id.tvPlanMeta);
             TextView tvItemsSummary = card.findViewById(R.id.tvPlanItemsSummary);
             SwitchCompat switchActive = card.findViewById(R.id.switchActive);
@@ -145,11 +146,15 @@ public class CookSubscriptionsActivity extends AppCompatActivity {
 
             int itemCount = plan.getItems() != null ? plan.getItems().size() : 0;
             tvName.setText(plan.getName());
-            String meta = plan.getDurationLabel() + " · " + itemCount + " item" + (itemCount == 1 ? "" : "s")
-                    + " · " + String.format(Locale.getDefault(), "₹%.0f/delivery", plan.getPricePerDelivery());
-            // Plan is turned on but can't actually be subscribed to right now
-            // because one of its meals is 86'd — flag it so the cook knows to
-            // restock rather than wondering why nobody's subscribing.
+            if (tvDurationBadge != null) {
+                tvDurationBadge.setText(plan.getDurationLabel());
+            }
+
+            String meta = itemCount + " item" + (itemCount == 1 ? "" : "s")
+                    + " · " + String.format(Locale.getDefault(), "₹%.0f one-time", plan.getPricePerDelivery());
+            if (plan.getSavings() > 0) {
+                meta += String.format(Locale.getDefault(), " · Save ₹%.0f", plan.getSavings());
+            }
             if (plan.isActive() && !plan.isAvailable()) {
                 meta += " · ⚠ item unavailable";
             }

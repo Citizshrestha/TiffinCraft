@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duration / cycle chip on a plan card. Light green on purpose: it's
+     informational, so it must stay quieter than the amber value cues. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/sub_chip_green_bg" />
+    <corners android:radius="20dp" />
+</shape>

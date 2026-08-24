@@ -78,9 +78,16 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
 
         switch (type) {
             case "new_order":
-                iconRes = R.drawable.ic_orders;
-                bgRes = R.drawable.circle_icon_orange;
-                tintColor = 0xFFF57C00;
+                // Distinguish combo orders from regular orders by checking title/message
+                if (haystack.contains("combo")) {
+                    iconRes = R.drawable.ic_offers;
+                    bgRes = R.drawable.circle_icon_purple;
+                    tintColor = 0xFF9C27B0;
+                } else {
+                    iconRes = R.drawable.ic_orders;
+                    bgRes = R.drawable.circle_icon_orange;
+                    tintColor = 0xFFF57C00;
+                }
                 break;
             case "order_status":
                 if (haystack.contains("cancel")) {

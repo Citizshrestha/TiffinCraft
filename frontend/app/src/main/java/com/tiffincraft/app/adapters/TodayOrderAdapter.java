@@ -61,8 +61,13 @@ public class TodayOrderAdapter extends RecyclerView.Adapter<TodayOrderAdapter.Or
 
         holder.tvOrderTime.setText(ChatMessage.formatTime(order.getCreatedAt()));
 
-        String meal = order.getMealName() != null ? order.getMealName() : "Meal";
-        holder.tvMealSummary.setText(meal + " x " + Math.max(order.getQuantity(), 1));
+        String itemsSummary = order.getItemsSummary();
+        if (itemsSummary != null && !itemsSummary.isEmpty()) {
+            holder.tvMealSummary.setText(itemsSummary);
+        } else {
+            String meal = order.getMealName() != null ? order.getMealName() : "Meal";
+            holder.tvMealSummary.setText(meal + " x " + Math.max(order.getQuantity(), 1));
+        }
 
         holder.tvOrderAmount.setText(CurrencyUtils.formatRupees(order.getTotalAmount()));
 

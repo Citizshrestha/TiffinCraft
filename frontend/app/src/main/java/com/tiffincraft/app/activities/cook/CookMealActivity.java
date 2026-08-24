@@ -184,7 +184,7 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
         Log.d(TAG, "Token length: " + (sessionManager.getToken() != null ? sessionManager.getToken().length() : 0));
         Log.d(TAG, "User ID: " + sessionManager.getUserId());
         Log.d(TAG, "User Role: " + sessionManager.getRole());
-        Log.d(TAG, "API URL: http://192.168.100.115:5000/api/meals/my");
+        Log.d(TAG, "API URL: " + RetrofitClient.BASE_URL + "meals/my");
         
         // Show loading state
         if (binding.tvTotalMeals != null) {

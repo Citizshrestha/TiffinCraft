@@ -65,7 +65,7 @@ public class CookHomeActivity extends AppCompatActivity {
     private androidx.recyclerview.widget.RecyclerView rvTodayOrders;
     private com.tiffincraft.app.adapters.TodayOrderAdapter todayOrderAdapter;
     private final java.util.List<com.tiffincraft.app.models.Order> todayOrders = new java.util.ArrayList<>();
-    private View btnAddMeal, btnManageMeals, btnViewOrders, btnSubscriptions;
+    private View btnAddMeal, btnManageMeals, btnViewOrders, btnSubscriptions, btnCombos;
     private BottomNavigationView bottomNavigation;
     private SessionManager sessionManager;
     private SocketManager socketManager;
@@ -217,6 +217,7 @@ public class CookHomeActivity extends AppCompatActivity {
         btnManageMeals = findViewById(R.id.btnManageMeals);
         btnViewOrders = findViewById(R.id.btnViewOrders);
         btnSubscriptions = findViewById(R.id.btnSubscriptions);
+        btnCombos = findViewById(R.id.btnCombos);
 
         btnManageMeals.setOnClickListener(v ->
                 startActivity(new Intent(this, CookMealActivity.class)));
@@ -224,6 +225,8 @@ public class CookHomeActivity extends AppCompatActivity {
                 startActivity(new Intent(this, ManageOrdersActivity.class)));
         btnSubscriptions.setOnClickListener(v ->
                 startActivity(new Intent(this, CookSubscriptionsActivity.class)));
+        btnCombos.setOnClickListener(v ->
+                startActivity(new Intent(this, CookCombosActivity.class)));
     }
 
     private void loadUserData() {

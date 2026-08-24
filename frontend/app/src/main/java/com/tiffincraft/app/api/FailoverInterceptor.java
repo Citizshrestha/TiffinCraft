@@ -11,29 +11,26 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 /**
- * Self-healing network interceptor.
+ * Retry-and-failover network interceptor.
  *
- * WHY THIS EXISTS:
- * Even with startup discovery (see ServerConfig + SplashActivity), the
- * backend's tunnel URL can rotate WHILE the app is already running (tunnel
- * process restarts, PC sleeps/wakes, etc). Without this, every request made
- * with the stale cached URL would fail with a connection error, and the user
- * would see "backend error" on login/register until they force-close and
- * reopen the app.
+ * TWO JOBS, ONE OF WHICH IS NOW DORMANT:
  *
- * WHAT IT DOES:
- * If a request fails (IOException, e.g. host unreachable / DNS failure /
- * connection refused — exactly what happens when a loca.lt subdomain dies),
- * this interceptor:
- *   1. Runs a fresh discovery call against the PC's LAN IP (/api/config).
- *   2. If a new URL is found and differs from the one just used, rewrites
- *      the failed request to point at the new host and retries ONCE.
- *   3. Updates RetrofitClient.BASE_URL/SERVER_URL so subsequent requests
- *      (and image URL construction elsewhere in the app) use the fresh URL
- *      immediately, without requiring an app restart.
+ * 1. Gateway-error retry (still active, still useful). A 502/503/504 is a valid
+ *    HTTP response, not an IOException, so it would otherwise sail past as a
+ *    "successful" gateway error. The hosted backend runs on a free tier that
+ *    spins down when idle, so the first request after a quiet spell can land
+ *    mid-wake. One same-request retry clears most of those.
  *
- * This makes login/register (and every other API call) recover automatically
- * from a stale tunnel URL — the core permanent fix for the reported issue.
+ * 2. Host failover (dormant by default). This was built for localtunnel, whose
+ *    URL rotated whenever the tunnel process restarted; on failure it would
+ *    re-run discovery against the dev PC's LAN IP and retry against whatever
+ *    address came back. The backend now lives at a stable HTTPS address, so
+ *    {@link ServerConfig#discoverAndCacheSync} returns null unless LAN
+ *    discovery has been explicitly enabled, and this path becomes a no-op that
+ *    rethrows the original error.
+ *
+ * Leaving (2) in place costs nothing and means pointing the app back at a
+ * laptop is a one-line toggle rather than a revert.
  */
 class FailoverInterceptor implements Interceptor {
 
@@ -63,6 +60,13 @@ class FailoverInterceptor implements Interceptor {
                 response.close();
                 Response retryResponse = chain.proceed(originalRequest);
                 if (!isRetryableGatewayError(retryResponse.code())) {
+                    return retryResponse;
+                }
+                if (!ServerConfig.isLanDiscoveryEnabled(context)) {
+                    // No alternative host exists to fail over to, so return the
+                    // real gateway response rather than synthesising an
+                    // IOException from it. Callers can then surface "server
+                    // unavailable" instead of a generic network error.
                     return retryResponse;
                 }
                 // Still failing — fall through to host failover below using

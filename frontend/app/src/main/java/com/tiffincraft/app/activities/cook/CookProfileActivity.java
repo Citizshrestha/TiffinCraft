@@ -115,6 +115,17 @@ public class CookProfileActivity extends AppCompatActivity {
                 }
                 com.tiffincraft.app.models.CookProfile profile = response.body().getProfile();
 
+                // Kitchen name from DB (kitchens.kitchen_name) — falls back to cook's name
+                if (binding.tvKitchenNameProfile != null) {
+                    String kitchenName = profile.getKitchenName();
+                    String cookName = sessionManager.getFullName();
+                    binding.tvKitchenNameProfile.setText(
+                            kitchenName != null && !kitchenName.trim().isEmpty()
+                                    ? kitchenName
+                                    : (cookName != null && !cookName.isEmpty() ? cookName + "'s Kitchen" : "Home Kitchen")
+                    );
+                }
+
                 // Rating chip: live review average + count
                 java.text.DecimalFormat ratingFmt = new java.text.DecimalFormat("0.0");
                 String ratingLabel = profile.getTotalReviews() > 0

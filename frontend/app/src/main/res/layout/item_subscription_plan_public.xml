@@ -1,139 +1,232 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  Public subscription plan card (cook profile → Subscription Plans).
+
+  Redesigned so plans stop looking interchangeable:
+   • MaterialCardView, so the recommended plan can be given a 2dp amber
+     stroke at runtime (setStrokeColor/setStrokeWidth) instead of needing a
+     second layout file.
+   • "Best Value" ribbon (amber-deep, reserved for that one plan only).
+   • Savings moved off green onto an amber tag — green everywhere meant the
+     single most persuasive number on the card had no emphasis left.
+   • Price-per-meal as a secondary line, so a ₹1,400 plan is comparable to a
+     ₹900 one at a glance.
+   • A divider plus real breathing room between the meal list and the price
+     row, which were previously crammed together.
+-->
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/cardPlan"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="12dp"
-    app:cardBackgroundColor="#FFFFFF"
+    android:layout_marginBottom="14dp"
+    app:cardBackgroundColor="@color/sub_card_bg"
     app:cardCornerRadius="16dp"
-    app:cardElevation="2dp">
+    app:cardElevation="1dp"
+    app:strokeColor="@color/sub_card_border"
+    app:strokeWidth="1dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:orientation="vertical">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/tvPlanName"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textColor="#1E1E1E"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                tools:text="Weekly Lunch Combo" />
-
-            <TextView
-                android:id="@+id/tvPlanDuration"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/pill_green_light"
-                android:paddingStart="10dp"
-                android:paddingTop="4dp"
-                android:paddingEnd="10dp"
-                android:paddingBottom="4dp"
-                android:textColor="#4CAF50"
-                android:textSize="11.5sp"
-                android:textStyle="bold"
-                tools:text="1 Week" />
-        </LinearLayout>
-
+        <!-- Recommended-plan ribbon. Sits above the padded body so it can bleed
+             into the card's top-start corner. -->
         <TextView
-            android:id="@+id/tvPlanDescription"
-            android:layout_width="match_parent"
+            android:id="@+id/tvBestValueRibbon"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="#757575"
-            android:textSize="12.5sp"
+            android:background="@drawable/ribbon_best_value"
+            android:letterSpacing="0.04"
+            android:paddingStart="12dp"
+            android:paddingTop="5dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="5dp"
+            android:text="★ BEST VALUE"
+            android:textColor="#FFFFFF"
+            android:textSize="10.5sp"
+            android:textStyle="bold"
             android:visibility="gone"
-            tools:text="Pasta + Hot Dog every day"
             tools:visibility="visible" />
 
-        <TextView
-            android:id="@+id/tvPlanItems"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:textColor="#424242"
-            android:textSize="13sp"
-            tools:text="1x Pasta, 2x Grilled Hot Dog" />
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="16dp">
 
+            <!-- ── Title + duration chip ───────────────────────────── -->
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                android:baselineAligned="false"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tvPlanName"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/sub_text_primary"
+                    android:textSize="16.5sp"
+                    android:textStyle="bold"
+                    tools:text="Weekly Lunch Combo" />
 
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:background="@drawable/pill_sub_duration"
                     android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:paddingStart="9dp"
+                    android:paddingTop="5dp"
+                    android:paddingEnd="11dp"
+                    android:paddingBottom="5dp">
+
+                    <ImageView
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:contentDescription="Delivery cycle"
+                        android:src="@drawable/ic_refresh"
+                        app:tint="@color/sub_primary" />
 
                     <TextView
-                        android:id="@+id/tvPlanPrice"
+                        android:id="@+id/tvPlanDuration"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="#4CAF50"
-                        android:textSize="18sp"
+                        android:layout_marginStart="5dp"
+                        android:textColor="@color/sub_primary"
+                        android:textSize="11.5sp"
                         android:textStyle="bold"
-                        tools:text="₹60 / delivery" />
+                        tools:text="1 Week" />
+                </LinearLayout>
+            </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/tvPlanOriginalPrice"
+            <TextView
+                android:id="@+id/tvPlanDescription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:textColor="@color/sub_text_secondary"
+                android:textSize="12.5sp"
+                android:visibility="gone"
+                tools:text="Pasta + Hot Dog every day"
+                tools:visibility="visible" />
+
+            <TextView
+                android:id="@+id/tvPlanItems"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:lineSpacingExtra="2dp"
+                android:textColor="@color/sub_text_secondary"
+                android:textSize="13sp"
+                tools:text="1x Pasta, 2x Grilled Hot Dog" />
+
+            <!-- Divider + generous gap: the meal list and the price used to
+                 collide, which is what made the price row feel cramped. -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="16dp"
+                android:background="@color/sub_divider" />
+
+            <!-- ── Price + CTA ─────────────────────────────────────── -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:baselineAligned="false"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:textColor="#9E9E9E"
+                        android:gravity="bottom"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvPlanPrice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/sub_text_primary"
+                            android:textSize="21sp"
+                            android:textStyle="bold"
+                            tools:text="₹1,200" />
+
+                        <TextView
+                            android:id="@+id/tvPlanOriginalPrice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="7dp"
+                            android:layout_marginBottom="2dp"
+                            android:textColor="@color/sub_text_strike"
+                            android:textSize="13sp"
+                            android:visibility="gone"
+                            tools:text="₹1,550"
+                            tools:visibility="visible" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvPlanPerMeal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="1dp"
+                        android:textColor="@color/sub_text_secondary"
                         android:textSize="12sp"
+                        tools:text="₹400/meal · one-time payment" />
+
+                    <TextView
+                        android:id="@+id/tvPlanSavings"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/pill_savings_amber"
+                        android:paddingStart="8dp"
+                        android:paddingTop="4dp"
+                        android:paddingEnd="8dp"
+                        android:paddingBottom="4dp"
+                        android:textColor="@color/sub_accent_amber"
+                        android:textSize="11.5sp"
+                        android:textStyle="bold"
                         android:visibility="gone"
-                        tools:text="₹80"
+                        tools:text="SAVE ₹350"
                         tools:visibility="visible" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/tvPlanSavings"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSubscribePlan"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:textColor="#4CAF50"
-                    android:textSize="11sp"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="12dp"
+                    android:backgroundTint="@color/sub_primary"
+                    android:minWidth="112dp"
+                    android:paddingStart="18dp"
+                    android:paddingEnd="18dp"
+                    android:text="Subscribe"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13.5sp"
                     android:textStyle="bold"
-                    android:visibility="gone"
-                    tools:text="Save ₹20 vs. ordering separately"
-                    tools:visibility="visible" />
+                    app:cornerRadius="12dp" />
             </LinearLayout>
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnSubscribePlan"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:backgroundTint="#4CAF50"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:text="Subscribe"
-                android:textAllCaps="false"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                app:cornerRadius="12dp" />
         </LinearLayout>
 
     </LinearLayout>
 
-</androidx.cardview.widget.CardView>
+</com.google.android.material.card.MaterialCardView>

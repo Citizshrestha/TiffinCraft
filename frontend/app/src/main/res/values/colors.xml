@@ -11,6 +11,41 @@
     <color name="green_surface">#E8F5E9</color>
     <color name="green_surface_light">#F1F8F4</color>
     <color name="green_brand">#66BB6A</color>
+    <!-- Primary-action teal: sits next to the brand green on the colour wheel so
+         it reads as part of the same palette on white, but is distinct enough
+         that a Save/Confirm button doesn't disappear into the green chrome
+         around it. -->
+    <color name="cta_teal">#00796B</color>
+    <color name="cta_teal_dark">#00544A</color>
+
+    <!-- ============================================================
+         Subscription palette.
+         EXTENDS the green/white theme rather than replacing it: green
+         still owns actions and success, but everything on a plan card was
+         previously one of two greens, so nothing could stand out. Amber
+         carries value/savings, and the deeper amber is reserved SOLELY for
+         the recommended plan's border + ribbon — using it anywhere else
+         destroys the only signal that says "this one".
+         ============================================================ -->
+    <color name="sub_primary">#1B8C4E</color>
+    <color name="sub_bg_warm">#FDFBF7</color>
+    <color name="sub_card_bg">#FFFFFF</color>
+    <color name="sub_card_border">#EDE8DF</color>
+    <!-- Savings / value badges -->
+    <color name="sub_accent_amber">#D97706</color>
+    <!-- "Best Value" only — do not reuse -->
+    <color name="sub_accent_amber_deep">#B45309</color>
+    <!-- Soft amber wash behind the savings pill so the amber text keeps
+         contrast without shouting as loudly as a solid fill would. -->
+    <color name="sub_savings_pill_bg">#FDF1DE</color>
+    <color name="sub_text_primary">#1F2937</color>
+    <color name="sub_text_secondary">#6B7280</color>
+    <color name="sub_text_strike">#9CA3AF</color>
+    <color name="sub_divider">#F3F0EA</color>
+    <color name="sub_error">#DC2626</color>
+    <!-- Recurring/duration chip: stays light green because it's informational,
+         not persuasive — it must not compete with the amber value cues. -->
+    <color name="sub_chip_green_bg">#E8F5E9</color>
 
     <!-- Payment status chip text colors (paired with status_chip_pending/preparing/delivered backgrounds) -->
     <color name="status_pending_text">#757575</color>

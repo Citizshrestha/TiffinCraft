@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "Best Value" ribbon. Square top-start corner so it sits flush into the
+     card's own corner, rounded only where it meets the card body. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/sub_accent_amber_deep" />
+    <corners
+        android:bottomLeftRadius="0dp"
+        android:bottomRightRadius="12dp"
+        android:topLeftRadius="16dp"
+        android:topRightRadius="0dp" />
+</shape>

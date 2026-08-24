@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Subscribe confirmation sheet.
+
+  Part of the payment-first correction: tapping Subscribe no longer creates
+  anything. This sheet is the explicit confirmation step — it has to show
+  exactly what the customer is about to be charged for (plan, cook, meal
+  count, duration, amount) before any request leaves the device, and it must
+  say plainly that payment happens now, via eSewa.
+-->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -10,7 +19,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:padding="22dp">
 
         <!-- ============ HEADER ============ -->
         <LinearLayout
@@ -30,7 +39,7 @@
                     android:layout_gravity="center"
                     android:contentDescription="Subscription"
                     android:src="@drawable/ic_subscription"
-                    app:tint="@color/green_primary_dark" />
+                    app:tint="@color/sub_primary" />
             </FrameLayout>
 
             <LinearLayout
@@ -43,98 +52,171 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Subscribe"
-                    android:textColor="@color/text_subtitle"
+                    android:text="Confirm subscription"
+                    android:textColor="@color/sub_text_secondary"
                     android:textSize="12sp" />
 
                 <TextView
                     android:id="@+id/tvDialogPlanName"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/text_ink"
+                    android:textColor="@color/sub_text_primary"
                     android:textSize="17sp"
                     android:textStyle="bold"
                     tools:text="Weekly Lunch Combo"
                     tools:ignore="MissingDefaultResource" />
+
+                <TextView
+                    android:id="@+id/tvDialogCookName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="1dp"
+                    android:textColor="@color/sub_text_secondary"
+                    android:textSize="12.5sp"
+                    tools:text="from Anu's Kitchen" />
             </LinearLayout>
         </LinearLayout>
 
-        <!-- ============ PRICE CARD ============ -->
+        <!-- ============ SUMMARY ============ -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:background="@drawable/overview_card_bg"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_sub_confirm_summary"
             android:orientation="vertical"
             android:padding="16dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:baselineAligned="false"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <LinearLayout
+                <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:text="Meals per cycle"
+                    android:textColor="@color/sub_text_secondary"
+                    android:textSize="13sp" />
 
-                    <TextView
-                        android:id="@+id/tvDialogPrice"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textColor="#FFFFFF"
-                        android:textSize="24sp"
-                        android:textStyle="bold"
-                        tools:text="₹60" />
+                <TextView
+                    android:id="@+id/tvDialogMealCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/sub_text_primary"
+                    android:textSize="13.5sp"
+                    android:textStyle="bold"
+                    tools:text="3 meals" />
+            </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/tvDialogOriginalPrice"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:textColor="#C8E6C9"
-                        android:textSize="13sp"
-                        android:visibility="gone"
-                        tools:text="₹80"
-                        tools:visibility="visible" />
-                </LinearLayout>
+            <TextView
+                android:id="@+id/tvDialogItems"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:textColor="@color/sub_text_secondary"
+                android:textSize="12sp"
+                tools:text="1x Pasta, 2x Grilled Hot Dog" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="12dp"
+                android:background="@color/sub_divider" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:baselineAligned="false"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Billing cycle"
+                    android:textColor="@color/sub_text_secondary"
+                    android:textSize="13sp" />
 
                 <TextView
                     android:id="@+id/tvDialogDuration"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/pill_translucent"
-                    android:paddingStart="12dp"
+                    android:background="@drawable/pill_sub_duration"
+                    android:paddingStart="11dp"
                     android:paddingTop="5dp"
-                    android:paddingEnd="12dp"
+                    android:paddingEnd="11dp"
                     android:paddingBottom="5dp"
-                    android:textColor="#FFFFFF"
-                    android:textSize="11sp"
+                    android:textColor="@color/sub_primary"
+                    android:textSize="11.5sp"
                     android:textStyle="bold"
                     tools:text="1 Week" />
             </LinearLayout>
 
-            <TextView
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="12dp"
+                android:background="@color/sub_divider" />
+
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="per delivery"
-                android:textColor="#DCEDC8"
-                android:textSize="11.5sp" />
+                android:layout_marginTop="12dp"
+                android:baselineAligned="false"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="You pay now"
+                    android:textColor="@color/sub_text_primary"
+                    android:textSize="13.5sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvDialogOriginalPrice"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:textColor="@color/sub_text_strike"
+                    android:textSize="13sp"
+                    android:visibility="gone"
+                    tools:text="₹1,550"
+                    tools:visibility="visible" />
+
+                <TextView
+                    android:id="@+id/tvDialogPrice"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/sub_text_primary"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    tools:text="₹1,200" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/tvDialogSavings"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="end"
                 android:layout_marginTop="8dp"
-                android:textColor="#FFFFFF"
+                android:background="@drawable/pill_savings_amber"
+                android:paddingStart="8dp"
+                android:paddingTop="4dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="4dp"
+                android:textColor="@color/sub_accent_amber"
                 android:textSize="11.5sp"
                 android:textStyle="bold"
                 android:visibility="gone"
-                tools:text="You save ₹20 per delivery vs. ordering separately"
+                tools:text="SAVE ₹350"
                 tools:visibility="visible" />
         </LinearLayout>
 
@@ -142,9 +224,9 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
+            android:layout_marginTop="16dp"
             android:text="Delivery Address"
-            android:textColor="@color/text_ink"
+            android:textColor="@color/sub_text_primary"
             android:textSize="13sp"
             android:textStyle="bold" />
 
@@ -157,7 +239,7 @@
             app:boxCornerRadiusBottomStart="12dp"
             app:boxCornerRadiusTopEnd="12dp"
             app:boxCornerRadiusTopStart="12dp"
-            app:boxStrokeColor="@color/green_primary"
+            app:boxStrokeColor="@color/sub_primary"
             app:hintEnabled="false">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -169,7 +251,7 @@
                 android:inputType="textMultiLine"
                 android:minLines="2"
                 android:padding="14dp"
-                android:textColor="@color/text_ink"
+                android:textColor="@color/sub_text_primary"
                 android:textSize="14sp" />
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -177,15 +259,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="You'll pay the cook and upload proof on the next screen — your subscription activates once they verify it."
-            android:textColor="@color/text_subtitle"
+            android:text="You'll pay securely through eSewa on the next screen. Your subscription starts only after the payment is confirmed — nothing is charged or activated until then."
+            android:textColor="@color/sub_text_secondary"
             android:textSize="11.5sp" />
 
         <!-- ============ ACTIONS ============ -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="18dp"
             android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
@@ -196,18 +278,18 @@
                 android:layout_weight="1"
                 android:text="Cancel"
                 android:textAllCaps="false"
-                android:textColor="@color/text_subtitle"
+                android:textColor="@color/sub_text_secondary"
                 app:cornerRadius="12dp"
-                app:strokeColor="@color/stroke_soft" />
+                app:strokeColor="@color/sub_card_border" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDialogConfirm"
                 android:layout_width="0dp"
                 android:layout_height="48dp"
                 android:layout_marginStart="12dp"
-                android:layout_weight="1"
-                android:backgroundTint="@color/green_primary_dark"
-                android:text="Subscribe"
+                android:layout_weight="1.4"
+                android:backgroundTint="@color/sub_primary"
+                android:text="Pay with eSewa"
                 android:textAllCaps="false"
                 android:textColor="@color/white"
                 android:textStyle="bold"

@@ -32,10 +32,10 @@ import com.tiffincraft.app.models.UploadResponse;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.activities.order.OrderHistoryActivity;
+import com.tiffincraft.app.utils.CurrencyUtils;
 import com.tiffincraft.app.utils.ImageUtils;
 
 import java.io.File;
-import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -248,9 +248,7 @@ public class CustomerProfileActivity extends AppCompatActivity {
 
         // Total spent
         if (binding.tvTotalSpentCustomer != null) {
-            NumberFormat currencyFormat = NumberFormat.getCurrencyInstance(new Locale("en", "IN"));
-            String formattedAmount = currencyFormat.format(profile.getTotalSpent());
-            binding.tvTotalSpentCustomer.setText(formattedAmount);
+            binding.tvTotalSpentCustomer.setText(CurrencyUtils.formatRupees(profile.getTotalSpent()));
         }
 
         // Member since

@@ -370,6 +370,17 @@ public interface ApiService {
     @POST("subscriptions")
     Call<com.tiffincraft.app.models.CreateSubscriptionResponse> createSubscription(@Header("Authorization") String token, @Body CreateCustomerSubscriptionRequest request);
 
+    /**
+     * Payment-first subscribe. Body is {cook_id, plan_id, delivery_address} —
+     * deliberately NO amount and NO customer_id: the backend charges the plan
+     * price it has stored and takes the customer from the JWT. Creates the
+     * subscription as pending_payment and returns signed eSewa ePay form
+     * fields; the row is only activated after the backend verifies the payment
+     * with eSewa. Rate-limited per user.
+     */
+    @POST("subscriptions/initiate")
+    Call<EpayInitiateResponse> initiateSubscriptionPayment(@Header("Authorization") String token, @Body com.google.gson.JsonObject requestBody);
+
     @PUT("subscriptions/{id}/pause")
     Call<RegisterResponse> pauseSubscription(@Header("Authorization") String token, @Path("id") int subscriptionId);
 

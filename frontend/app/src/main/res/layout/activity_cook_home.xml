@@ -629,7 +629,7 @@
                     android:clickable="true"
                     android:focusable="true"
                     app:cardBackgroundColor="#FFFFFF"
-                    app:cardCornerRadius="16dp"
+                    app:cardCornerRadius="14dp"
                     app:cardElevation="0dp"
                     app:strokeColor="#EFEFEF"
                     app:strokeWidth="1dp">
@@ -639,12 +639,12 @@
                         android:layout_height="wrap_content"
                         android:gravity="center"
                         android:orientation="vertical"
-                        android:paddingTop="16dp"
-                        android:paddingBottom="14dp">
+                        android:paddingTop="14dp"
+                        android:paddingBottom="12dp">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
                             android:contentDescription="Manage Meals"
                             android:src="@drawable/ic_manage_meals"
                             android:tint="#4CAF50" />
@@ -652,10 +652,10 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:text="Manage Meals"
+                            android:layout_marginTop="6dp"
+                            android:text="Meals"
                             android:textColor="#333333"
-                            android:textSize="10.5sp"
+                            android:textSize="9.5sp"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -665,13 +665,13 @@
                     android:id="@+id/btnViewOrders"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
                     android:layout_weight="1"
                     android:clickable="true"
                     android:focusable="true"
                     app:cardBackgroundColor="#FFFFFF"
-                    app:cardCornerRadius="16dp"
+                    app:cardCornerRadius="14dp"
                     app:cardElevation="0dp"
                     app:strokeColor="#EFEFEF"
                     app:strokeWidth="1dp">
@@ -681,12 +681,12 @@
                         android:layout_height="wrap_content"
                         android:gravity="center"
                         android:orientation="vertical"
-                        android:paddingTop="16dp"
-                        android:paddingBottom="14dp">
+                        android:paddingTop="14dp"
+                        android:paddingBottom="12dp">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
                             android:contentDescription="View Orders"
                             android:src="@drawable/ic_view_orders"
                             android:tint="#4CAF50" />
@@ -694,10 +694,10 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:text="View Orders"
+                            android:layout_marginTop="6dp"
+                            android:text="Orders"
                             android:textColor="#333333"
-                            android:textSize="10.5sp"
+                            android:textSize="9.5sp"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -707,12 +707,13 @@
                     android:id="@+id/btnSubscriptions"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
                     android:layout_weight="1"
                     android:clickable="true"
                     android:focusable="true"
                     app:cardBackgroundColor="#FFFFFF"
-                    app:cardCornerRadius="16dp"
+                    app:cardCornerRadius="14dp"
                     app:cardElevation="0dp"
                     app:strokeColor="#EFEFEF"
                     app:strokeWidth="1dp">
@@ -722,12 +723,12 @@
                         android:layout_height="wrap_content"
                         android:gravity="center"
                         android:orientation="vertical"
-                        android:paddingTop="16dp"
-                        android:paddingBottom="14dp">
+                        android:paddingTop="14dp"
+                        android:paddingBottom="12dp">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
                             android:contentDescription="Subscriptions"
                             android:src="@drawable/ic_subscriptions_check"
                             android:tint="#4CAF50" />
@@ -735,10 +736,51 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
+                            android:layout_marginTop="6dp"
                             android:text="Subscriptions"
                             android:textColor="#333333"
-                            android:textSize="10.5sp"
+                            android:textSize="9.5sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Combo Offers -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/btnCombos"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="#FFFFFF"
+                    app:cardCornerRadius="14dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="#EFEFEF"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        android:paddingTop="14dp"
+                        android:paddingBottom="12dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:contentDescription="Combo Offers"
+                            android:src="@drawable/ic_offers"
+                            android:tint="#FF9800" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="Combo Deals"
+                            android:textColor="#333333"
+                            android:textSize="9.5sp"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>

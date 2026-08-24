@@ -33,7 +33,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         void onSelectionChanged(int selectedCount, boolean canEditSelection);
     }
 
-    private static final int SELECTED_HIGHLIGHT = 0x1A4CAF50; // translucent green
+    private static final int SELECTED_HIGHLIGHT = 0x1A00897B; // translucent teal
 
     private final Context context;
     private final List<ChatMessage> messages;

@@ -92,7 +92,9 @@ public class SubscriptionPlanResponse {
         }
 
         public String getDurationLabel() {
-            return "weekly".equals(duration) ? "1 Week" : "1 Month";
+            if ("2_weeks".equals(duration) || "biweekly".equals(duration) || "2_week".equals(duration)) return "2 Weeks";
+            if ("monthly".equals(duration) || "1_month".equals(duration) || "1_months".equals(duration)) return "1 Month";
+            return "1 Week";
         }
 
         public String getDescription() {

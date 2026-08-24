@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tint for primary Save/Confirm buttons: deep teal that belongs to the white +
+     green palette without being the same green as the surrounding chrome.
+     Darkens on press so the tap lands visibly even where the ripple is subtle. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/cta_teal_dark" android:state_pressed="true" />
+    <item android:color="@color/cta_teal" />
+</selector>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Summary block on the subscribe confirmation sheet. Warm cream with a hairline
+     border, so the figures the customer is confirming read as a receipt rather
+     than as another coloured banner competing with the CTA. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/sub_bg_warm" />
+    <stroke
+        android:width="1dp"
+        android:color="@color/sub_card_border" />
+    <corners android:radius="14dp" />
+</shape>

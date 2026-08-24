@@ -63,12 +63,12 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="6dp"
-                        android:background="@drawable/pill_green_light"
+                        android:background="@drawable/chip_unselected"
                         android:paddingStart="10dp"
-                        android:paddingTop="4dp"
+                        android:paddingTop="3dp"
                         android:paddingEnd="10dp"
-                        android:paddingBottom="4dp"
-                        android:textColor="#4CAF50"
+                        android:paddingBottom="3dp"
+                        android:textColor="@color/indigo_accent"
                         android:textSize="11.5sp"
                         android:textStyle="bold"
                         android:visibility="gone"
@@ -102,7 +102,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="One-time deal · not recurring"
+            android:text="One-time meal bundle · not recurring"
             android:textColor="#9E9E9E"
             android:textSize="11sp" />
 
@@ -123,7 +123,7 @@
                     android:id="@+id/tvComboPrice"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#4CAF50"
+                    android:textColor="@color/indigo_accent"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     tools:text="₹450" />
@@ -133,10 +133,10 @@
                 android:id="@+id/btnBuyCombo"
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
-                android:backgroundTint="#4CAF50"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:text="Buy Now"
+                android:backgroundTint="@color/indigo_accent"
+                android:paddingStart="18dp"
+                android:paddingEnd="18dp"
+                android:text="Buy Deal"
                 android:textAllCaps="false"
                 android:textColor="#FFFFFF"
                 android:textSize="13sp"
@@ -147,3 +147,4 @@
     </LinearLayout>
 
 </androidx.cardview.widget.CardView>
+

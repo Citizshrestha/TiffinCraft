@@ -27,28 +27,35 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="20dp"
-                android:paddingTop="20dp"
+                android:paddingTop="18dp"
                 android:paddingEnd="20dp"
-                android:paddingBottom="14dp">
+                android:paddingBottom="10dp">
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Profile"
-                    android:textColor="#111111"
-                    android:textSize="22sp"
+                    android:textColor="#14210F"
+                    android:textSize="26sp"
                     android:textStyle="bold" />
 
-                <ImageView
-                    android:id="@+id/btnSettings"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:clickable="true"
-                    android:contentDescription="Settings"
-                    android:focusable="true"
-                    android:src="@drawable/ic_settings"
-                    android:tint="#111111" />
+                <FrameLayout
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/icon_tile_green_bg">
+
+                    <ImageView
+                        android:id="@+id/btnSettings"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="center"
+                        android:clickable="true"
+                        android:contentDescription="Settings"
+                        android:focusable="true"
+                        android:src="@drawable/ic_settings"
+                        android:tint="#14210F" />
+                </FrameLayout>
             </LinearLayout>
 
             <!-- ============ PROFILE CARD ============ -->
@@ -61,14 +68,15 @@
                 android:paddingBottom="20dp">
 
                 <FrameLayout
-                    android:layout_width="92dp"
-                    android:layout_height="92dp">
+                    android:layout_width="112dp"
+                    android:layout_height="112dp">
 
                     <androidx.cardview.widget.CardView
-                        android:layout_width="92dp"
-                        android:layout_height="92dp"
-                        app:cardCornerRadius="46dp"
-                        app:cardElevation="2dp">
+                        android:layout_width="108dp"
+                        android:layout_height="108dp"
+                        android:layout_gravity="center"
+                        app:cardCornerRadius="54dp"
+                        app:cardElevation="6dp">
 
                         <ImageView
                             android:id="@+id/imgCookAvatar"
@@ -81,14 +89,14 @@
 
                     <ImageView
                         android:id="@+id/btnEditAvatar"
-                        android:layout_width="28dp"
-                        android:layout_height="28dp"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
                         android:layout_gravity="bottom|end"
                         android:background="@drawable/edit_avatar_bg"
                         android:clickable="true"
                         android:contentDescription="Change photo"
                         android:focusable="true"
-                        android:padding="6dp"
+                        android:padding="7dp"
                         android:src="@drawable/ic_camera"
                         android:tint="#FFFFFF" />
                 </FrameLayout>
@@ -98,9 +106,9 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="14dp"
-                    android:text="Anita Sharma"
-                    android:textColor="#111111"
-                    android:textSize="18sp"
+                    android:text="Home Cook"
+                    android:textColor="#14210F"
+                    android:textSize="20sp"
                     android:textStyle="bold" />
 
                 <!-- Upload Progress Indicator -->
@@ -143,10 +151,10 @@
                     android:id="@+id/tvKitchenNameProfile"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Anita's Kitchen"
-                    android:textColor="#888888"
-                    android:textSize="13sp" />
+                    android:layout_marginTop="3dp"
+                    android:text="Home Kitchen"
+                    android:textColor="#8A8F86"
+                    android:textSize="13.5sp" />
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -193,10 +201,10 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
-                    app:cardBackgroundColor="#FFFFFF"
-                    app:cardCornerRadius="16dp"
+                    app:cardBackgroundColor="#FBFCF8"
+                    app:cardCornerRadius="18dp"
                     app:cardElevation="0dp"
-                    app:strokeColor="#EFEFEF"
+                    app:strokeColor="#EDF1E6"
                     app:strokeWidth="1dp">
 
                     <LinearLayout
@@ -211,8 +219,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="560"
-                            android:textColor="#111111"
-                            android:textSize="18sp"
+                            android:textColor="#14210F"
+                            android:textSize="20sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -231,10 +239,10 @@
                     android:layout_marginStart="6dp"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
-                    app:cardBackgroundColor="#FFFFFF"
-                    app:cardCornerRadius="16dp"
+                    app:cardBackgroundColor="#FBFCF8"
+                    app:cardCornerRadius="18dp"
                     app:cardElevation="0dp"
-                    app:strokeColor="#EFEFEF"
+                    app:strokeColor="#EDF1E6"
                     app:strokeWidth="1dp">
 
                     <LinearLayout
@@ -249,8 +257,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="₹56,320"
-                            android:textColor="#111111"
-                            android:textSize="18sp"
+                            android:textColor="#14210F"
+                            android:textSize="20sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -268,10 +276,10 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="6dp"
                     android:layout_weight="1"
-                    app:cardBackgroundColor="#FFFFFF"
-                    app:cardCornerRadius="16dp"
+                    app:cardBackgroundColor="#FBFCF8"
+                    app:cardCornerRadius="18dp"
                     app:cardElevation="0dp"
-                    app:strokeColor="#EFEFEF"
+                    app:strokeColor="#EDF1E6"
                     app:strokeWidth="1dp">
 
                     <LinearLayout
@@ -283,12 +291,17 @@
 
                         <TextView
                             android:id="@+id/tvJoinedDate"
-                            android:layout_width="wrap_content"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:maxLines="1"
                             android:text="Feb 2024"
-                            android:textColor="#111111"
+                            android:textColor="#14210F"
                             android:textSize="15sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            app:autoSizeMaxTextSize="15sp"
+                            app:autoSizeMinTextSize="8sp"
+                            app:autoSizeTextType="uniform" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -346,7 +359,7 @@
                     android:layout_height="wrap_content"
                     android:checked="true"
                     android:thumbTint="#FFFFFF"
-                    android:trackTint="#80FFFFFF" />
+                    app:trackTint="@color/switch_track_cook" />
             </LinearLayout>
 
             <!-- ============ KITCHEN DETAILS (real data) ============ -->
@@ -366,11 +379,11 @@
                 android:layout_marginStart="20dp"
                 android:layout_marginEnd="20dp"
                 android:layout_marginBottom="24dp"
-                app:cardBackgroundColor="#FFFFFF"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:strokeColor="#EFEFEF"
-                app:strokeWidth="1dp">
+                    app:cardBackgroundColor="#FFFFFF"
+                    app:cardCornerRadius="18dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="#EDF1E6"
+                    app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -385,12 +398,19 @@
                         android:orientation="horizontal"
                         android:padding="16dp">
 
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="Cuisine"
-                            android:src="@drawable/ic_manage_meals"
-                            android:tint="#4CAF50" />
+                        <FrameLayout
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:background="@drawable/icon_tile_green_bg">
+
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Cuisine"
+                                android:src="@drawable/ic_manage_meals"
+                                android:tint="#3E7C43" />
+                        </FrameLayout>
 
                         <TextView
                             android:layout_width="0dp"
@@ -398,7 +418,7 @@
                             android:layout_marginStart="14dp"
                             android:layout_weight="1"
                             android:text="Cuisine"
-                            android:textColor="#888888"
+                            android:textColor="#8A8F86"
                             android:textSize="13sp" />
 
                         <TextView
@@ -406,7 +426,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="—"
-                            android:textColor="#222222"
+                            android:textColor="#14210F"
                             android:textSize="13.5sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -414,8 +434,8 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:layout_marginStart="50dp"
-                        android:background="#F0F0F0" />
+                        android:layout_marginStart="72dp"
+                        android:background="#F1F4EC" />
 
                     <!-- Daily capacity -->
                     <LinearLayout
@@ -425,12 +445,19 @@
                         android:orientation="horizontal"
                         android:padding="16dp">
 
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="Daily capacity"
-                            android:src="@drawable/ic_bag"
-                            android:tint="#4CAF50" />
+                        <FrameLayout
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:background="@drawable/icon_tile_green_bg">
+
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Daily capacity"
+                                android:src="@drawable/ic_bag"
+                                android:tint="#3E7C43" />
+                        </FrameLayout>
 
                         <TextView
                             android:layout_width="0dp"
@@ -438,7 +465,7 @@
                             android:layout_marginStart="14dp"
                             android:layout_weight="1"
                             android:text="Daily Capacity"
-                            android:textColor="#888888"
+                            android:textColor="#8A8F86"
                             android:textSize="13sp" />
 
                         <TextView
@@ -446,7 +473,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="—"
-                            android:textColor="#222222"
+                            android:textColor="#14210F"
                             android:textSize="13.5sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -454,8 +481,8 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:layout_marginStart="50dp"
-                        android:background="#F0F0F0" />
+                        android:layout_marginStart="72dp"
+                        android:background="#F1F4EC" />
 
                     <!-- Phone -->
                     <LinearLayout
@@ -465,12 +492,19 @@
                         android:orientation="horizontal"
                         android:padding="16dp">
 
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="Phone"
-                            android:src="@drawable/ic_phone"
-                            android:tint="#4CAF50" />
+                        <FrameLayout
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:background="@drawable/icon_tile_green_bg">
+
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Phone"
+                                android:src="@drawable/ic_phone"
+                                android:tint="#3E7C43" />
+                        </FrameLayout>
 
                         <TextView
                             android:layout_width="0dp"
@@ -478,7 +512,7 @@
                             android:layout_marginStart="14dp"
                             android:layout_weight="1"
                             android:text="Phone"
-                            android:textColor="#888888"
+                            android:textColor="#8A8F86"
                             android:textSize="13sp" />
 
                         <TextView
@@ -486,7 +520,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="—"
-                            android:textColor="#222222"
+                            android:textColor="#14210F"
                             android:textSize="13.5sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -494,8 +528,8 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:layout_marginStart="50dp"
-                        android:background="#F0F0F0" />
+                        android:layout_marginStart="72dp"
+                        android:background="#F1F4EC" />
 
                     <!-- Email -->
                     <LinearLayout
@@ -505,12 +539,19 @@
                         android:orientation="horizontal"
                         android:padding="16dp">
 
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="Email"
-                            android:src="@drawable/ic_email"
-                            android:tint="#4CAF50" />
+                        <FrameLayout
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:background="@drawable/icon_tile_green_bg">
+
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Email"
+                                android:src="@drawable/ic_email"
+                                android:tint="#3E7C43" />
+                        </FrameLayout>
 
                         <TextView
                             android:layout_width="0dp"
@@ -518,7 +559,7 @@
                             android:layout_marginStart="14dp"
                             android:layout_weight="1"
                             android:text="Email"
-                            android:textColor="#888888"
+                            android:textColor="#8A8F86"
                             android:textSize="13sp" />
 
                         <TextView
@@ -528,7 +569,7 @@
                             android:ellipsize="end"
                             android:maxLines="1"
                             android:text="—"
-                            android:textColor="#222222"
+                            android:textColor="#14210F"
                             android:textSize="13.5sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -536,8 +577,8 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:layout_marginStart="50dp"
-                        android:background="#F0F0F0" />
+                        android:layout_marginStart="72dp"
+                        android:background="#F1F4EC" />
 
                     <!-- Address -->
                     <LinearLayout
@@ -547,12 +588,19 @@
                         android:orientation="horizontal"
                         android:padding="16dp">
 
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="Address"
-                            android:src="@drawable/ic_location"
-                            android:tint="#4CAF50" />
+                        <FrameLayout
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:background="@drawable/icon_tile_green_bg">
+
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Address"
+                                android:src="@drawable/ic_location"
+                                android:tint="#3E7C43" />
+                        </FrameLayout>
 
                         <TextView
                             android:layout_width="0dp"
@@ -560,7 +608,7 @@
                             android:layout_marginStart="14dp"
                             android:layout_weight="1"
                             android:text="Address"
-                            android:textColor="#888888"
+                            android:textColor="#8A8F86"
                             android:textSize="13sp" />
 
                         <TextView
@@ -572,7 +620,7 @@
                             android:gravity="end"
                             android:maxLines="2"
                             android:text="—"
-                            android:textColor="#222222"
+                            android:textColor="#14210F"
                             android:textSize="13.5sp"
                             android:textStyle="bold" />
                     </LinearLayout>

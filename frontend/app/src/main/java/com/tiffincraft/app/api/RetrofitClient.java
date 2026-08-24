@@ -23,23 +23,18 @@ import java.util.concurrent.TimeUnit;
 public class RetrofitClient {
 
     /**
-     * BASE_URL / SERVER_URL are now MUTABLE and backed by {@link ServerConfig}'s
-     * cache instead of a hardcoded literal. This is the permanent fix for
-     * "backend error on login/register even though backend + tunnel are
-     * running": the previous hardcoded tunnel URL went stale every time the
-     * tunnel restarted (new random loca.lt subdomain), requiring a manual
-     * source edit + APK rebuild.
+     * BASE_URL / SERVER_URL are MUTABLE and backed by {@link ServerConfig}'s
+     * cache rather than a hardcoded literal.
      *
-     * Now:
-     *  1. On first use (see getInstance), a background discovery call hits
-     *     the PC's LAN IP at /api/config to fetch the CURRENT tunnel/LAN URL.
-     *  2. FailoverInterceptor below detects failed requests (stale URL) and
-     *     triggers re-discovery + retry automatically, mid-session.
-     *  3. resetInstance() rebuilds Retrofit with whatever URL is cached now.
+     * That indirection was originally needed because the dev backend ran behind
+     * localtunnel and its URL rotated on every restart. The backend now lives
+     * at a stable hosted HTTPS address, so in normal operation these fields are
+     * simply seeded from ServerConfig's compiled-in default and never change.
      *
-     * No more manual RetrofitClient edits or rebuilds are needed when the
-     * tunnel URL rotates — as long as the phone is on the same WiFi as the
-     * PC (per user's confirmed setup), discovery always succeeds.
+     * The mutability is kept for two reasons: image-URL helpers elsewhere read
+     * SERVER_URL directly, and {@link ServerConfig#setLanDiscoveryEnabled}
+     * still allows pointing the app at a backend on the local network without
+     * touching this class.
      */
     public static String BASE_URL;
     public static String SERVER_URL;
