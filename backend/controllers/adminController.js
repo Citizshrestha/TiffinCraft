@@ -660,9 +660,9 @@ export const getAllOrders = async (req, res) => {
 
         let query = `
             SELECT o.*,
-                   u.full_name as customer_name,
-                   cu.full_name as cook_name,
-                   cp.kitchen_name,
+                   MAX(u.full_name) as customer_name,
+                   MAX(cu.full_name) as cook_name,
+                   MAX(cp.kitchen_name) as kitchen_name,
                    GROUP_CONCAT(m.name SEPARATOR ', ') as items_summary
             FROM orders o
             JOIN users u ON o.customer_id = u.id
@@ -736,9 +736,9 @@ export const updateOrderStatus = async (req, res) => {
 
         const [rows] = await db.promise().query(
             `SELECT o.*,
-                    u.full_name as customer_name,
-                    cu.full_name as cook_name,
-                    cp.kitchen_name,
+                    MAX(u.full_name) as customer_name,
+                    MAX(cu.full_name) as cook_name,
+                    MAX(cp.kitchen_name) as kitchen_name,
                     GROUP_CONCAT(m.name SEPARATOR ', ') as items_summary
              FROM orders o
              JOIN users u ON o.customer_id = u.id
