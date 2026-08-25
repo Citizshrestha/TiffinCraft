@@ -104,6 +104,42 @@ export async function updateCommissionSettings(pct: number): Promise<void> {
   await apiPut(`/commission/settings`, { commission_pct: pct });
 }
 
+export interface CommissionTrendPoint {
+  month: string;
+  year: number;
+  commission: number;
+  cookNet: number;
+}
+
+export interface CommissionSummary {
+  month: number;
+  year: number;
+  commission_pct: number;
+  total_commission: number;
+  all_time_commission: number;
+  total_gross: number;
+  order_count: number;
+  pending_commission: number;
+  pending_order_count: number;
+  by_cook: {
+    cook_id: number;
+    owner_name: string;
+    kitchen_name: string | null;
+    order_count: number;
+    gross_total: number;
+    commission_total: number;
+  }[];
+  trend: CommissionTrendPoint[];
+}
+
+export async function fetchCommissionSummary(month?: number, year?: number): Promise<CommissionSummary> {
+  const params = new URLSearchParams();
+  if (month) params.set("month", String(month));
+  if (year) params.set("year", String(year));
+  const qs = params.toString();
+  return apiGet(`/commission/summary${qs ? `?${qs}` : ""}`);
+}
+
 export async function fetchAdminQr(): Promise<BankDetails | null> {
   const data = await apiGet<{ success: boolean; bank_details: BankDetails | null }>(`/commission/admin-qr`);
   return data.bank_details;

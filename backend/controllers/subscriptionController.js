@@ -260,7 +260,20 @@ export const verifySubscriptionPayment = async (req, res) => {
 
 const formatSubscriptionRow = async (row) => {
     const plan = await fetchPlanWithItems(row.plan_id);
-    return { ...row, plan };
+
+    // Cook's eSewa QR for the manual pay flow — the customer scans it in their
+    // own eSewa app. Same field name and shape the order detail endpoint
+    // already exposes (see orderController.js), so the two manual-pay screens
+    // consume one contract. bank_details is a JSON blob (esewa_qr_url /
+    // khalti_qr_url / bank_qr_url); pull just eSewa's, tolerating rows that
+    // are null (cook never set one up) or malformed.
+    let cookEsewaQrUrl = null;
+    try {
+        if (row.cook_bank_details) cookEsewaQrUrl = JSON.parse(row.cook_bank_details).esewa_qr_url || null;
+    } catch (_) { /* legacy/malformed JSON — no QR */ }
+
+    const { cook_bank_details, ...rest } = row;
+    return { ...rest, plan, cook_esewa_qr_url: cookEsewaQrUrl };
 };
 
 /**
@@ -272,7 +285,10 @@ export const getMySubscriptions = async (req, res) => {
         const customerId = req.user.id;
 
         const [subscriptions] = await db.promise().query(
-            `SELECT s.* FROM subscriptions s WHERE s.customer_id = ? ORDER BY s.created_at DESC`,
+            `SELECT s.*, cp.bank_details AS cook_bank_details
+             FROM subscriptions s
+             LEFT JOIN cook_profiles cp ON cp.user_id = s.cook_id
+             WHERE s.customer_id = ? ORDER BY s.created_at DESC`,
             [customerId]
         );
 

@@ -12,20 +12,20 @@ export const getDashboard = async (req, res) => {
         const [users] = await db.promise().query(
             `SELECT 
                 COUNT(*) as total_users,
-                SUM(CASE WHEN role = 'customer' THEN 1 ELSE 0 END) as total_customers,
-                SUM(CASE WHEN role = 'cook' THEN 1 ELSE 0 END) as total_cooks
+                COALESCE(SUM(CASE WHEN role = 'customer' THEN 1 ELSE 0 END), 0) as total_customers,
+                COALESCE(SUM(CASE WHEN role = 'cook' THEN 1 ELSE 0 END), 0) as total_cooks
              FROM users WHERE role != 'admin'`
         );
 
         const [orders] = await db.promise().query(
             `SELECT
                 COUNT(*) as total_orders,
-                SUM(CASE WHEN status IN ('delivered', 'completed')
-                    THEN total_amount ELSE 0 END) as total_revenue,
-                SUM(CASE WHEN status = 'pending'
-                    THEN 1 ELSE 0 END) as pending_orders,
-                SUM(CASE WHEN DATE(created_at) = CURDATE()
-                    THEN 1 ELSE 0 END) as today_orders
+                COALESCE(SUM(CASE WHEN status IN ('delivered', 'completed')
+                    THEN total_amount ELSE 0 END), 0) as total_revenue,
+                COALESCE(SUM(CASE WHEN status = 'pending'
+                    THEN 1 ELSE 0 END), 0) as pending_orders,
+                COALESCE(SUM(CASE WHEN DATE(created_at) = CURDATE()
+                    THEN 1 ELSE 0 END), 0) as today_orders
              FROM orders`
         );
 
@@ -36,52 +36,62 @@ export const getDashboard = async (req, res) => {
 
         const [recentOrders] = await db.promise().query(
             `SELECT o.id, o.total_amount, o.status, o.created_at,
-                    u.full_name as customer_name,
-                    cp.kitchen_name
+                    COALESCE(u.full_name, 'Customer') as customer_name,
+                    COALESCE(cp.kitchen_name, cu.full_name, '-') as kitchen_name
              FROM orders o
-             JOIN users u ON o.customer_id = u.id
-             JOIN cook_profiles cp ON o.cook_id = cp.user_id
+             LEFT JOIN users u ON o.customer_id = u.id
+             LEFT JOIN users cu ON o.cook_id = cu.id
+             LEFT JOIN cook_profiles cp ON o.cook_id = cp.user_id
              ORDER BY o.created_at DESC
              LIMIT 5`
         );
 
         const [topCooks] = await db.promise().query(
-            `SELECT cp.user_id, cp.kitchen_name, cp.rating, cp.total_orders,
+            `SELECT cp.user_id, 
+                    COALESCE(cp.kitchen_name, u.full_name, 'Cook') as kitchen_name, 
+                    COALESCE(cp.rating, 0) as rating, 
+                    COALESCE(cp.total_orders, 0) as total_orders,
                     u.profile_image
              FROM cook_profiles cp
-             JOIN users u ON cp.user_id = u.id
+             LEFT JOIN users u ON cp.user_id = u.id
              ORDER BY cp.rating DESC, cp.total_orders DESC
              LIMIT 5`
         );
 
         const [last7Days] = await db.promise().query(
-            `SELECT DATE(created_at) as date,
+            `SELECT DATE_FORMAT(created_at, '%Y-%m-%d') as date,
                     COUNT(*) as orders,
-                    SUM(CASE WHEN status IN ('delivered', 'completed')
-                        THEN total_amount ELSE 0 END) as revenue
+                    COALESCE(SUM(CASE WHEN status IN ('delivered', 'completed')
+                        THEN total_amount ELSE 0 END), 0) as revenue
              FROM orders
              WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-             GROUP BY DATE(created_at)
+             GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
              ORDER BY date ASC`
         );
 
         return res.status(200).json({
             success: true,
             dashboard: {
-                ...users[0],
-                ...orders[0],
-                ...pendingCooks[0]
+                total_users: Number(users[0]?.total_users) || 0,
+                total_customers: Number(users[0]?.total_customers) || 0,
+                total_cooks: Number(users[0]?.total_cooks) || 0,
+                total_orders: Number(orders[0]?.total_orders) || 0,
+                total_revenue: Number(orders[0]?.total_revenue) || 0,
+                pending_orders: Number(orders[0]?.pending_orders) || 0,
+                today_orders: Number(orders[0]?.today_orders) || 0,
+                pending_approvals: Number(pendingCooks[0]?.pending_approvals) || 0
             },
-            recentOrders,
-            topCooks,
-            last7Days
+            recentOrders: recentOrders || [],
+            topCooks: topCooks || [],
+            last7Days: last7Days || []
         });
 
     } catch (error) {
         console.error("getDashboard error:", error);
         return res.status(500).json({
             success: false,
-            message: "Server error."
+            message: "Server error.",
+            error: error.message
         });
     }
 };
@@ -1175,5 +1185,139 @@ export const updateCook = async (req, res) => {
             success: false,
             message: "Server error."
         });
+    }
+};
+
+// GET /api/admin/reviews
+// Returns paginated reviews with stats summary for the admin panel
+export const getAdminReviews = async (req, res) => {
+    try {
+        const page    = Math.max(1, parseInt(req.query.page)   || 1);
+        const limit   = Math.min(50, parseInt(req.query.limit) || 10);
+        const offset  = (page - 1) * limit;
+        const search  = req.query.search ? `%${req.query.search}%` : null;
+        const rating  = req.query.rating  ? parseInt(req.query.rating) : null;
+
+        // Build WHERE clause dynamically
+        const conditions = [];
+        const params     = [];
+
+        if (search) {
+            conditions.push(`(COALESCE(u.full_name, '') LIKE ? OR COALESCE(cp.kitchen_name, cu.full_name, '') LIKE ?)`);
+            params.push(search, search);
+        }
+        if (rating) {
+            conditions.push(`r.rating = ?`);
+            params.push(rating);
+        }
+
+        const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+        // Summary stats (unfiltered — always show platform-wide totals)
+        const [[stats]] = await db.promise().query(
+            `SELECT
+                COUNT(*)                                                AS total_reviews,
+                COALESCE(ROUND(AVG(r.rating), 1), 0)                   AS avg_rating,
+                COALESCE(SUM(CASE WHEN r.rating = 5 THEN 1 ELSE 0 END), 0)          AS five_star,
+                COALESCE(SUM(CASE WHEN r.cook_reply IS NULL THEN 1 ELSE 0 END), 0)  AS pending_replies
+             FROM reviews r`
+        );
+
+        // Total count for paginating filtered results
+        const [[countResult]] = await db.promise().query(
+            `SELECT COUNT(*) AS total
+             FROM reviews r
+             LEFT JOIN users u          ON r.customer_id = u.id
+             LEFT JOIN users cu         ON r.cook_id     = cu.id
+             LEFT JOIN cook_profiles cp ON r.cook_id     = cp.user_id
+             ${where}`,
+            params
+        );
+        const total = countResult?.total || 0;
+
+        // Paginated rows
+        const [rows] = await db.promise().query(
+            `SELECT
+                r.id,
+                COALESCE(u.full_name, 'Customer')              AS customer,
+                COALESCE(cp.kitchen_name, cu.full_name, 'Cook') AS cook,
+                r.rating,
+                COALESCE(r.comment, '')                        AS comment,
+                r.cook_reply                                   AS reply,
+                r.created_at                                   AS date
+             FROM reviews r
+             LEFT JOIN users u          ON r.customer_id = u.id
+             LEFT JOIN users cu         ON r.cook_id     = cu.id
+             LEFT JOIN cook_profiles cp ON r.cook_id     = cp.user_id
+             ${where}
+             ORDER BY r.created_at DESC
+             LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
+
+        return res.status(200).json({
+            success: true,
+            stats: {
+                avg_rating:      parseFloat(stats?.avg_rating)   || 0,
+                total_reviews:   parseInt(stats?.total_reviews)  || 0,
+                five_star:       parseInt(stats?.five_star)       || 0,
+                pending_replies: parseInt(stats?.pending_replies) || 0,
+            },
+            reviews: rows || [],
+            pagination: {
+                page,
+                limit,
+                total: parseInt(total) || 0,
+                totalPages: Math.max(1, Math.ceil((parseInt(total) || 0) / limit)),
+            },
+        });
+
+    } catch (error) {
+        console.error("getAdminReviews error:", error);
+        return res.status(500).json({ success: false, message: "Server error.", error: error.message });
+    }
+};
+
+// DELETE /api/admin/reviews/:reviewId
+export const adminDeleteReview = async (req, res) => {
+    const connection = await db.promise().getConnection();
+    try {
+        const { reviewId } = req.params;
+
+        const [rows] = await connection.query(
+            "SELECT id, cook_id FROM reviews WHERE id = ?",
+            [reviewId]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: "Review not found." });
+        }
+
+        const cookId = rows[0].cook_id;
+        await connection.beginTransaction();
+
+        await connection.query("DELETE FROM reviews WHERE id = ?", [reviewId]);
+
+        // Recalculate cook average rating after deletion
+        const [[ratingResult]] = await connection.query(
+            "SELECT AVG(rating) AS avg_rating FROM reviews WHERE cook_id = ?",
+            [cookId]
+        );
+        const newRating = ratingResult.avg_rating !== null
+            ? parseFloat(ratingResult.avg_rating).toFixed(2)
+            : 0;
+        await connection.query(
+            "UPDATE cook_profiles SET rating = ? WHERE user_id = ?",
+            [newRating, cookId]
+        );
+
+        await connection.commit();
+        return res.status(200).json({ success: true, message: "Review deleted." });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error("adminDeleteReview error:", error);
+        return res.status(500).json({ success: false, message: "Server error." });
+    } finally {
+        connection.release();
     }
 };

@@ -71,6 +71,14 @@ public class SubscriptionResponse {
         @SerializedName("plan")
         private SubscriptionPlanResponse.Plan plan;
 
+        /**
+         * Cook's eSewa QR, for the manual-pay screen. Supplied by
+         * GET /subscriptions/customer/my; null when the cook never uploaded
+         * one, so callers must treat absence as normal rather than an error.
+         */
+        @SerializedName("cook_esewa_qr_url")
+        private String cookEsewaQrUrl;
+
         // Flat fields present only on GET /subscriptions/cook/my (getCookSubscribers) —
         // that endpoint joins plan/customer columns directly instead of nesting a
         // full `plan` object like getMySubscriptions does. Null on the customer-side response.
@@ -141,6 +149,10 @@ public class SubscriptionResponse {
 
         public SubscriptionPlanResponse.Plan getPlan() {
             return plan;
+        }
+
+        public String getCookEsewaQrUrl() {
+            return cookEsewaQrUrl;
         }
 
         public String getPlanName() {

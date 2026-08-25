@@ -84,11 +84,28 @@ public class SubscriptionPaymentActivity extends AppCompatActivity {
         binding.tvPlanPrice.setText(CurrencyUtils.formatRupees(planPrice));
         binding.tvPlanDurationLabel.setText("one-time payment · " + ("weekly".equals(planDuration) ? "1 Week" : "1 Month"));
 
+        // A cook who never uploaded a QR (bank_details NULL) and a stored URL
+        // that no longer resolves both leave a blank 220dp box sitting under
+        // the "Or scan the cook's eSewa QR" caption, which just reads as a
+        // broken screen. Hide the whole affordance in either case and let
+        // "Pay with eSewa" be the route.
         if (cookEsewaQrUrl != null && !cookEsewaQrUrl.isEmpty()) {
-            Glide.with(this).load(cookEsewaQrUrl)
-                    .placeholder(R.drawable.ic_image_placeholder)
-                    .error(R.drawable.ic_image_placeholder)
-                    .into(binding.ivCookQr);
+            Glide.with(this).asBitmap().load(cookEsewaQrUrl).into(new com.bumptech.glide.request.target.CustomTarget<android.graphics.Bitmap>() {
+                @Override
+                public void onResourceReady(@NonNull android.graphics.Bitmap bitmap, com.bumptech.glide.request.transition.Transition<? super android.graphics.Bitmap> transition) {
+                    binding.ivCookQr.setImageBitmap(bitmap);
+                }
+
+                @Override
+                public void onLoadCleared(android.graphics.drawable.Drawable placeholder) {}
+
+                @Override
+                public void onLoadFailed(android.graphics.drawable.Drawable errorDrawable) {
+                    hideCookQrBlock();
+                }
+            });
+        } else {
+            hideCookQrBlock();
         }
 
         imagePickerLauncher = registerForActivityResult(
@@ -160,6 +177,12 @@ public class SubscriptionPaymentActivity extends AppCompatActivity {
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+    }
+
+    /** Drops the "scan the cook's QR" affordance when there is no QR to show. */
+    private void hideCookQrBlock() {
+        binding.tvScanToPay.setVisibility(View.GONE);
+        binding.ivCookQr.setVisibility(View.GONE);
     }
 
     private void saveQrToGallery() {

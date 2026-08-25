@@ -1,128 +1,148 @@
-import React, { useState } from "react";
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
-import { ActionButtons } from "./ActionButtons";
-import { Modal, ConfirmDelete, DetailRow, FormField, SaveCancel } from "./Modal";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip
+} from "recharts";
+import { Modal, FormField, SaveCancel } from "./Modal";
+import { useToast } from "./Toast";
+import {
+  fetchCommissionSummary,
+  updateCommissionSettings,
+  CommissionSummary,
+} from "../api/commissionApi";
 
-/* ─── Chart ──────────────────────────────────────────────────────────────── */
-const CHART = [
-  { month:"Jan", commission:2680,  cookNet:64320  },
-  { month:"Feb", commission:3220,  cookNet:77280  },
-  { month:"Mar", commission:3060,  cookNet:73440  },
-  { month:"Apr", commission:3590,  cookNet:86160  },
-  { month:"May", commission:4190,  cookNet:100560 },
-  { month:"Jun", commission:4860,  cookNet:116640 },
-];
+const fmt = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 
-/* ─── Commission rates ───────────────────────────────────────────────────── */
-interface CommRate {
-  id: number; kitchen: string; owner: string; commissionPct: number;
-  totalOrders: number; totalOrderValue: number; status: "Active"|"Inactive";
-}
-const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
-
-const INIT_RATES: CommRate[] = [
-  { id:1, kitchen:"Anita's Kitchen", owner:"Anita Sharma",  commissionPct:4, totalOrders:123, totalOrderValue:82500,  status:"Active"   },
-  { id:2, kitchen:"Spice Route",     owner:"Ramesh Kumar",  commissionPct:4, totalOrders:98,  totalOrderValue:65700,  status:"Active"   },
-  { id:3, kitchen:"Healthy Meals",   owner:"Priya Mehta",   commissionPct:4, totalOrders:87,  totalOrderValue:54800,  status:"Active"   },
-  { id:4, kitchen:"Tasty Tiffins",   owner:"Suresh Patel",  commissionPct:4, totalOrders:76,  totalOrderValue:50600,  status:"Active"   },
-  { id:5, kitchen:"HomeBites",       owner:"Kavitha Reddy", commissionPct:4, totalOrders:66,  totalOrderValue:40900,  status:"Inactive" },
-  { id:6, kitchen:"Mumbai Spice",    owner:"Anil Desai",    commissionPct:4, totalOrders:54,  totalOrderValue:36200,  status:"Active"   },
-  { id:7, kitchen:"South Indian",    owner:"Lakshmi Iyer",  commissionPct:4, totalOrders:48,  totalOrderValue:30400,  status:"Active"   },
-];
-
-/* ─── Cook earnings (net after commission) ───────────────────────────────── */
-type PayStatus = "Paid"|"Pending";
-interface CookEarning {
-  id: number; kitchen: string; owner: string; totalOrders: number;
-  grossEarnings: number; payoutStatus: PayStatus; dueDate: string;
-}
-const COOK_EARNINGS: CookEarning[] = [
-  { id:1, kitchen:"Anita's Kitchen", owner:"Anita Sharma",  totalOrders:123, grossEarnings:82500,  payoutStatus:"Paid",    dueDate:"Jun 01, 2025" },
-  { id:2, kitchen:"Spice Route",     owner:"Ramesh Kumar",  totalOrders:98,  grossEarnings:65700,  payoutStatus:"Pending", dueDate:"Jun 05, 2025" },
-  { id:3, kitchen:"Healthy Meals",   owner:"Priya Mehta",   totalOrders:87,  grossEarnings:54800,  payoutStatus:"Paid",    dueDate:"Jun 01, 2025" },
-  { id:4, kitchen:"Tasty Tiffins",   owner:"Suresh Patel",  totalOrders:76,  grossEarnings:50600,  payoutStatus:"Paid",    dueDate:"Jun 01, 2025" },
-  { id:5, kitchen:"HomeBites",       owner:"Kavitha Reddy", totalOrders:66,  grossEarnings:40900,  payoutStatus:"Pending", dueDate:"Jun 07, 2025" },
-  { id:6, kitchen:"Mumbai Spice",    owner:"Anil Desai",    totalOrders:54,  grossEarnings:36200,  payoutStatus:"Paid",    dueDate:"Jun 01, 2025" },
-  { id:7, kitchen:"South Indian",    owner:"Lakshmi Iyer",  totalOrders:48,  grossEarnings:30400,  payoutStatus:"Paid",    dueDate:"Jun 01, 2025" },
-];
-
-/* ─── Recent commission transactions ────────────────────────────────────── */
-interface CommTx {
-  id: string; kitchen: string; orderAmt: number; pct: number;
-  status: "Collected"|"Pending"|"Failed"; date: string;
-}
-const TRANSACTIONS: CommTx[] = [
-  { id:"#ORD-1234", kitchen:"Anita's Kitchen", orderAmt:360, pct:4, status:"Collected", date:"May 18, 2025" },
-  { id:"#ORD-1233", kitchen:"Spice Route",     orderAmt:380, pct:4, status:"Collected", date:"May 18, 2025" },
-  { id:"#ORD-1232", kitchen:"Healthy Meals",   orderAmt:460, pct:4, status:"Pending",   date:"May 17, 2025" },
-  { id:"#ORD-1231", kitchen:"Tasty Tiffins",   orderAmt:320, pct:4, status:"Collected", date:"May 17, 2025" },
-  { id:"#ORD-1230", kitchen:"Anita's Kitchen", orderAmt:380, pct:4, status:"Collected", date:"May 16, 2025" },
-  { id:"#ORD-1229", kitchen:"Mumbai Spice",    orderAmt:420, pct:4, status:"Pending",   date:"May 16, 2025" },
-  { id:"#ORD-1228", kitchen:"South Indian",    orderAmt:240, pct:4, status:"Failed",    date:"May 15, 2025" },
-];
-
-/* ─── Style helpers ──────────────────────────────────────────────────────── */
-const pill = (s: string): React.CSSProperties => {
-  const map: Record<string,{bg:string;color:string}> = {
-    Collected: {bg:"rgba(16,185,129,0.12)",  color:"#10b981"},
-    Paid:      {bg:"rgba(16,185,129,0.12)",  color:"#10b981"},
-    Active:    {bg:"rgba(16,185,129,0.12)",  color:"#10b981"},
-    Pending:   {bg:"rgba(242,140,64,0.12)",  color:"#f28c40"},
-    Inactive:  {bg:"rgba(242,89,89,0.12)",   color:"#f25959"},
-    Failed:    {bg:"rgba(242,89,89,0.12)",   color:"#f25959"},
-  };
-  const c = map[s] ?? {bg:"#f2f5f7",color:"#9499a6"};
-  return { padding:"4px 12px", borderRadius:12, fontSize:12, fontFamily:"Inter", fontWeight:600, background:c.bg, color:c.color };
+const compact = (n: number) => {
+  if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`;
+  if (n >= 100000)  return `₹${(n / 100000).toFixed(1)}L`;
+  if (n >= 1000)    return `₹${(n / 1000).toFixed(1)}k`;
+  return `₹${Math.round(n)}`;
 };
 
-const commPill: React.CSSProperties = {
-  padding:"3px 10px", borderRadius:20, fontSize:12, fontFamily:"Inter", fontWeight:700,
-  background:"rgba(120,135,250,0.10)", color:"#7887fa", border:"1px solid rgba(120,135,250,0.2)",
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+/* ─── Custom chart tooltip ───────────────────────────────────────────────── */
+interface TipPayload { name?: string; dataKey?: string; value?: number; color?: string }
+const ChartTooltip = ({ active, payload, label, pct }: {
+  active?: boolean; payload?: TipPayload[]; label?: string; pct: number;
+}) => {
+  if (!active || !payload?.length) return null;
+  const commission = payload.find(p => p.dataKey === "commission")?.value ?? 0;
+  const cookNet    = payload.find(p => p.dataKey === "cookNet")?.value ?? 0;
+  const gross      = commission + cookNet;
+  return (
+    <div style={{background:"white",border:"1px solid #e5e8ed",borderRadius:12,padding:"12px 16px",
+      boxShadow:"0 8px 24px rgba(0,0,0,0.12)",fontFamily:"Inter",minWidth:200}}>
+      <p style={{fontWeight:600,fontSize:13,color:"#1c1f29",marginBottom:8,paddingBottom:8,borderBottom:"1px solid #f2f5f7"}}>{label}</p>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+        <span style={{width:8,height:8,borderRadius:"50%",background:"#7887FA",flexShrink:0}}/>
+        <span style={{fontSize:12,color:"#9499a6",flex:1}}>TiffinCraft ({pct}%)</span>
+        <span style={{fontSize:12,fontWeight:700,color:"#7887FA"}}>{fmt(commission)}</span>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+        <span style={{width:8,height:8,borderRadius:"50%",background:"#57B869",flexShrink:0}}/>
+        <span style={{fontSize:12,color:"#9499a6",flex:1}}>Cook Net ({(100 - pct).toFixed(0)}%)</span>
+        <span style={{fontSize:12,fontWeight:700,color:"#57B869"}}>{fmt(cookNet)}</span>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8,paddingTop:8,borderTop:"1px dashed #e5e8ed"}}>
+        <span style={{fontSize:12,color:"#9499a6",flex:1}}>Gross Order Value</span>
+        <span style={{fontSize:12,fontWeight:700,color:"#1c1f29"}}>{fmt(gross)}</span>
+      </div>
+    </div>
+  );
 };
 
-const TH = ({ children, w }: { children: React.ReactNode; w: number }) => (
-  <p style={{ width:w, flexShrink:0, fontFamily:"Inter", fontWeight:600, fontSize:12, color:"#9499a6" }}>{children}</p>
+/* ─── Stat card ──────────────────────────────────────────────────────────── */
+const StatCard = ({ icon, value, label, sub, change, changeTone }: {
+  icon: string; value: string; label: string; sub: string;
+  change?: string; changeTone?: "up"|"down";
+}) => (
+  <div className="bg-white flex flex-col gap-2 p-5 rounded-[12px] flex-1" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <span style={{fontSize:22}}>{icon}</span>
+      {change && (
+        <span style={{fontFamily:"Inter",fontWeight:600,fontSize:12,
+          color:changeTone==="down"?"#f25959":"#10b981",
+          background:changeTone==="down"?"rgba(242,89,89,0.10)":"rgba(16,185,129,0.10)",
+          padding:"3px 10px",borderRadius:12}}>
+          {change}
+        </span>
+      )}
+    </div>
+    <p style={{fontFamily:"Inter",fontWeight:700,fontSize:26,color:"#1c1f29"}}>{value}</p>
+    <p style={{fontFamily:"Inter",fontWeight:500,fontSize:13,color:"#1c1f29"}}>{label}</p>
+    <p style={{fontFamily:"Inter",fontSize:12,color:"#9499a6"}}>{sub}</p>
+  </div>
 );
-const TD = ({ children, w, bold, accent }: { children: React.ReactNode; w: number; bold?: boolean; accent?: string }) => (
-  <p style={{ width:w, flexShrink:0, fontFamily:"Inter", fontWeight: bold?700:400, fontSize:13, color: accent ?? "#1c1f29" }}>{children}</p>
+
+const SkeletonCard = () => (
+  <div className="bg-white flex flex-col gap-3 p-5 rounded-[12px] flex-1 animate-pulse" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
+    <div style={{width:36,height:36,borderRadius:10,background:"#f2f5f7"}}/>
+    <div style={{width:"60%",height:26,borderRadius:6,background:"#f2f5f7"}}/>
+    <div style={{width:"80%",height:13,borderRadius:6,background:"#f2f5f7"}}/>
+    <div style={{width:"50%",height:12,borderRadius:6,background:"#f2f5f7"}}/>
+  </div>
 );
 
 /* ─── Main component ─────────────────────────────────────────────────────── */
-const blankRate: Omit<CommRate,"id"> = { kitchen:"", owner:"", commissionPct:4, totalOrders:0, totalOrderValue:0, status:"Active" };
-
-function validateRate(f: Omit<CommRate,"id">): Record<string,string> {
-  const e: Record<string,string> = {};
-  if (!f.kitchen.trim()) e.kitchen = "Kitchen name is required";
-  if (!f.owner.trim())   e.owner   = "Owner name is required";
-  if (f.commissionPct < 0 || f.commissionPct > 100) e.commissionPct = "Must be between 0 and 100";
-  return e;
-}
-
 export function EarningsPage() {
-  const [rates,   setRates]   = useState<CommRate[]>(INIT_RATES);
-  const [viewing, setViewing] = useState<CommRate|null>(null);
-  const [editing, setEditing] = useState<CommRate|null>(null);
-  const [draft,   setDraft]   = useState<CommRate|null>(null);
-  const [del,     setDel]     = useState<CommRate|null>(null);
-  const [txTab,   setTxTab]   = useState<"all"|"Collected"|"Pending"|"Failed">("all");
-  const [adding,  setAdding]  = useState(false);
-  const [addForm, setAddForm] = useState<Omit<CommRate,"id">>(blankRate);
-  const [addErrs, setAddErrs] = useState<Record<string,string>>({});
+  const { showToast } = useToast();
+  const [summary,   setSummary]   = useState<CommissionSummary|null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<string|null>(null);
 
-  const totalCommission = rates.reduce((s,r) => s + Math.round(r.totalOrderValue * r.commissionPct / 100), 0);
-  const filteredTx = TRANSACTIONS.filter(t => txTab==="all" || t.status===txTab);
+  const [settingRate,  setSettingRate]  = useState(false);
+  const [rateInput,    setRateInput]    = useState("");
+  const [savingRate,   setSavingRate]   = useState(false);
 
-  const startEdit  = (r:CommRate) => { setEditing(r); setDraft({...r}); };
-  const saveEdit   = () => { if(!draft) return; setRates(p=>p.map(r=>r.id===draft.id?draft:r)); setEditing(null); setDraft(null); };
-  const doDelete   = () => { if(!del) return; setRates(p=>p.filter(r=>r.id!==del.id)); setDel(null); };
-  const submitAdd  = () => {
-    const errs = validateRate(addForm);
-    if (Object.keys(errs).length) { setAddErrs(errs); return; }
-    setRates(p => [...p, { ...addForm, id: Date.now() }]);
-    setAdding(false); setAddForm(blankRate); setAddErrs({});
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchCommissionSummary();
+      setSummary(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load earnings data.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const pct = summary?.commission_pct ?? 0;
+  const trend = summary?.trend ?? [];
+  const netPct = 100 - pct;
+
+  // Month-over-month deltas from the real trend series
+  const lastTwo  = trend.slice(-2);
+  const thisMonthVal = lastTwo[1]?.commission ?? 0;
+  const prevMonthVal = lastTwo[0]?.commission ?? 0;
+  const momDelta = prevMonthVal > 0 ? ((thisMonthVal - prevMonthVal) / prevMonthVal) * 100 : null;
+
+  const saveRate = async () => {
+    const value = Number(rateInput);
+    if (rateInput === "" || Number.isNaN(value) || value < 0 || value > 100) {
+      showToast("Commission % must be a number between 0 and 100.", "error");
+      return;
+    }
+    setSavingRate(true);
+    try {
+      await updateCommissionSettings(value);
+      showToast(`Commission rate updated to ${value}%.`, "success");
+      setSettingRate(false);
+      await load();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Failed to update commission rate.", "error");
+    } finally {
+      setSavingRate(false);
+    }
   };
-  const ErrMsg = ({field}:{field:string}) =>
-    addErrs[field] ? <p style={{fontFamily:"Inter",fontSize:11,color:"#f25959",marginTop:2}}>{addErrs[field]}</p> : null;
+
+  const byCook = summary?.by_cook ?? [];
+  const totalGross = byCook.reduce((s, r) => s + r.gross_total, 0);
+  const totalComm  = byCook.reduce((s, r) => s + r.commission_total, 0);
+  const totalOrders = byCook.reduce((s, r) => s + r.order_count, 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -130,37 +150,66 @@ export function EarningsPage() {
       {/* Header */}
       <div>
         <p style={{fontFamily:"Inter",fontWeight:700,fontSize:28,color:"#1c1f29"}}>Earnings</p>
-        <p style={{fontFamily:"Inter",fontWeight:400,fontSize:14,color:"#9499a6",marginTop:4}}>
-          TiffinCraft commission earnings — cooks pay a <strong style={{color:"#7887fa"}}>4% commission</strong> on every successful delivery.
-        </p>
+        {loading ? (
+          <div style={{width:420,height:16,borderRadius:6,background:"#f2f5f7",marginTop:8}} className="animate-pulse"/>
+        ) : (
+          <p style={{fontFamily:"Inter",fontWeight:400,fontSize:14,color:"#9499a6",marginTop:4}}>
+            TiffinCraft commission earnings — cooks pay a <strong style={{color:"#7887fa"}}>{pct}% commission</strong> on every successful delivery.
+          </p>
+        )}
       </div>
+
+      {error && (
+        <div className="bg-white p-6 rounded-[12px] flex flex-col items-center gap-3" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
+          <span style={{fontSize:28}}>⚠️</span>
+          <p style={{fontFamily:"Inter",fontSize:14,color:"#f25959"}}>{error}</p>
+          <button onClick={load}
+            style={{padding:"8px 20px",borderRadius:8,border:"none",background:"#7887FA",color:"white",fontFamily:"Inter",fontWeight:600,fontSize:13,cursor:"pointer"}}>
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {[
-          { label:"Total Commission Earned", value:fmt(totalCommission), icon:"💹", change:"+21.3%", sub:"All time, all cooks" },
-          { label:"Commission This Month",   value:"₹4,860",             icon:"📅", change:"+16.2%", sub:"June 2025"          },
-          { label:"Fixed Commission Rate",   value:"4%",                  icon:"📊", change:"",       sub:"Per successful order"},
-          { label:"Pending Collection",      value:"₹51",                icon:"⏳", change:"3 orders",sub:"Awaiting delivery"  },
-        ].map(s=>(
-          <div key={s.label} className="bg-white flex flex-col gap-2 p-5 rounded-[12px] flex-1" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <span style={{fontSize:22}}>{s.icon}</span>
-              {s.change && <span style={{fontFamily:"Inter",fontWeight:600,fontSize:12,color:"#10b981"}}>{s.change}</span>}
-            </div>
-            <p style={{fontFamily:"Inter",fontWeight:700,fontSize:26,color:"#1c1f29"}}>{s.value}</p>
-            <p style={{fontFamily:"Inter",fontWeight:500,fontSize:13,color:"#1c1f29"}}>{s.label}</p>
-            <p style={{fontFamily:"Inter",fontSize:12,color:"#9499a6"}}>{s.sub}</p>
-          </div>
-        ))}
+        {loading || !summary ? (
+          <><SkeletonCard/><SkeletonCard/><SkeletonCard/><SkeletonCard/></>
+        ) : (
+          <>
+            <StatCard
+              icon="💹" label="Total Commission Earned" sub="All time, all cooks"
+              value={fmt(summary.all_time_commission)}
+              change={momDelta !== null ? `${momDelta >= 0 ? "+" : ""}${momDelta.toFixed(1)}%` : undefined}
+              changeTone={momDelta !== null && momDelta < 0 ? "down" : "up"}
+            />
+            <StatCard
+              icon="📅" label="Commission This Month" sub={`${MONTH_NAMES[summary.month - 1]} ${summary.year}`}
+              value={fmt(summary.total_commission)}
+              change={momDelta !== null ? `${momDelta >= 0 ? "+" : ""}${momDelta.toFixed(1)}% MoM` : undefined}
+              changeTone={momDelta !== null && momDelta < 0 ? "down" : "up"}
+            />
+            <StatCard
+              icon="📊" label="Fixed Commission Rate" sub="Per successful order"
+              value={`${pct}%`}
+            />
+            <StatCard
+              icon="⏳" label="Pending Collection" sub="Awaiting delivery"
+              value={fmt(summary.pending_commission)}
+              change={`${summary.pending_order_count} orders`}
+            />
+          </>
+        )}
       </div>
 
-      {/* Chart */}
+      {/* Revenue Trend chart */}
       <div className="bg-white p-4 sm:p-6 rounded-[12px]" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:16}}>
-          <p style={{fontFamily:"Inter",fontWeight:600,fontSize:18,color:"#1c1f29"}}>Revenue Trend</p>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:20}}>
+          <div>
+            <p style={{fontFamily:"Inter",fontWeight:600,fontSize:18,color:"#1c1f29"}}>Revenue Trend</p>
+            <p style={{fontFamily:"Inter",fontSize:12,color:"#9499a6",marginTop:2}}>Last 6 months — commission vs cook net earnings</p>
+          </div>
           <div style={{display:"flex",gap:20,flexWrap:"wrap"}}>
-            {[{c:"#7887FA",l:"TiffinCraft (4% Commission)"},{c:"#57B869",l:"Cook Net Earnings (96%)"}].map(x=>(
+            {[{c:"#7887FA",l:`TiffinCraft (${pct}% Commission)`},{c:"#57B869",l:`Cook Net Earnings (${netPct.toFixed(0)}%)`}].map(x=>(
               <div key={x.l} style={{display:"flex",alignItems:"center",gap:6}}>
                 <div style={{width:10,height:10,borderRadius:"50%",background:x.c}}/>
                 <p style={{fontFamily:"Inter",fontSize:12,color:"#9499a6"}}>{x.l}</p>
@@ -168,253 +217,131 @@ export function EarningsPage() {
             ))}
           </div>
         </div>
-        <div style={{height:200}}>
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={CHART} margin={{top:10,right:20,left:-10,bottom:0}}>
-              <defs>
-                <linearGradient id="eG1" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#7887FA" stopOpacity={0.2}/>
-                  <stop offset="95%" stopColor="#7887FA" stopOpacity={0}/>
-                </linearGradient>
-                <linearGradient id="eG2" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#57B869" stopOpacity={0.15}/>
-                  <stop offset="95%" stopColor="#57B869" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="month" tick={{fontSize:12,fill:"#9499a6",fontFamily:"Inter"}} axisLine={false} tickLine={false}/>
-              <YAxis hide/>
-              <Tooltip contentStyle={{background:"white",border:"1px solid #e5e8ed",borderRadius:8,fontSize:12,fontFamily:"Inter"}}
-                formatter={(v:number,name:string)=>[`₹${v.toLocaleString("en-IN")}`,name==="commission"?"TiffinCraft 4%":"Cook Net (96%)"]}/>
-              <Area key="ec" type="monotone" dataKey="commission" stroke="#7887FA" strokeWidth={2} fill="url(#eG1)" dot={{r:3,fill:"#7887FA",stroke:"white",strokeWidth:2}}/>
-              <Area key="ek" type="monotone" dataKey="cookNet"    stroke="#57B869" strokeWidth={2} fill="url(#eG2)" dot={{r:3,fill:"#57B869",stroke:"white",strokeWidth:2}}/>
-            </AreaChart>
-          </ResponsiveContainer>
+        <div style={{height:300}}>
+          {loading || !summary ? (
+            <div className="animate-pulse" style={{width:"100%",height:"100%",borderRadius:10,background:"#f7f8fa"}}/>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trend} margin={{top:10,right:20,left:-6,bottom:0}}>
+                <defs>
+                  <linearGradient id="eG1" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"  stopColor="#7887FA" stopOpacity={0.35}/>
+                    <stop offset="100%" stopColor="#7887FA" stopOpacity={0.02}/>
+                  </linearGradient>
+                  <linearGradient id="eG2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"  stopColor="#57B869" stopOpacity={0.28}/>
+                    <stop offset="100%" stopColor="#57B869" stopOpacity={0.02}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="4 6" stroke="#eef0f4" vertical={false}/>
+                <XAxis dataKey="month" tick={{fontSize:12,fill:"#9499a6",fontFamily:"Inter"}}
+                  axisLine={false} tickLine={false} dy={8} padding={{left:16,right:16}}/>
+                <YAxis tickFormatter={(v:number)=>compact(v)} tick={{fontSize:11,fill:"#b6bac4",fontFamily:"Inter"}}
+                  axisLine={false} tickLine={false} width={56}/>
+                <Tooltip content={<ChartTooltip pct={pct}/>} cursor={{stroke:"#d9deE6",strokeDasharray:"4 4"}}/>
+                <Area key="ek" type="monotone" dataKey="cookNet" name="cookNet" stroke="#57B869" strokeWidth={2.5}
+                  fill="url(#eG2)" animationDuration={900}
+                  dot={{r:3,fill:"#57B869",stroke:"white",strokeWidth:2}} activeDot={{r:5,stroke:"white",strokeWidth:2}}/>
+                <Area key="ec" type="monotone" dataKey="commission" name="commission" stroke="#7887FA" strokeWidth={2.5}
+                  fill="url(#eG1)" animationDuration={900}
+                  dot={{r:3,fill:"#7887FA",stroke:"white",strokeWidth:2}} activeDot={{r:5,stroke:"white",strokeWidth:2}}/>
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
-      {/* ── Commission Rates table ── */}
+      {/* ── Per-cook commission (this month, live from DB) ── */}
       <div className="bg-white rounded-[12px] p-4 sm:p-6" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:20}}>
           <div>
-            <p style={{fontFamily:"Inter",fontWeight:600,fontSize:18,color:"#1c1f29"}}>Commission Rates</p>
-            <p style={{fontFamily:"Inter",fontSize:13,color:"#9499a6",marginTop:2}}>4% fixed deducted from every successful delivery</p>
+            <p style={{fontFamily:"Inter",fontWeight:600,fontSize:18,color:"#1c1f29"}}>Commission by Cook</p>
+            <p style={{fontFamily:"Inter",fontSize:13,color:"#9499a6",marginTop:2}}>
+              {summary ? `${pct}% deducted from delivered orders in ${MONTH_NAMES[summary.month - 1]} ${summary.year}` : "Loading…"}
+            </p>
           </div>
-          <button onClick={()=>{ setAdding(true); setAddForm(blankRate); setAddErrs({}); }}
+          <button onClick={()=>{ setRateInput(String(pct)); setSettingRate(true); }}
             style={{padding:"10px 18px",borderRadius:8,border:"none",background:"#f97316",fontFamily:"Inter",fontWeight:600,fontSize:13,color:"white",cursor:"pointer"}}>
             + Set Commission
           </button>
         </div>
         <div className="overflow-x-auto">
-        <div className="min-w-[1130px]">
+        <div className="min-w-[860px]">
         <div className="flex gap-4 pb-4" style={{borderBottom:"1px solid #e5e8ed"}}>
           <TH w={40}>S.N</TH>
-          {["Kitchen","Owner","Rate","Total Orders","Order Value","Commission Earned","Status","Actions"].map((h,i)=>(
-            <TH key={h} w={[170,140,80,110,110,140,90,110][i]}>{h}</TH>
+          {["Kitchen","Owner","Orders","Order Value",`Commission (${pct}%)`,"Cook Net"].map((h,i)=>(
+            <TH key={h} w={[200,160,90,130,150,130][i]}>{h}</TH>
           ))}
         </div>
-        {rates.map((r,idx)=>{
-          const comm = Math.round(r.totalOrderValue * r.commissionPct / 100);
+        {!loading && byCook.length === 0 && (
+          <p style={{fontFamily:"Inter",fontSize:13,color:"#9499a6",padding:"24px 0",textAlign:"center"}}>
+            No delivered orders with commission recorded for this month yet.
+          </p>
+        )}
+        {byCook.map((r,idx)=>{
+          const net = r.gross_total - r.commission_total;
           return (
-            <div key={r.id}>
+            <div key={r.cook_id}>
               <div className="flex gap-4 items-center py-4 rounded hover:bg-[#f7f8fa] transition-colors -mx-2 px-2">
                 <TD w={40} accent="#9499a6">{idx+1}</TD>
-                <div style={{width:170,flexShrink:0,display:"flex",alignItems:"center",gap:10}}>
+                <div style={{width:200,flexShrink:0,display:"flex",alignItems:"center",gap:10}}>
                   <div style={{width:36,height:36,borderRadius:"50%",background:"#D9DEE6",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                    <span style={{fontFamily:"Inter",fontWeight:700,fontSize:12,color:"#6b7280"}}>{r.kitchen.slice(0,2)}</span>
+                    <span style={{fontFamily:"Inter",fontWeight:700,fontSize:12,color:"#6b7280"}}>
+                      {(r.kitchen_name || r.owner_name || "??").slice(0,2).toUpperCase()}
+                    </span>
                   </div>
-                  <p style={{fontFamily:"Inter",fontWeight:600,fontSize:13,color:"#1c1f29"}}>{r.kitchen}</p>
+                  <p style={{fontFamily:"Inter",fontWeight:600,fontSize:13,color:"#1c1f29"}}>{r.kitchen_name || r.owner_name}</p>
                 </div>
-                <TD w={140}>{r.owner}</TD>
-                <div style={{width:80,flexShrink:0}}><span style={commPill}>{r.commissionPct}%</span></div>
-                <TD w={110}>{r.totalOrders} orders</TD>
-                <TD w={110}>{fmt(r.totalOrderValue)}</TD>
-                <TD w={140} bold accent="#10b981">{fmt(comm)}</TD>
-                <div style={{width:90,flexShrink:0}}><span style={pill(r.status)}>{r.status}</span></div>
-                <div style={{width:110,flexShrink:0}}>
-                  <ActionButtons onView={()=>setViewing(r)} onEdit={()=>startEdit(r)} onDelete={()=>setDel(r)}/>
-                </div>
+                <TD w={160}>{r.owner_name}</TD>
+                <TD w={90}>{r.order_count}</TD>
+                <TD w={130} bold>{fmt(r.gross_total)}</TD>
+                <TD w={150} bold accent="#10b981">{fmt(r.commission_total)}</TD>
+                <TD w={130} bold accent="#10b981">{fmt(net)}</TD>
               </div>
-              {idx<rates.length-1 && <div style={{height:1,background:"#f2f5f7"}}/>}
+              {idx<byCook.length-1 && <div style={{height:1,background:"#f2f5f7"}}/>}
             </div>
           );
         })}
+        {byCook.length > 0 && (
+          <div className="flex gap-4 items-center pt-4 mt-2" style={{borderTop:"2px solid #e5e8ed"}}>
+            <div style={{width:40,flexShrink:0}}/>
+            <div style={{width:200,flexShrink:0}}><p style={{fontFamily:"Inter",fontWeight:700,fontSize:13,color:"#1c1f29"}}>Total</p></div>
+            <div style={{width:160,flexShrink:0}}/>
+            <TD w={90} bold>{totalOrders}</TD>
+            <TD w={130} bold>{fmt(totalGross)}</TD>
+            <TD w={150} bold accent="#10b981">{fmt(totalComm)}</TD>
+            <TD w={130} bold accent="#10b981">{fmt(totalGross - totalComm)}</TD>
+          </div>
+        )}
         </div>
         </div>
       </div>
 
-      {/* ── Cook Earnings table ── */}
-      <div className="bg-white rounded-[12px] p-4 sm:p-6" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
-        <div style={{marginBottom:20}}>
-          <p style={{fontFamily:"Inter",fontWeight:600,fontSize:18,color:"#1c1f29"}}>Cook Earnings</p>
-          <p style={{fontFamily:"Inter",fontSize:13,color:"#9499a6",marginTop:2}}>Net amount payable to each cook after 4% commission deduction</p>
-        </div>
-        <div className="overflow-x-auto">
-        <div className="min-w-[1160px]">
-        <div className="flex gap-4 pb-4" style={{borderBottom:"1px solid #e5e8ed"}}>
-          <TH w={40}>S.N</TH>
-          {["Kitchen","Owner","Total Orders","Gross Earnings","Commission (4%)","Net Earnings","Payout Status","Due Date"].map((h,i)=>(
-            <TH key={h} w={[160,140,100,120,120,120,110,110][i]}>{h}</TH>
-          ))}
-        </div>
-        {COOK_EARNINGS.map((c,idx)=>{
-          const commAmt = Math.round(c.grossEarnings * 0.04);
-          const netAmt  = c.grossEarnings - commAmt;
-          return (
-            <div key={c.id}>
-              <div className="flex gap-4 items-center py-4 rounded hover:bg-[#f7f8fa] transition-colors -mx-2 px-2">
-                <TD w={40} accent="#9499a6">{idx+1}</TD>
-                <div style={{width:160,flexShrink:0,display:"flex",alignItems:"center",gap:10}}>
-                  <div style={{width:36,height:36,borderRadius:"50%",background:"#D9DEE6",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                    <span style={{fontFamily:"Inter",fontWeight:700,fontSize:12,color:"#6b7280"}}>{c.kitchen.slice(0,2)}</span>
-                  </div>
-                  <p style={{fontFamily:"Inter",fontWeight:600,fontSize:13,color:"#1c1f29"}}>{c.kitchen}</p>
-                </div>
-                <TD w={140}>{c.owner}</TD>
-                <TD w={100}>{c.totalOrders}</TD>
-                <TD w={120} bold>{fmt(c.grossEarnings)}</TD>
-                <div style={{width:120,flexShrink:0}}>
-                  <span style={{fontFamily:"Inter",fontWeight:600,fontSize:13,color:"#f25959"}}>− {fmt(commAmt)}</span>
-                </div>
-                <TD w={120} bold accent="#10b981">{fmt(netAmt)}</TD>
-                <div style={{width:110,flexShrink:0}}><span style={pill(c.payoutStatus)}>{c.payoutStatus}</span></div>
-                <TD w={110} accent="#9499a6">{c.dueDate}</TD>
-              </div>
-              {idx<COOK_EARNINGS.length-1 && <div style={{height:1,background:"#f2f5f7"}}/>}
-            </div>
-          );
-        })}
-        {/* Footer totals */}
-        <div className="flex gap-4 items-center pt-4 mt-2" style={{borderTop:"2px solid #e5e8ed"}}>
-          <div style={{width:40,flexShrink:0}}/>
-          <div style={{width:160,flexShrink:0}}><p style={{fontFamily:"Inter",fontWeight:700,fontSize:13,color:"#1c1f29"}}>Total</p></div>
-          <div style={{width:140,flexShrink:0}}/>
-          <TD w={100} bold>{COOK_EARNINGS.reduce((s,c)=>s+c.totalOrders,0)}</TD>
-          <TD w={120} bold>{fmt(COOK_EARNINGS.reduce((s,c)=>s+c.grossEarnings,0))}</TD>
-          <div style={{width:120,flexShrink:0}}>
-            <span style={{fontFamily:"Inter",fontWeight:700,fontSize:13,color:"#f25959"}}>
-              − {fmt(COOK_EARNINGS.reduce((s,c)=>s+Math.round(c.grossEarnings*0.04),0))}
-            </span>
-          </div>
-          <TD w={120} bold accent="#10b981">
-            {fmt(COOK_EARNINGS.reduce((s,c)=>s+(c.grossEarnings-Math.round(c.grossEarnings*0.04)),0))}
-          </TD>
-          <div style={{width:110,flexShrink:0}}/>
-          <div style={{width:110,flexShrink:0}}/>
-        </div>
-        </div>
-        </div>
-      </div>
-
-      {/* ── Commission Transactions ── */}
-      <div className="bg-white rounded-[12px] p-4 sm:p-6" style={{boxShadow:"0px 2px 8px rgba(0,0,0,0.08)"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:16}}>
-          <p style={{fontFamily:"Inter",fontWeight:600,fontSize:18,color:"#1c1f29"}}>Commission Transactions</p>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            {(["all","Collected","Pending","Failed"] as const).map(t=>(
-              <button key={t} onClick={()=>setTxTab(t)}
-                style={{padding:"6px 14px",borderRadius:8,fontSize:12,cursor:"pointer",border:"none",fontFamily:"Inter",fontWeight:500,
-                  background:txTab===t?"#3b82f6":"#f2f5f7",color:txTab===t?"#fff":"#9499a6"}}>
-                {t==="all"?"All":t}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-        <div className="min-w-[1060px]">
-        <div className="flex gap-4 pb-4" style={{borderBottom:"1px solid #e5e8ed"}}>
-          <TH w={40}>S.N</TH>
-          {["Order ID","Kitchen","Order Amt","Rate","Commission","Cook Gets","Status","Date"].map((h,i)=>(
-            <TH key={h} w={[110,160,100,70,110,110,110,110][i]}>{h}</TH>
-          ))}
-        </div>
-        {filteredTx.map((t,idx)=>{
-          const comm    = Math.round(t.orderAmt * t.pct / 100);
-          const cookGet = t.orderAmt - comm;
-          return (
-            <div key={t.id}>
-              <div className="flex gap-4 items-center py-4 rounded hover:bg-[#f7f8fa] transition-colors -mx-2 px-2">
-                <TD w={40} accent="#9499a6">{idx+1}</TD>
-                <p style={{width:110,flexShrink:0,fontFamily:"Inter",fontWeight:500,fontSize:13,color:"#7887fa"}}>{t.id}</p>
-                <TD w={160}>{t.kitchen}</TD>
-                <TD w={100} bold>{fmt(t.orderAmt)}</TD>
-                <div style={{width:70,flexShrink:0}}><span style={commPill}>{t.pct}%</span></div>
-                <TD w={110} bold accent="#10b981">{fmt(comm)}</TD>
-                <TD w={110} bold accent="#1c1f29">{fmt(cookGet)}</TD>
-                <div style={{width:110,flexShrink:0}}><span style={pill(t.status)}>{t.status}</span></div>
-                <TD w={110} accent="#9499a6">{t.date}</TD>
-              </div>
-              {idx<filteredTx.length-1 && <div style={{height:1,background:"#f2f5f7"}}/>}
-            </div>
-          );
-        })}
-        </div>
-        </div>
-      </div>
-
-      {/* ── Modals ── */}
-      {viewing && (
-        <Modal title="Commission Details" onClose={()=>setViewing(null)}>
-          <div className="flex items-center gap-4 mb-5">
-            <div style={{width:56,height:56,borderRadius:"50%",background:"#D9DEE6",display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <span style={{fontFamily:"Inter",fontWeight:700,fontSize:16,color:"#6b7280"}}>{viewing.kitchen.slice(0,2)}</span>
-            </div>
-            <div>
-              <p style={{fontFamily:"Inter",fontWeight:700,fontSize:18,color:"#1c1f29"}}>{viewing.kitchen}</p>
-              <p style={{fontFamily:"Inter",fontSize:13,color:"#9499a6"}}>by {viewing.owner}</p>
-            </div>
-          </div>
-          <DetailRow label="Commission Rate"  value={<span style={{fontFamily:"Inter",fontWeight:700,fontSize:18,color:"#7887fa"}}>{viewing.commissionPct}%</span>}/>
-          <DetailRow label="Total Orders"     value={`${viewing.totalOrders} orders`}/>
-          <DetailRow label="Total Order Value" value={fmt(viewing.totalOrderValue)}/>
-          <DetailRow label="Commission Earned" value={<span style={{fontWeight:700,color:"#10b981"}}>{fmt(Math.round(viewing.totalOrderValue*viewing.commissionPct/100))}</span>}/>
-          <DetailRow label="Cook Net Earnings" value={fmt(viewing.totalOrderValue - Math.round(viewing.totalOrderValue*viewing.commissionPct/100))}/>
-          <DetailRow label="Status"           value={<span style={pill(viewing.status)}>{viewing.status}</span>}/>
-        </Modal>
-      )}
-
-      {editing && draft && (
-        <Modal title="Update Commission Rate" onClose={()=>{setEditing(null);setDraft(null);}}>
-          <div className="mb-5 p-4 rounded-[10px]" style={{background:"rgba(120,135,250,0.06)",border:"1px solid rgba(120,135,250,0.15)"}}>
-            <p style={{fontFamily:"Inter",fontWeight:600,fontSize:13,color:"#7887fa",marginBottom:4}}>ℹ️ Live Preview</p>
-            <p style={{fontFamily:"Inter",fontSize:12,color:"#9499a6",lineHeight:1.6}}>
-              On a <strong style={{color:"#1c1f29"}}>₹400 order</strong> from <strong style={{color:"#1c1f29"}}>{draft.kitchen}</strong>:<br/>
-              TiffinCraft earns <strong style={{color:"#7887fa"}}>₹{Math.round(400*draft.commissionPct/100)}</strong> ({draft.commissionPct}%) &nbsp;|&nbsp;
-              Cook receives <strong style={{color:"#10b981"}}>₹{400-Math.round(400*draft.commissionPct/100)}</strong>
-            </p>
-          </div>
-          <FormField label="Kitchen Name" value={draft.kitchen} onChange={v=>setDraft({...draft,kitchen:v})}/>
-          <FormField label="Owner Name"   value={draft.owner}   onChange={v=>setDraft({...draft,owner:v})}/>
-          <FormField label="Commission % (fixed per delivery)" value={String(draft.commissionPct)}
-            onChange={v=>setDraft({...draft,commissionPct:Math.min(100,Math.max(0,parseFloat(v)||0))})} type="number"/>
-          <FormField label="Status" value={draft.status} onChange={v=>setDraft({...draft,status:v as "Active"|"Inactive"})} options={["Active","Inactive"]}/>
-          <SaveCancel onCancel={()=>{setEditing(null);setDraft(null);}} onSave={saveEdit}/>
-        </Modal>
-      )}
-
-      {/* Add Commission modal */}
-      {adding && (
-        <Modal title="Set Commission Rate" onClose={()=>{ setAdding(false); setAddErrs({}); }}>
+      {/* Set Commission modal */}
+      {settingRate && (
+        <Modal title="Set Commission Rate" onClose={()=>setSettingRate(false)}>
           <div className="mb-4 p-4 rounded-[10px]" style={{background:"rgba(120,135,250,0.06)",border:"1px solid rgba(120,135,250,0.15)"}}>
             <p style={{fontFamily:"Inter",fontWeight:600,fontSize:13,color:"#7887fa",marginBottom:4}}>ℹ️ How it works</p>
             <p style={{fontFamily:"Inter",fontSize:12,color:"#9499a6",lineHeight:1.6}}>
-              On a <strong style={{color:"#1c1f29"}}>₹400 order</strong> at <strong style={{color:"#7887fa"}}>{addForm.commissionPct}%</strong>, TiffinCraft earns{" "}
-              <strong style={{color:"#10b981"}}>₹{Math.round(400*addForm.commissionPct/100)}</strong> and the cook receives{" "}
-              <strong style={{color:"#1c1f29"}}>₹{400-Math.round(400*addForm.commissionPct/100)}</strong>.
+              On a <strong style={{color:"#1c1f29"}}>₹400 order</strong> at <strong style={{color:"#7887fa"}}>{rateInput || 0}%</strong>, TiffinCraft earns{" "}
+              <strong style={{color:"#10b981"}}>₹{Math.round(400 * (Number(rateInput) || 0) / 100)}</strong> and the cook receives{" "}
+              <strong style={{color:"#1c1f29"}}>₹{400 - Math.round(400 * (Number(rateInput) || 0) / 100)}</strong>.<br/>
+              Applies to orders delivered from now on — already-delivered orders keep their original rate.
             </p>
           </div>
-          <FormField label="Kitchen Name" value={addForm.kitchen} onChange={v=>setAddForm({...addForm,kitchen:v})}/>
-          {addErrs.kitchen && <p style={{fontFamily:"Inter",fontSize:11,color:"#f25959",marginTop:-10,marginBottom:10}}>{addErrs.kitchen}</p>}
-          <FormField label="Owner Name"   value={addForm.owner}   onChange={v=>setAddForm({...addForm,owner:v})}/>
-          {addErrs.owner && <p style={{fontFamily:"Inter",fontSize:11,color:"#f25959",marginTop:-10,marginBottom:10}}>{addErrs.owner}</p>}
-          <FormField label="Commission % (e.g. 4)" value={String(addForm.commissionPct)}
-            onChange={v=>setAddForm({...addForm,commissionPct:Math.min(100,Math.max(0,parseFloat(v)||0))})} type="number"/>
-          {addErrs.commissionPct && <p style={{fontFamily:"Inter",fontSize:11,color:"#f25959",marginTop:-10,marginBottom:10}}>{addErrs.commissionPct}</p>}
-          <FormField label="Status" value={addForm.status} onChange={v=>setAddForm({...addForm,status:v as "Active"|"Inactive"})} options={["Active","Inactive"]}/>
-          <SaveCancel onCancel={()=>{ setAdding(false); setAddErrs({}); }} onSave={submitAdd}/>
+          <FormField label="Commission % (0–100)" value={rateInput}
+            onChange={v=>setRateInput(v)} type="number"/>
+          <SaveCancel onCancel={()=>setSettingRate(false)} onSave={saveRate}/>
         </Modal>
       )}
-
-      {del && <ConfirmDelete name={del.kitchen} onConfirm={doDelete} onCancel={()=>setDel(null)}/>}
     </div>
   );
 }
+
+/* ─── Table helpers ──────────────────────────────────────────────────────── */
+const TH = ({ children, w }: { children: React.ReactNode; w: number }) => (
+  <p style={{ width:w, flexShrink:0, fontFamily:"Inter", fontWeight:600, fontSize:12, color:"#9499a6" }}>{children}</p>
+);
+const TD = ({ children, w, bold, accent }: { children: React.ReactNode; w: number; bold?: boolean; accent?: string }) => (
+  <p style={{ width:w, flexShrink:0, fontFamily:"Inter", fontWeight: bold?700:400, fontSize:13, color: accent ?? "#1c1f29" }}>{children}</p>
+);

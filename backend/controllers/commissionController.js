@@ -143,6 +143,12 @@ export const getCommissionSummary = async (req, res) => {
             [month, year]
         );
 
+        const [[allTime]] = await db.promise().query(
+            `SELECT COALESCE(SUM(commission_amount), 0) AS total_commission
+             FROM orders
+             WHERE status = 'delivered' AND commission_amount IS NOT NULL`
+        );
+
         const byCook = await getCommissionByCook(month, year);
 
         // Last 6 months trend, same fill-missing-months-with-zero approach
@@ -164,10 +170,14 @@ export const getCommissionSummary = async (req, res) => {
             const d = new Date();
             d.setDate(1);
             d.setMonth(d.getMonth() - i);
-            const ym = d.toISOString().slice(0, 7);
+            // Build the key from LOCAL date parts — toISOString() would shift
+            // the 1st of the month back a day for UTC+ offsets (e.g. NPT),
+            // mislabeling the trend bucket by a whole month.
+            const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
             const existing = monthlyRows.find(r => r.ym === ym);
             trend.push({
                 month: d.toLocaleString('en-US', { month: 'short' }),
+                year: d.getFullYear(),
                 commission: existing ? parseFloat(existing.commission) : 0,
                 cookNet: existing ? parseFloat(existing.cook_net) : 0
             });
@@ -176,15 +186,31 @@ export const getCommissionSummary = async (req, res) => {
         const [[settings]] = await db.promise().query(
             "SELECT commission_pct FROM platform_settings WHERE id = 1"
         );
+        const pct = settings ? parseFloat(settings.commission_pct) : 4.00;
+
+        // Pending collection — commission not yet locked in because the orders
+        // haven't been delivered. Estimated at the CURRENT rate (the rate that
+        // will actually be snapshotted at delivery), unlike delivered orders
+        // which keep their historical snapshot.
+        const [[pending]] = await db.promise().query(
+            `SELECT COUNT(*) AS order_count,
+                    COALESCE(SUM(ROUND(total_amount * ? / 100, 2)), 0) AS estimated_commission
+             FROM orders
+             WHERE status NOT IN ('delivered', 'cancelled')`,
+            [pct]
+        );
 
         return res.status(200).json({
             success: true,
             month,
             year,
-            commission_pct: settings ? parseFloat(settings.commission_pct) : 4.00,
+            commission_pct: pct,
             total_commission: parseFloat(totals.total_commission),
+            all_time_commission: parseFloat(allTime.total_commission),
             total_gross: parseFloat(totals.total_gross),
             order_count: totals.order_count,
+            pending_commission: parseFloat(pending.estimated_commission),
+            pending_order_count: pending.order_count,
             by_cook: byCook.map(r => ({
                 cook_id: r.cook_id,
                 owner_name: r.owner_name,

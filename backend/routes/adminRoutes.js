@@ -20,7 +20,9 @@ import {
     getAllMeals,
     createMeal,
     updateMeal,
-    deleteMeal
+    deleteMeal,
+    getAdminReviews,
+    adminDeleteReview
 } from "../controllers/adminController.js";
 
 const router = Router();
@@ -47,5 +49,7 @@ router.get("/meals", getAllMeals);
 router.post("/meals", createMeal);
 router.put("/meals/:mealId", updateMeal);
 router.delete("/meals/:mealId", deleteMeal);
+router.get("/reviews", getAdminReviews);
+router.delete("/reviews/:reviewId", adminDeleteReview);
 
-export default router;
+export default router;
