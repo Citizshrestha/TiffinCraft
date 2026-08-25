@@ -163,7 +163,8 @@ export const getReports = async (req, res) => {
         console.error("getReports error:", error);
         return res.status(500).json({
             success: false,
-            message: "Server error."
+            message: "Server error.",
+            error: error.message
         });
     }
 };
@@ -668,18 +669,41 @@ export const getAllOrders = async (req, res) => {
     try {
         const { status } = req.query;
 
+        // TiDB Cloud (production) enforces ONLY_FULL_GROUP_BY by default.
+        // Selecting o.* with GROUP BY o.id violates that rule even though
+        // all columns are functionally determined by the primary key.
+        // Fix: explicitly list every column needed by the frontend and wrap
+        // non-PK columns in ANY_VALUE() so the query passes strict mode.
         let query = `
-            SELECT o.*,
-                   MAX(u.full_name) as customer_name,
-                   MAX(cu.full_name) as cook_name,
-                   MAX(cp.kitchen_name) as kitchen_name,
-                   GROUP_CONCAT(m.name SEPARATOR ', ') as items_summary
+            SELECT
+                o.id,
+                ANY_VALUE(o.customer_id)             AS customer_id,
+                ANY_VALUE(o.cook_id)                 AS cook_id,
+                ANY_VALUE(o.total_amount)             AS total_amount,
+                ANY_VALUE(o.status)                  AS status,
+                ANY_VALUE(o.delivery_address)         AS delivery_address,
+                ANY_VALUE(o.delivery_latitude)        AS delivery_latitude,
+                ANY_VALUE(o.delivery_longitude)       AS delivery_longitude,
+                ANY_VALUE(o.special_instructions)     AS special_instructions,
+                ANY_VALUE(o.payment_method)           AS payment_method,
+                ANY_VALUE(o.payment_status)           AS payment_status,
+                ANY_VALUE(o.payment_screenshot_url)   AS payment_screenshot_url,
+                ANY_VALUE(o.payment_verified_at)      AS payment_verified_at,
+                ANY_VALUE(o.cancelled_by)             AS cancelled_by,
+                ANY_VALUE(o.cancellation_reason)      AS cancellation_reason,
+                ANY_VALUE(o.refund_status)            AS refund_status,
+                ANY_VALUE(o.created_at)               AS created_at,
+                ANY_VALUE(o.updated_at)               AS updated_at,
+                MAX(u.full_name)                      AS customer_name,
+                MAX(cu.full_name)                     AS cook_name,
+                MAX(cp.kitchen_name)                  AS kitchen_name,
+                GROUP_CONCAT(m.name SEPARATOR ', ')   AS items_summary
             FROM orders o
-            JOIN users u ON o.customer_id = u.id
+            JOIN users u  ON o.customer_id = u.id
             JOIN users cu ON o.cook_id = cu.id
             LEFT JOIN cook_profiles cp ON cu.id = cp.user_id
-            LEFT JOIN order_items oi ON oi.order_id = o.id
-            LEFT JOIN meals m ON oi.meal_id = m.id
+            LEFT JOIN order_items oi   ON oi.order_id = o.id
+            LEFT JOIN meals m          ON oi.meal_id = m.id
             WHERE 1=1`;
 
         const params = [];
@@ -689,7 +713,7 @@ export const getAllOrders = async (req, res) => {
             params.push(status);
         }
 
-        query += ` GROUP BY o.id ORDER BY o.created_at DESC`;
+        query += ` GROUP BY o.id ORDER BY ANY_VALUE(o.created_at) DESC`;
 
         const [orders] = await db.promise().query(query, params);
 
@@ -745,17 +769,35 @@ export const updateOrderStatus = async (req, res) => {
         );
 
         const [rows] = await db.promise().query(
-            `SELECT o.*,
-                    MAX(u.full_name) as customer_name,
-                    MAX(cu.full_name) as cook_name,
-                    MAX(cp.kitchen_name) as kitchen_name,
-                    GROUP_CONCAT(m.name SEPARATOR ', ') as items_summary
+            `SELECT
+                 o.id,
+                 ANY_VALUE(o.customer_id)             AS customer_id,
+                 ANY_VALUE(o.cook_id)                 AS cook_id,
+                 ANY_VALUE(o.total_amount)             AS total_amount,
+                 ANY_VALUE(o.status)                  AS status,
+                 ANY_VALUE(o.delivery_address)         AS delivery_address,
+                 ANY_VALUE(o.delivery_latitude)        AS delivery_latitude,
+                 ANY_VALUE(o.delivery_longitude)       AS delivery_longitude,
+                 ANY_VALUE(o.special_instructions)     AS special_instructions,
+                 ANY_VALUE(o.payment_method)           AS payment_method,
+                 ANY_VALUE(o.payment_status)           AS payment_status,
+                 ANY_VALUE(o.payment_screenshot_url)   AS payment_screenshot_url,
+                 ANY_VALUE(o.payment_verified_at)      AS payment_verified_at,
+                 ANY_VALUE(o.cancelled_by)             AS cancelled_by,
+                 ANY_VALUE(o.cancellation_reason)      AS cancellation_reason,
+                 ANY_VALUE(o.refund_status)            AS refund_status,
+                 ANY_VALUE(o.created_at)               AS created_at,
+                 ANY_VALUE(o.updated_at)               AS updated_at,
+                 MAX(u.full_name)                      AS customer_name,
+                 MAX(cu.full_name)                     AS cook_name,
+                 MAX(cp.kitchen_name)                  AS kitchen_name,
+                 GROUP_CONCAT(m.name SEPARATOR ', ')   AS items_summary
              FROM orders o
-             JOIN users u ON o.customer_id = u.id
+             JOIN users u  ON o.customer_id = u.id
              JOIN users cu ON o.cook_id = cu.id
              LEFT JOIN cook_profiles cp ON cu.id = cp.user_id
-             LEFT JOIN order_items oi ON oi.order_id = o.id
-             LEFT JOIN meals m ON oi.meal_id = m.id
+             LEFT JOIN order_items oi   ON oi.order_id = o.id
+             LEFT JOIN meals m          ON oi.meal_id = m.id
              WHERE o.id = ?
              GROUP BY o.id`,
             [orderId]
