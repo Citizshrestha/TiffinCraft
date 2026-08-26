@@ -3,6 +3,8 @@
 const API_BASE_URL: string =
   (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
 
+export const BACKEND_ORIGIN: string = API_BASE_URL.replace(/\/api\/?$/, "");
+
 export const TOKEN_KEY = "tc_admin_token";
 export const USER_KEY = "tc_admin_user";
 

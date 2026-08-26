@@ -182,7 +182,7 @@ export function ReportsPage() {
                     ))}
                   </Pie>
                   <Tooltip contentStyle={{background:"white",border:"1px solid #e5e8ed",borderRadius:8,fontSize:12,fontFamily:"Inter"}}
-                    formatter={(v:number)=>[v.toLocaleString(),"Orders"]}/>
+                    formatter={(v:number,name:string)=>[`${Number(v).toLocaleString("en-IN")} orders`,name]}/>
                 </PieChart>
               </ResponsiveContainer>
             ) : (

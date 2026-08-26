@@ -384,9 +384,15 @@ export function CooksPage() {
                   <div className="flex gap-4 items-center py-4 rounded hover:bg-[#f7f8fa] transition-colors -mx-2 px-2">
                     <p style={{width:40,flexShrink:0,fontFamily:"Inter",fontWeight:500,fontSize:13,color:"#9499a6"}}>{(page-1)*PER_PAGE+idx+1}</p>
                     <div style={{width:180,flexShrink:0,display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{width:36,height:36,borderRadius:"50%",background:"#D9DEE6",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                        <span style={{fontFamily:"Inter",fontWeight:700,fontSize:12,color:"#6b7280"}}>{c.kitchen.slice(0,2)}</span>
-                      </div>
+                      {c.image ? (
+                        <img src={c.image} alt={c.kitchen}
+                          style={{width:36,height:36,borderRadius:"50%",objectFit:"cover",flexShrink:0,background:"#D9DEE6"}}
+                          onError={e=>{e.currentTarget.style.display="none";}}/>
+                      ) : (
+                        <div style={{width:36,height:36,borderRadius:"50%",background:"#D9DEE6",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          <span style={{fontFamily:"Inter",fontWeight:700,fontSize:12,color:"#6b7280"}}>{c.kitchen.slice(0,2)}</span>
+                        </div>
+                      )}
                       <p style={{fontFamily:"Inter",fontWeight:600,fontSize:13,color:"#1c1f29"}}>{c.kitchen}</p>
                     </div>
                     <p style={{width:150,flexShrink:0,fontFamily:"Inter",fontSize:13,color:"#1c1f29"}}>{c.owner}</p>
@@ -414,7 +420,12 @@ export function CooksPage() {
       {viewing&&(
         <Modal title="Cook Details" onClose={()=>setViewing(null)}>
           <div className="flex items-center gap-4 mb-5">
-            <div style={{width:64,height:64,borderRadius:"50%",background:"#f2f5f7",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32}}>👨‍🍳</div>
+            {viewing.image ? (
+              <img src={viewing.image} alt={viewing.kitchen}
+                style={{width:64,height:64,borderRadius:"50%",objectFit:"cover",background:"#f2f5f7"}}/>
+            ) : (
+              <div style={{width:64,height:64,borderRadius:"50%",background:"#f2f5f7",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32}}>👨‍🍳</div>
+            )}
             <div>
               <p style={{fontFamily:"Inter",fontWeight:700,fontSize:18,color:"#1c1f29"}}>{viewing.kitchen}</p>
               <p style={{fontFamily:"Inter",fontSize:13,color:"#9499a6"}}>by {viewing.owner}</p>
@@ -468,7 +479,12 @@ export function CooksPage() {
       {viewPending && (
         <Modal title="Pending Cook Details" onClose={() => setViewPending(null)}>
           <div className="flex items-center gap-4 mb-5">
-            <div style={{width:64,height:64,borderRadius:"50%",background:"#f2f5f7",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32}}>👨‍🍳</div>
+            {viewPending.image ? (
+              <img src={viewPending.image} alt={viewPending.kitchen}
+                style={{width:64,height:64,borderRadius:"50%",objectFit:"cover",background:"#f2f5f7"}}/>
+            ) : (
+              <div style={{width:64,height:64,borderRadius:"50%",background:"#f2f5f7",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32}}>👨‍🍳</div>
+            )}
             <div>
               <p style={{fontFamily:"Inter",fontWeight:700,fontSize:18,color:"#1c1f29"}}>{viewPending.kitchen}</p>
               <p style={{fontFamily:"Inter",fontSize:13,color:"#9499a6"}}>by {viewPending.owner}</p>

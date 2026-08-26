@@ -397,6 +397,7 @@ function RatingBarChartCard({ topCooks }: { topCooks: { kitchen_name: string | n
                 tickLine={false}
               />
               <Tooltip
+                cursor={false}
                 content={({ active, payload, label }) => {
                   if (!active || !payload?.length) return null;
                   return (
@@ -515,8 +516,8 @@ export function DashboardPage({
     return (
       <div className="flex flex-col gap-6 animate-pulse">
         {/* KPI skeleton */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => (
             <div
               key={i}
               className="bg-white rounded-[14px] p-5"
@@ -608,7 +609,7 @@ export function DashboardPage({
   return (
     <div className="flex flex-col gap-6">
       {/* ── KPI Cards ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         <KpiCard
           label="Total Users"
           value={formatNumber(dashboard.total_users)}
@@ -617,23 +618,16 @@ export function DashboardPage({
           accent="#eff6ff"
         />
         <KpiCard
-          label="Total Cooks"
-          value={formatNumber(dashboard.total_cooks)}
-          sub={`${formatNumber(dashboard.pending_approvals)} pending approval`}
-          icon="👨‍🍳"
-          accent="#f0fdf4"
-        />
-        <KpiCard
           label="Total Orders"
           value={formatNumber(dashboard.total_orders)}
-          sub={`${formatNumber(dashboard.today_orders)} today`}
+          sub={`${formatNumber(dashboard.today_orders)} today • ${formatNumber(dashboard.pending_orders)} pending`}
           icon="📦"
           accent="#fff7ed"
         />
         <KpiCard
           label="Total Revenue"
-          value={formatCurrencyFull(dashboard.total_revenue)}
-          sub={`${formatNumber(dashboard.pending_orders)} pending orders`}
+          value={formatCurrencyFull(dashboard.month_commission)}
+          sub={`this month • ${formatCurrencyFull(dashboard.all_time_commission)} all time`}
           icon="💰"
           accent="#fdf4ff"
         />

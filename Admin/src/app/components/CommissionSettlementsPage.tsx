@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Eye, CheckCircle2 } from "lucide-react";
+import { Eye, CheckCircle2, Wallet } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import { Pagination } from "./Pagination";
 import { Modal, DetailRow, FormField, SaveCancel } from "./Modal";
@@ -46,6 +46,18 @@ export function CommissionSettlementsPage() {
   const [processing, setProcessing] = useState<CommissionSettlement | null>(null);
   const [newStatus, setNewStatus] = useState<"verified" | "rejected">("verified");
   const [adminNotes, setAdminNotes] = useState("");
+  // Edge case 3: what the cook actually paid, which is not always what they
+  // owed. Pre-filled with the outstanding balance so the common "paid in full"
+  // case is one click, but editable so a shortfall gets recorded instead of
+  // silently written off.
+  const [amountReceived, setAmountReceived] = useState("");
+  // Edge case 4: a cook who paid by direct bank transfer never reaches
+  // 'submitted', so there is no screenshot to verify. This records the payment
+  // against a still-'pending' settlement; the backend makes admin_notes
+  // mandatory on that path so the money always has a paper trail.
+  const [recording, setRecording] = useState<CommissionSettlement | null>(null);
+  const [recordNotes, setRecordNotes] = useState("");
+  const [recordAmount, setRecordAmount] = useState("");
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
 
@@ -100,15 +112,45 @@ export function CommissionSettlementsPage() {
     setProcessing(r);
     setNewStatus("verified");
     setAdminNotes("");
+    setAmountReceived(r.amountRemaining.toFixed(2));
+  };
+
+  /**
+   * Validates an entered payment amount against the outstanding balance,
+   * mirroring the backend's checks so the admin gets an inline error rather
+   * than a 400. Returns the parsed number, or null if the input is unusable
+   * (the caller has already been shown a toast by then).
+   */
+  const parseAmount = (raw: string, r: CommissionSettlement): number | null => {
+    const n = Number(raw);
+    if (!raw.trim() || !Number.isFinite(n) || n <= 0) {
+      showToast("Enter the amount received as a number greater than 0.", "error");
+      return null;
+    }
+    // Compared in paisa — 145 - 100 - 45 is not reliably 0 in floating point.
+    if (Math.round(n * 100) > Math.round(r.amountRemaining * 100)) {
+      showToast(`That is more than the ₹${r.amountRemaining.toFixed(2)} still outstanding.`, "error");
+      return null;
+    }
+    return n;
   };
 
   const submitProcess = async () => {
     if (!processing) return;
+    // A rejection means no money arrived, so the amount field is irrelevant.
+    let amount: number | undefined;
+    if (newStatus === "verified") {
+      const parsed = parseAmount(amountReceived, processing);
+      if (parsed === null) return;
+      amount = parsed;
+    }
     setSaving(true);
     try {
-      await verifySettlementApi(processing.id, newStatus, adminNotes || undefined);
+      const res = await verifySettlementApi(processing.id, newStatus, adminNotes || undefined, amount);
       setProcessing(null);
-      showToast(`Settlement marked ${newStatus}.`, "success");
+      // The backend downgrades a short payment back to 'pending', so report what
+      // it actually did rather than what was requested.
+      showToast(res.message, "success");
       await load();
     } catch (e: any) {
       showToast(e?.message || "Failed to update settlement.", "error");
@@ -117,8 +159,36 @@ export function CommissionSettlementsPage() {
     }
   };
 
-  const handleGenerate = async () => {
-    setGenerating(true);
+  const startRecord = (r: CommissionSettlement) => {
+    setRecording(r);
+    setRecordNotes("");
+    setRecordAmount(r.amountRemaining.toFixed(2));
+  };
+
+  const submitRecord = async () => {
+    if (!recording) return;
+    // Mirrors the backend's hard requirement rather than letting it 400 —
+    // an off-platform payment with no explanation is untraceable money.
+    if (!recordNotes.trim()) {
+      showToast("Describe how the payment was received — this is required for off-platform payments.", "error");
+      return;
+    }
+    const amount = parseAmount(recordAmount, recording);
+    if (amount === null) return;
+    setSaving(true);
+    try {
+      const res = await verifySettlementApi(recording.id, "verified", recordNotes.trim(), amount);
+      setRecording(null);
+      showToast(res.message, "success");
+      await load();
+    } catch (e: any) {
+      showToast(e?.message || "Failed to record payment.", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleGenerate = async () => {    setGenerating(true);
     try {
       const { created } = await generateSettlementsApi();
       showToast(`Generated ${created} new settlement(s) for last month.`, "success");
@@ -163,10 +233,14 @@ export function CommissionSettlementsPage() {
     }
   };
 
+  // EC3: these must total what is still *owed*, not what was originally billed —
+  // otherwise a part-paid settlement keeps inflating "Awaiting Payment" by the
+  // full amount even after money has come in. Verified totals use amountPaid for
+  // the same reason: it's the figure that reflects cash actually received.
   const totalPending = rows.filter(r => r.status === "pending" || r.status === "overdue")
-    .reduce((sum, r) => sum + r.amountDue, 0);
-  const totalSubmitted = rows.filter(r => r.status === "submitted").reduce((sum, r) => sum + r.amountDue, 0);
-  const totalVerified = rows.filter(r => r.status === "verified").reduce((sum, r) => sum + r.amountDue, 0);
+    .reduce((sum, r) => sum + r.amountRemaining, 0);
+  const totalSubmitted = rows.filter(r => r.status === "submitted").reduce((sum, r) => sum + r.amountRemaining, 0);
+  const totalVerified = rows.filter(r => r.status === "verified").reduce((sum, r) => sum + r.amountPaid, 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -308,10 +382,26 @@ export function CommissionSettlementsPage() {
                 <div className="flex gap-4 items-center py-4 rounded hover:bg-[#f7f8fa] transition-colors -mx-2 px-2">
                   <p style={{ width: 40, flexShrink: 0, fontFamily: "Inter", fontWeight: 500, fontSize: 13, color: "#9499a6" }}>{(page - 1) * PER_PAGE + idx + 1}</p>
                   <p style={{ width: 120, flexShrink: 0, fontFamily: "Inter", fontWeight: 500, fontSize: 13, color: "#7887fa" }}>{r.displayId}</p>
-                  <p style={{ width: 160, flexShrink: 0, fontFamily: "Inter", fontSize: 13, color: "#1c1f29" }}>{r.cook}</p>
+                  <p style={{ width: 160, flexShrink: 0, fontFamily: "Inter", fontSize: 13, color: "#1c1f29" }}>
+                    {r.cook}
+                    {r.cookDeleted && (
+                      <span title="This cook deleted their account — the settlement record was preserved"
+                        style={{ display: "block", fontSize: 11, color: "#d97706" }}>
+                        account deleted
+                      </span>
+                    )}
+                  </p>
                   <p style={{ width: 110, flexShrink: 0, fontFamily: "Inter", fontSize: 13, color: "#1c1f29" }}>{r.period}</p>
                   <p style={{ width: 80, flexShrink: 0, fontFamily: "Inter", fontSize: 13, color: "#1c1f29" }}>{r.orderCount}</p>
-                  <p style={{ width: 110, flexShrink: 0, fontFamily: "Inter", fontWeight: 600, fontSize: 13, color: "#1c1f29" }}>₹{r.amountDue.toFixed(0)}</p>
+                  <p style={{ width: 110, flexShrink: 0, fontFamily: "Inter", fontWeight: 600, fontSize: 13, color: "#1c1f29" }}>
+                    ₹{r.amountDue.toFixed(0)}
+                    {r.amountPaid > 0 && r.amountRemaining > 0 && (
+                      <span title={`₹${r.amountPaid.toFixed(2)} received, ₹${r.amountRemaining.toFixed(2)} still owed`}
+                        style={{ display: "block", fontWeight: 500, fontSize: 11, color: "#d97706" }}>
+                        ₹{r.amountRemaining.toFixed(0)} left
+                      </span>
+                    )}
+                  </p>
                   <div style={{ width: 110, flexShrink: 0 }}><StatusBadge status={r.status} /></div>
                   <p style={{ width: 100, flexShrink: 0, fontFamily: "Inter", fontSize: 13, color: "#9499a6" }}>{r.date}</p>
                   <div style={{ width: 90, flexShrink: 0, display: "flex", gap: 4 }}>
@@ -323,6 +413,12 @@ export function CommissionSettlementsPage() {
                       <button title="Verify / Reject" onClick={() => startProcess(r)}
                         style={{ width: 32, height: 32, borderRadius: 6, border: "none", background: "rgba(16,185,129,0.10)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                         <CheckCircle2 size={14} color="#10b981" />
+                      </button>
+                    )}
+                    {r.rawStatus === "pending" && (
+                      <button title="Record off-platform payment" onClick={() => startRecord(r)}
+                        style={{ width: 32, height: 32, borderRadius: 6, border: "none", background: "rgba(245,158,11,0.12)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                        <Wallet size={14} color="#d97706" />
                       </button>
                     )}
                   </div>
@@ -343,8 +439,23 @@ export function CommissionSettlementsPage() {
           <DetailRow label="Cook Phone" value={viewing.cookPhone || "—"} />
           <DetailRow label="Period" value={viewing.period} />
           <DetailRow label="Orders This Period" value={viewing.orderCount} />
-          <DetailRow label="Amount Due" value={<span style={{ fontWeight: 700 }}>₹{viewing.amountDue.toFixed(0)}</span>} />
+          <DetailRow label="Amount Due" value={<span style={{ fontWeight: 700 }}>₹{viewing.amountDue.toFixed(2)}</span>} />
+          <DetailRow label="Received So Far" value={
+            viewing.amountPaid > 0
+              ? <span style={{ color: viewing.amountRemaining > 0 ? "#d97706" : "#10b981", fontWeight: 600 }}>
+                  ₹{viewing.amountPaid.toFixed(2)}
+                  {viewing.amountRemaining > 0 ? ` — ₹${viewing.amountRemaining.toFixed(2)} still outstanding` : " — paid in full"}
+                </span>
+              : "Nothing received yet"
+          } />
           <DetailRow label="Status" value={<StatusBadge status={viewing.status} />} />
+          <DetailRow label="Due Date" value={
+            viewing.dueDate
+              ? <span style={{ color: viewing.isOverdue ? "#f25959" : "#1c1f29", fontWeight: viewing.isOverdue ? 600 : 400 }}>
+                  {viewing.dueDate}{viewing.isOverdue ? " — overdue" : ""}
+                </span>
+              : "Not set (generated before due dates were tracked)"
+          } />
           <DetailRow label="Payment Screenshot" value={
             viewing.screenshotUrl
               ? <a href={viewing.screenshotUrl} target="_blank" rel="noreferrer" style={{ color: "#7887fa" }}>View screenshot ↗</a>
@@ -359,7 +470,9 @@ export function CommissionSettlementsPage() {
       {processing && (
         <Modal title={`Verify ${processing.displayId}`} onClose={() => setProcessing(null)}>
           <p style={{ fontFamily: "Inter", fontSize: 13, color: "#9499a6", marginBottom: 16 }}>
-            {processing.cook} submitted proof of paying <strong style={{ color: "#1c1f29" }}>₹{processing.amountDue.toFixed(0)}</strong> for {processing.period}.
+            {processing.cook} submitted proof of payment for {processing.period}.
+            {" "}<strong style={{ color: "#1c1f29" }}>₹{processing.amountRemaining.toFixed(2)}</strong> is outstanding
+            {processing.amountPaid > 0 ? ` of ₹${processing.amountDue.toFixed(2)} billed (₹${processing.amountPaid.toFixed(2)} already received).` : "."}
           </p>
           {processing.screenshotUrl && (
             <a href={processing.screenshotUrl} target="_blank" rel="noreferrer">
@@ -377,8 +490,61 @@ export function CommissionSettlementsPage() {
               <option value="rejected">Reject — ask cook to re-upload</option>
             </select>
           </div>
+          {newStatus === "verified" && (
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontFamily: "Inter", fontWeight: 500, fontSize: 13, color: "#1c1f29", marginBottom: 6 }}>Amount Received (₹)</p>
+              <input
+                type="number" min={0} step={0.01}
+                value={amountReceived}
+                onChange={e => setAmountReceived(e.target.value)}
+                style={{ border: "1px solid #e5e8ed", fontFamily: "Inter", color: "#1c1f29", width: "100%", padding: "12px 16px", borderRadius: 8, fontSize: 14, outline: "none" }}
+              />
+              <p style={{ fontFamily: "Inter", fontSize: 11, color: "#9499a6", marginTop: 6 }}>
+                Pre-filled with the ₹{processing.amountRemaining.toFixed(2)} outstanding. Lower it if the cook paid
+                less — the shortfall is recorded and the settlement stays pending instead of being written off.
+              </p>
+            </div>
+          )}
           <FormField label="Admin Notes (optional)" value={adminNotes} onChange={setAdminNotes} />
           <SaveCancel onCancel={() => setProcessing(null)} onSave={submitProcess} saving={saving} saveLabel="Update" />
+        </Modal>
+      )}
+
+      {recording && (
+        <Modal title={`Record Payment — ${recording.displayId}`} onClose={() => setRecording(null)}>
+          <p style={{ fontFamily: "Inter", fontSize: 13, color: "#9499a6", marginBottom: 12 }}>
+            Use this when <strong style={{ color: "#1c1f29" }}>{recording.cook}</strong> paid their
+            {" "}{recording.period} commission outside the app — direct bank transfer, cash, or a QR payment they
+            never uploaded proof of. Recording the full outstanding balance marks the settlement verified without
+            a screenshot; recording less leaves it pending for the remainder.
+          </p>
+          <div style={{ background: "rgba(245,158,11,0.08)", borderRadius: 8, padding: "10px 12px", marginBottom: 16 }}>
+            <p style={{ fontFamily: "Inter", fontSize: 12, color: "#92400e" }}>
+              There is no payment proof on file for this settlement. Your note below is the only record of how
+              the money arrived, so it is required and is written to the admin audit log.
+            </p>
+          </div>
+          {recording.dueDate && (
+            <p style={{ fontFamily: "Inter", fontSize: 12, color: recording.isOverdue ? "#f25959" : "#9499a6", marginBottom: 16 }}>
+              Due {recording.dueDate}{recording.isOverdue ? " — currently overdue" : ""}
+            </p>
+          )}
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontFamily: "Inter", fontWeight: 500, fontSize: 13, color: "#1c1f29", marginBottom: 6 }}>Amount Received (₹)</p>
+            <input
+              type="number" min={0} step={0.01}
+              value={recordAmount}
+              onChange={e => setRecordAmount(e.target.value)}
+              style={{ border: "1px solid #e5e8ed", fontFamily: "Inter", color: "#1c1f29", width: "100%", padding: "12px 16px", borderRadius: 8, fontSize: 14, outline: "none" }}
+            />
+            <p style={{ fontFamily: "Inter", fontSize: 11, color: "#9499a6", marginTop: 6 }}>
+              ₹{recording.amountRemaining.toFixed(2)} outstanding
+              {recording.amountPaid > 0 ? ` (₹${recording.amountPaid.toFixed(2)} already received)` : ""}.
+              A smaller amount is banked as a part payment and the settlement stays pending.
+            </p>
+          </div>
+          <FormField label="How was this paid? (required)" value={recordNotes} onChange={setRecordNotes} />
+          <SaveCancel onCancel={() => setRecording(null)} onSave={submitRecord} saving={saving} saveLabel="Record Payment" />
         </Modal>
       )}
     </div>

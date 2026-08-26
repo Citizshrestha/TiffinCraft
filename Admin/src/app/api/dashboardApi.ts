@@ -9,6 +9,9 @@ export interface DashboardStats {
   total_revenue: number | string | null;
   pending_orders: number;
   today_orders: number;
+  cook_total_orders: number;
+  month_commission: number | string | null;
+  all_time_commission: number | string | null;
 }
 
 export interface RecentOrder {
@@ -31,7 +34,7 @@ export interface TopCook {
 export interface DailyMetric {
   date: string;
   orders: number;
-  revenue: number | string;
+  revenue: number | string; // admin commission earned that day
 }
 
 export interface DashboardResponse {

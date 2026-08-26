@@ -1,5 +1,11 @@
-import { apiGet, apiPost, apiPut, apiDelete } from "./client";
+import { apiGet, apiPost, apiPut, apiDelete, BACKEND_ORIGIN } from "./client";
 import { formatJoinedDate } from "../utils/format";
+
+export function resolveImageUrl(url?: string | null): string {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${BACKEND_ORIGIN}${url.startsWith("/") ? "" : "/"}${url}`;
+}
 
 export type CookVerification = "verified" | "unverified";
 
@@ -14,6 +20,7 @@ export interface BackendCook {
   email: string;
   phone: string;
   is_active: 0 | 1 | boolean;
+  profile_image?: string | null;
   created_at: string;
 }
 
@@ -27,6 +34,7 @@ export interface Cook {
   orders: number;
   status: CookVerification;
   joined: string;
+  image: string;
 }
 
 export interface CreateCookPayload {
@@ -57,6 +65,7 @@ export function mapBackendCook(c: BackendCook): Cook {
     orders: c.total_orders || 0,
     status: c.is_verified === 1 || c.is_verified === true ? "verified" : "unverified",
     joined: formatJoinedDate(c.created_at),
+    image: resolveImageUrl(c.profile_image),
   };
 }
 
@@ -104,6 +113,7 @@ export interface PendingCook {
   rating: number;
   status: CookVerification;
   joined: string;
+  image: string;
 }
 
 export function mapPendingCook(c: PendingBackendCook): PendingCook {
@@ -119,6 +129,7 @@ export function mapPendingCook(c: PendingBackendCook): PendingCook {
     rating: Number(c.rating) || 0,
     status: c.is_verified === 1 || c.is_verified === true ? "verified" : "unverified",
     joined: formatJoinedDate(c.created_at),
+    image: resolveImageUrl(c.profile_image),
   };
 }
 
