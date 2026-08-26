@@ -47,6 +47,8 @@ public class SubscriptionPaymentActivity extends AppCompatActivity {
     public static final String EXTRA_PLAN_PRICE = "plan_price";
     public static final String EXTRA_PLAN_DURATION = "plan_duration";
     public static final String EXTRA_COOK_ESEWA_QR_URL = "cook_esewa_qr_url";
+    public static final String EXTRA_PAYMENT_STATUS = "payment_status";
+    public static final String EXTRA_VERIFICATION_NOTES = "verification_notes";
 
     private static final String ESEWA_PACKAGE = "com.f1soft.esewa";
     private static final int REQUEST_STORAGE_PERMISSION = 2201;
@@ -73,6 +75,8 @@ public class SubscriptionPaymentActivity extends AppCompatActivity {
         double planPrice = getIntent().getDoubleExtra(EXTRA_PLAN_PRICE, 0);
         String planDuration = getIntent().getStringExtra(EXTRA_PLAN_DURATION);
         cookEsewaQrUrl = getIntent().getStringExtra(EXTRA_COOK_ESEWA_QR_URL);
+        String paymentStatus = getIntent().getStringExtra(EXTRA_PAYMENT_STATUS);
+        String verificationNotes = getIntent().getStringExtra(EXTRA_VERIFICATION_NOTES);
 
         if (subscriptionId == -1) {
             Toast.makeText(this, "Something went wrong — please try subscribing again.", Toast.LENGTH_SHORT).show();
@@ -122,9 +126,9 @@ public class SubscriptionPaymentActivity extends AppCompatActivity {
         binding.ivCookQr.setOnClickListener(v -> saveQrToGallery());
         binding.btnUploadProof.setOnClickListener(v -> openImagePicker());
 
-        // Freshly created, so we already know the state: pending payment, nothing
-        // submitted yet. No need for a network round-trip just to render this.
-        renderState("pending", null);
+        // A new subscription has no state extras and starts pending. Reopening it
+        // from My Subscriptions receives the latest state and becomes a status view.
+        renderState(paymentStatus != null ? paymentStatus : "pending", verificationNotes);
     }
 
     private void renderState(String paymentStatus, String verificationNotes) {

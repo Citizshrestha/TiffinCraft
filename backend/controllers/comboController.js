@@ -1,5 +1,4 @@
 import db from "../config/db.js";
-import { createNotification } from "../utils/notificationHelper.js";
 
 /** Validates the items array shared by create/update — same rules as
  *  subscription plans: non-empty, each meal owned by this cook, positive
@@ -276,10 +275,10 @@ export const buyCombo = async (req, res) => {
         if (!delivery_address) {
             return res.status(400).json({ success: false, message: "delivery_address is required." });
         }
-        const validPaymentMethods = ["cod", "online"];
-        const selectedPaymentMethod = payment_method || "cod";
+        const validPaymentMethods = ["online"];
+        const selectedPaymentMethod = payment_method || "online";
         if (!validPaymentMethods.includes(selectedPaymentMethod)) {
-            return res.status(400).json({ success: false, message: "payment_method must be 'cod' or 'online'." });
+            return res.status(400).json({ success: false, message: "payment_method must be 'online'." });
         }
 
         const [combos] = await connection.query(
@@ -326,29 +325,9 @@ export const buyCombo = async (req, res) => {
 
         await connection.commit();
 
-        const [[customer]] = await db.promise().query("SELECT full_name FROM users WHERE id = ?", [customerId]);
-        const mealSummary = items.map(i => `${i.quantity}x ${i.name}`).join(", ");
-        await createNotification(
-            combo.cook_id,
-            "New Combo Order! 🎉",
-            `${customer?.full_name || "A customer"} ordered "${combo.name}" — ₹${Number(combo.price).toFixed(0)}`,
-            "new_order",
-            orderId,
-            "order",
-            { pushData: { type: "new_order", orderId: String(orderId) } }
-        );
-
-        const io = req.app.get("io");
-        if (io) {
-            io.to(`cook_${combo.cook_id}`).emit("newOrder", {
-                orderId, customerId, mealSummary, total_amount: combo.price,
-                delivery_address, payment_method: selectedPaymentMethod
-            });
-        }
-
         return res.status(201).json({
             success: true,
-            message: "Combo order placed successfully.",
+            message: "Payment is required before the combo order is sent to the cook.",
             orderId,
             payment_method: selectedPaymentMethod
         });

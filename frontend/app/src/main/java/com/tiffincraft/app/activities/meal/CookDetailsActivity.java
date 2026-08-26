@@ -965,26 +965,23 @@ public class CookDetailsActivity extends AppCompatActivity {
             public void onFailure(Call<CustomerProfileResponse> call, Throwable t) { /* leave blank */ }
         });
 
-        String[] paymentLabels = { "Cash on Delivery", "Online payment (eSewa, Khalti, Fonepay, bank)" };
-        String[] paymentValues = { "cod", "online" };
-        final int[] selectedPayment = { 0 };
-
         LinearLayout container = new LinearLayout(this);
         container.setOrientation(LinearLayout.VERTICAL);
         container.addView(etAddress);
 
         new AlertDialog.Builder(this)
                 .setTitle("Buy \"" + combo.getName() + "\"")
-                .setMessage(String.format(Locale.getDefault(), "₹%.0f · one-time order, delivered once", combo.getPrice()))
+                .setMessage(String.format(Locale.getDefault(),
+                        "₹%.0f · one-time order\n\nAfter continuing, pay by eSewa, Khalti, Fonepay, or bank transfer and upload your payment screenshot. The cook confirms the order after verifying it.",
+                        combo.getPrice()))
                 .setView(container)
-                .setSingleChoiceItems(paymentLabels, 0, (dialog, which) -> selectedPayment[0] = which)
-                .setPositiveButton("Buy Now", (dialog, which) -> {
+                .setPositiveButton("Continue to Payment", (dialog, which) -> {
                     String address = etAddress.getText().toString().trim();
                     if (address.isEmpty()) {
                         Toast.makeText(this, "Delivery address is required", Toast.LENGTH_SHORT).show();
                         return;
                     }
-                    buyCombo(combo, address, paymentValues[selectedPayment[0]]);
+                    buyCombo(combo, address, "online");
                 })
                 .setNegativeButton("Cancel", null)
                 .show();

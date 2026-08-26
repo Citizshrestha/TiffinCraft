@@ -342,6 +342,8 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
         intent.putExtra(SubscriptionPaymentActivity.EXTRA_PLAN_PRICE, sub.getPlan().getPricePerDelivery());
         intent.putExtra(SubscriptionPaymentActivity.EXTRA_PLAN_DURATION, sub.getPlan().getDuration());
         intent.putExtra(SubscriptionPaymentActivity.EXTRA_COOK_ESEWA_QR_URL, sub.getCookEsewaQrUrl());
+        intent.putExtra(SubscriptionPaymentActivity.EXTRA_PAYMENT_STATUS, sub.getPaymentStatus());
+        intent.putExtra(SubscriptionPaymentActivity.EXTRA_VERIFICATION_NOTES, sub.getVerificationNotes());
         startActivity(intent);
     }
 

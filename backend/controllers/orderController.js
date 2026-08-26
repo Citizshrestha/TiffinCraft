@@ -759,17 +759,16 @@ export const uploadPaymentScreenshot = async (req, res) => {
             [customerId]
         );
 
-        await db.promise().query(
-            `INSERT INTO notifications (user_id, title, message, type, reference_id, reference_type)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [
-                order.cook_id,
-                'Payment Submitted',
-                `${customer[0].full_name} submitted payment proof for Order #${orderId}. Please verify.`,
-                'payment_verification',
-                orderId,
-                'order'
-            ]
+        await createNotification(
+            order.cook_id,
+            order.combo_id ? 'Combo Payment Proof Submitted' : 'Payment Proof Submitted',
+            order.combo_id
+                ? `${customer[0].full_name} submitted payment proof for a combo order. Review it to accept the order.`
+                : `${customer[0].full_name} submitted payment proof for Order #${orderId}. Please verify it.`,
+            'payment_verification',
+            orderId,
+            'order',
+            { pushData: { type: 'payment_verification', orderId: String(orderId) } }
         );
 
         return res.status(200).json({
@@ -824,6 +823,13 @@ export const verifyPayment = async (req, res) => {
             });
         }
 
+        if (order.payment_status !== 'paid') {
+            return res.status(400).json({
+                success: false,
+                message: "Payment proof must be submitted before it can be verified."
+            });
+        }
+
         if (verified) {
             // Payment verified - update status and confirm order
             await db.promise().query(
@@ -842,17 +848,16 @@ export const verifyPayment = async (req, res) => {
                 [cookId]
             );
 
-            await db.promise().query(
-                `INSERT INTO notifications (user_id, title, message, type, reference_id, reference_type)
-                 VALUES (?, ?, ?, ?, ?, ?)`,
-                [
-                    order.customer_id,
-                    'Payment Verified',
-                    `${cook[0].full_name} verified your payment for Order #${orderId}. Your order is confirmed!`,
-                    'payment_verified',
-                    orderId,
-                    'order'
-                ]
+            await createNotification(
+                order.customer_id,
+                order.combo_id ? 'Combo Payment Accepted' : 'Payment Verified',
+                order.combo_id
+                    ? `${cook[0].full_name} accepted your payment. Your combo order is confirmed and will be prepared shortly.`
+                    : `${cook[0].full_name} verified your payment for Order #${orderId}. Your order is confirmed!`,
+                'payment_verified',
+                orderId,
+                'order',
+                { pushData: { type: 'payment_verified', orderId: String(orderId) } }
             );
 
             return res.status(200).json({
