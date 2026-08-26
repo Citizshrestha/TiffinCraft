@@ -168,7 +168,7 @@ export const getOrderById = async (req, res) => {
                     COALESCE(o.delivery_longitude, u.longitude) AS map_customer_longitude
              FROM orders o
              JOIN users u ON o.customer_id = u.id
-             JOIN users cu ON o.cook_id = cu.id
+             LEFT JOIN users cu ON o.cook_id = cu.id
              LEFT JOIN cook_profiles cp ON cp.user_id = o.cook_id
              WHERE o.id = ?`,
             [orderId]
@@ -261,8 +261,14 @@ export const getCustomerOrders = async (req, res) => {
                     o.delivery_address, o.special_instructions,
                     o.payment_method, o.payment_status, o.payment_screenshot_url,
                     o.payment_verified_at, o.created_at, o.updated_at,
-                    cu.full_name as cook_name,
-                    cp.kitchen_name,
+                    -- GROUP BY o.id makes every o.* column functionally dependent
+                    -- and therefore legal under only_full_group_by, but columns
+                    -- from JOINed tables are not covered by that dependency and
+                    -- must be wrapped. The join is o.cook_id = cu.id, so there is
+                    -- exactly one matching row per order and ANY_VALUE picks from
+                    -- a set of one — it cannot return the wrong cook.
+                    ANY_VALUE(cu.full_name) as cook_name,
+                    ANY_VALUE(cp.kitchen_name) as kitchen_name,
                     COUNT(oi.id) as items_count,
                     GROUP_CONCAT(CONCAT(oi.quantity, '× ', m.name) SEPARATOR ', ') as items_summary,
                     MIN(m.image_url) as meal_image,
@@ -275,10 +281,10 @@ export const getCustomerOrders = async (req, res) => {
                         'image_url', m.image_url
                     ) SEPARATOR ','), ']') as items_json
              FROM orders o
-             JOIN users cu ON o.cook_id = cu.id
-             JOIN cook_profiles cp ON cu.id = cp.user_id
-             JOIN order_items oi ON o.id = oi.order_id
-             JOIN meals m ON oi.meal_id = m.id
+             LEFT JOIN users cu ON o.cook_id = cu.id
+             LEFT JOIN cook_profiles cp ON cu.id = cp.user_id
+             LEFT JOIN order_items oi ON o.id = oi.order_id
+             LEFT JOIN meals m ON oi.meal_id = m.id
              WHERE o.customer_id = ?
              GROUP BY o.id
              ORDER BY o.created_at DESC`,
@@ -329,8 +335,11 @@ export const getCookOrders = async (req, res) => {
                     o.delivery_address, o.special_instructions,
                     o.payment_method, o.payment_status, o.payment_screenshot_url,
                     o.payment_verified_at, o.created_at, o.updated_at,
-                    u.full_name as customer_name,
-                    u.phone as customer_phone,
+                    -- Joined-table columns need ANY_VALUE under only_full_group_by
+                    -- (see getCustomerOrders). Exactly one users row per order via
+                    -- o.customer_id = u.id, so the value is unambiguous.
+                    ANY_VALUE(u.full_name) as customer_name,
+                    ANY_VALUE(u.phone) as customer_phone,
                     COUNT(oi.id) as items_count,
                     GROUP_CONCAT(CONCAT(oi.quantity, '× ', m.name) SEPARATOR ', ') as items_summary,
                     MIN(m.image_url) as meal_image,
@@ -348,8 +357,8 @@ export const getCookOrders = async (req, res) => {
                     EXISTS(SELECT 1 FROM payments p WHERE p.order_id = o.id AND p.status = 'SUCCESS') AS esewa_confirmed
              FROM orders o
              JOIN users u ON o.customer_id = u.id
-             JOIN order_items oi ON o.id = oi.order_id
-             JOIN meals m ON oi.meal_id = m.id
+             LEFT JOIN order_items oi ON o.id = oi.order_id
+             LEFT JOIN meals m ON oi.meal_id = m.id
              WHERE o.cook_id = ?`;
 
         const params = [cookId];

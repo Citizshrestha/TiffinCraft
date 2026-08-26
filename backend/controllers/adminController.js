@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { sendEmail } from "../utils/emailService.js";
 import { notifyCookApprovalUpdate } from "../utils/notificationHelper.js";
 import { applyDeliveryCommission } from "./commissionController.js";
+import { getNptMonthYear, toNpt } from "../utils/nepaliTime.js";
 
 const ALLOWED_ROLES = ["customer", "cook", "admin"];
 
@@ -34,6 +35,32 @@ export const getDashboard = async (req, res) => {
              FROM cook_profiles WHERE is_approved = FALSE`
         );
 
+        // Total orders received across all cooks — counted live from the
+        // orders table. cook_profiles.total_orders is a denormalized counter
+        // that nothing in the codebase ever increments, so summing it always
+        // yields 0. Cancelled orders excluded.
+        const [cookOrders] = await db.promise().query(
+            `SELECT COUNT(*) as cook_total_orders
+             FROM orders
+             WHERE cook_id IS NOT NULL AND status != 'cancelled'`
+        );
+
+        // Admin's own revenue from commission — current NPT month + all time.
+        // Same conventions as commissionController: only delivered orders,
+        // snapshot commission_amount (never recomputed), refunded excluded.
+        const { month: nptMonth, year: nptYear } = getNptMonthYear();
+        const [commission] = await db.promise().query(
+            `SELECT
+                COALESCE(SUM(CASE
+                    WHEN MONTH(${toNpt("delivered_at")}) = ? AND YEAR(${toNpt("delivered_at")}) = ?
+                    THEN commission_amount ELSE 0 END), 0) as month_commission,
+                COALESCE(SUM(commission_amount), 0) as all_time_commission
+             FROM orders
+             WHERE status = 'delivered' AND commission_amount IS NOT NULL
+               AND (refund_status IS NULL OR refund_status != 'refunded')`,
+            [nptMonth, nptYear]
+        );
+
         const [recentOrders] = await db.promise().query(
             `SELECT o.id, o.total_amount, o.status, o.created_at,
                     COALESCE(u.full_name, 'Customer') as customer_name,
@@ -58,14 +85,19 @@ export const getDashboard = async (req, res) => {
              LIMIT 5`
         );
 
+        // Daily metrics for charts. `revenue` is the admin's own earnings
+        // (commission from delivered orders), NOT customer order value —
+        // same conventions as the commission block above.
         const [last7Days] = await db.promise().query(
-            `SELECT DATE_FORMAT(created_at, '%Y-%m-%d') as date,
+            `SELECT DATE_FORMAT(${toNpt("created_at")}, '%Y-%m-%d') as date,
                     COUNT(*) as orders,
-                    COALESCE(SUM(CASE WHEN status IN ('delivered', 'completed')
-                        THEN total_amount ELSE 0 END), 0) as revenue
+                    COALESCE(SUM(CASE
+                        WHEN status = 'delivered' AND commission_amount IS NOT NULL
+                          AND (refund_status IS NULL OR refund_status != 'refunded')
+                        THEN commission_amount ELSE 0 END), 0) as revenue
              FROM orders
              WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-             GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+             GROUP BY DATE_FORMAT(${toNpt("created_at")}, '%Y-%m-%d')
              ORDER BY date ASC`
         );
 
@@ -79,7 +111,10 @@ export const getDashboard = async (req, res) => {
                 total_revenue: Number(orders[0]?.total_revenue) || 0,
                 pending_orders: Number(orders[0]?.pending_orders) || 0,
                 today_orders: Number(orders[0]?.today_orders) || 0,
-                pending_approvals: Number(pendingCooks[0]?.pending_approvals) || 0
+                pending_approvals: Number(pendingCooks[0]?.pending_approvals) || 0,
+                cook_total_orders: Number(cookOrders[0]?.cook_total_orders) || 0,
+                month_commission: Number(commission[0]?.month_commission) || 0,
+                all_time_commission: Number(commission[0]?.all_time_commission) || 0
             },
             recentOrders: recentOrders || [],
             topCooks: topCooks || [],
@@ -99,11 +134,18 @@ export const getDashboard = async (req, res) => {
 // GET /api/admin/reports
 export const getReports = async (req, res) => {
     try {
+        // "Revenue" throughout this endpoint = the admin's own earnings from
+        // commission (delivered orders, snapshot commission_amount, refunds
+        // excluded) — NOT customer order value. Same rules as getDashboard.
+        const COMMISSION_SUM = `COALESCE(SUM(CASE
+            WHEN status = 'delivered' AND commission_amount IS NOT NULL
+              AND (refund_status IS NULL OR refund_status != 'refunded')
+            THEN commission_amount ELSE 0 END), 0)`;
+
         const [[totals]] = await db.promise().query(
             `SELECT
                 COUNT(*) as total_orders,
-                COALESCE(SUM(CASE WHEN status IN ('delivered', 'completed')
-                    THEN total_amount ELSE 0 END), 0) as total_revenue,
+                ${COMMISSION_SUM} as total_revenue,
                 COALESCE(AVG(CASE WHEN status IN ('delivered', 'completed')
                     THEN total_amount END), 0) as avg_order_value
              FROM orders`
@@ -117,13 +159,17 @@ export const getReports = async (req, res) => {
                 SUM(CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
                     AND created_at < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
                     THEN 1 ELSE 0 END) as prev_orders,
-                COALESCE(SUM(CASE WHEN status IN ('delivered', 'completed')
-                    AND created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-                    THEN total_amount ELSE 0 END), 0) as cur_revenue,
-                COALESCE(SUM(CASE WHEN status IN ('delivered', 'completed')
-                    AND created_at >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
-                    AND created_at < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-                    THEN total_amount ELSE 0 END), 0) as prev_revenue,
+                COALESCE(SUM(CASE
+                    WHEN status = 'delivered' AND commission_amount IS NOT NULL
+                      AND (refund_status IS NULL OR refund_status != 'refunded')
+                      AND created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                    THEN commission_amount ELSE 0 END), 0) as cur_revenue,
+                COALESCE(SUM(CASE
+                    WHEN status = 'delivered' AND commission_amount IS NOT NULL
+                      AND (refund_status IS NULL OR refund_status != 'refunded')
+                      AND created_at >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+                      AND created_at < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                    THEN commission_amount ELSE 0 END), 0) as prev_revenue,
                 COUNT(DISTINCT CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
                     THEN customer_id END) as cur_active_users,
                 COUNT(DISTINCT CASE WHEN created_at >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
@@ -139,12 +185,11 @@ export const getReports = async (req, res) => {
         );
 
         // DATE_FORMAT keeps this a plain string so the client can key on it
-        // without timezone drift.
+        // without timezone drift. `revenue` = daily admin commission.
         const [revenueByDay] = await db.promise().query(
             `SELECT DATE_FORMAT(created_at, '%Y-%m-%d') as date,
                     COUNT(*) as orders,
-                    COALESCE(SUM(CASE WHEN status IN ('delivered', 'completed')
-                        THEN total_amount ELSE 0 END), 0) as revenue
+                    ${COMMISSION_SUM} as revenue
              FROM orders
              WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
              GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
@@ -173,7 +218,7 @@ export const getReports = async (req, res) => {
 export const getPendingCooks = async (req, res) => {
     try {
         const [cooks] = await db.promise().query(
-            `SELECT cp.*, u.full_name, u.email, u.phone, u.created_at as registered_at
+            `SELECT cp.*, u.full_name, u.email, u.phone, u.profile_image, u.created_at as registered_at
              FROM cook_profiles cp
              JOIN users u ON cp.user_id = u.id
              WHERE cp.is_approved = FALSE
@@ -1063,7 +1108,7 @@ export const getAllCooks = async (req, res) => {
         const [cooks] = await db.promise().query(
             `SELECT cp.user_id, cp.kitchen_name, cp.rating, cp.total_orders,
                     cp.is_verified, cp.is_approved,
-                    u.full_name, u.email, u.phone, u.is_active, u.created_at
+                    u.full_name, u.email, u.phone, u.is_active, u.profile_image, u.created_at
              FROM cook_profiles cp
              JOIN users u ON cp.user_id = u.id
              ORDER BY u.created_at DESC`
