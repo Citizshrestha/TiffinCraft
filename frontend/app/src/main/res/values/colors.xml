@@ -117,4 +117,16 @@
     <!-- Chat color -->
     <color name="purple_primary">#7C6CF6</color>
     <color name="purple_primary_dark">#6A5AE0</color>
+
+    <!-- Commission banner states (view_commission_banner.xml). The banner is one
+         layout re-tinted at runtime, so each state needs a surface + stroke pair
+         that stays readable against the cook's off-white home background. -->
+    <color name="commission_due_bg">#FFFBF2</color>
+    <color name="commission_due_stroke">#F3E2C0</color>
+    <color name="commission_due_accent">#B26A00</color>
+    <color name="commission_overdue_bg">#FFF5F4</color>
+    <color name="commission_overdue_stroke">#F6C9C5</color>
+    <color name="commission_review_bg">#F4F8FF</color>
+    <color name="commission_review_stroke">#D6E4FA</color>
+    <color name="commission_review_accent">#1B62C4</color>
 </resources>

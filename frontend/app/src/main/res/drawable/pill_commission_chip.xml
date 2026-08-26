@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status chip behind "OVERDUE" / "PART PAID" / "IN REVIEW" on the commission
+     banner. Solid white on purpose: the banner tints this at runtime per state
+     (CommissionBanner.java), so a hardcoded colour here would fight it. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#FFFFFF" />
+    <corners android:radius="100dp" />
+</shape>

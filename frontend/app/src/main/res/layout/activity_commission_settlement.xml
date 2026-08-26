@@ -68,6 +68,7 @@
 
             <!-- ============ AMOUNT DUE CARD ============ -->
             <LinearLayout
+                android:id="@+id/layoutAmountDueCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="20dp"
@@ -125,6 +126,97 @@
                     android:text="Commission owed"
                     android:textColor="#DCEDC8"
                     android:textSize="13sp" />
+
+                <!-- Due date, incl. the 15-day grace period. Hidden for legacy
+                     rows that predate the due_date column. -->
+                <TextView
+                    android:id="@+id/tvDueDateLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text=""
+                    android:textColor="#DCEDC8"
+                    android:textSize="12.5sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- ============ OVERDUE WARNING BANNER ============ -->
+            <!-- Confirmed policy: warning only. Nothing is blocked or suspended
+                 on non-payment; this is purely informational pressure. -->
+            <LinearLayout
+                android:id="@+id/layoutOverdueBanner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginEnd="20dp"
+                android:background="@drawable/status_chip_sold_out"
+                android:orientation="vertical"
+                android:padding="14dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="⚠ Payment overdue"
+                    android:textColor="#A32D2D"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvOverdueBanner"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text=""
+                    android:textColor="#A32D2D"
+                    android:textSize="12.5sp" />
+            </LinearLayout>
+
+            <!-- ============ ACCRUING THIS MONTH (not a bill) ============ -->
+            <!-- Settlement rows only exist once a month closes, so mid-month a
+                 cook would otherwise see nothing at all about what they're
+                 building up. Deliberately styled unlike the amount-due card so
+                 it can't be mistaken for something payable. -->
+            <LinearLayout
+                android:id="@+id/layoutAccruing"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginEnd="20dp"
+                android:background="@drawable/status_chip_pending"
+                android:orientation="vertical"
+                android:padding="14dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvAccruingLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Accruing this month"
+                    android:textColor="@color/status_pending_text"
+                    android:textSize="12.5sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvAccruingAmount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="₹0"
+                    android:textColor="@color/status_pending_text"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvAccruingNote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Not yet due — billed once this month closes."
+                    android:textColor="@color/status_pending_text"
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <!-- ============ EMPTY STATE (nothing due) ============ -->

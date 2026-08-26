@@ -802,12 +802,8 @@ public class CookDetailsActivity extends AppCompatActivity {
     }
 
     /**
-     * Hands off to the eSewa checkout, which calls /api/subscriptions/initiate.
-     *
-     * No subscription is created here and no amount is sent from the device —
-     * the backend charges the plan price it has stored, creates the row as
-     * pending_payment, and only activates it after independently verifying the
-     * payment with eSewa. See EsewaEpayCheckoutActivity's subscription mode.
+     * Starts the manual eSewa payment flow. The subscription stays
+     * pending_payment until the customer uploads proof and the cook verifies it.
      */
     private void startSubscriptionCheckout(SubscriptionPlanResponse.Plan plan, String deliveryAddress) {
         if (sessionManager.getToken() == null || sessionManager.getToken().isEmpty()) {
@@ -815,14 +811,43 @@ public class CookDetailsActivity extends AppCompatActivity {
             return;
         }
 
-        Intent intent = new Intent(this, com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.class);
-        intent.putExtra(com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.EXTRA_MODE,
-                com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.MODE_SUBSCRIPTION);
-        intent.putExtra(com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.EXTRA_PLAN_ID, plan.getId());
-        intent.putExtra(com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.EXTRA_COOK_ID, cookId);
-        intent.putExtra(com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.EXTRA_DELIVERY_ADDRESS, deliveryAddress);
-        intent.putExtra(com.tiffincraft.app.activities.order.EsewaEpayCheckoutActivity.EXTRA_PLAN_NAME, plan.getName());
-        startActivity(intent);
+        String token = "Bearer " + sessionManager.getToken();
+        String startDate = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+        CreateCustomerSubscriptionRequest request = new CreateCustomerSubscriptionRequest(
+                plan.getId(), deliveryAddress, startDate);
+
+        apiService.createSubscription(token, request).enqueue(new Callback<com.tiffincraft.app.models.CreateSubscriptionResponse>() {
+            @Override
+            public void onResponse(Call<com.tiffincraft.app.models.CreateSubscriptionResponse> call,
+                                   Response<com.tiffincraft.app.models.CreateSubscriptionResponse> response) {
+                com.tiffincraft.app.models.CreateSubscriptionResponse body = response.body();
+                if (response.isSuccessful() && body != null && body.isSuccess() && body.getSubscriptionId() > 0) {
+                    Intent intent = new Intent(CookDetailsActivity.this,
+                            com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.class);
+                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_SUBSCRIPTION_ID,
+                            body.getSubscriptionId());
+                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_PLAN_NAME,
+                            plan.getName());
+                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_PLAN_PRICE,
+                            plan.getPricePerDelivery());
+                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_PLAN_DURATION,
+                            plan.getDuration());
+                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_COOK_ESEWA_QR_URL,
+                            cookEsewaQrUrl);
+                    startActivity(intent);
+                    return;
+                }
+
+                String message = body != null && body.getMessage() != null
+                        ? body.getMessage() : "Could not start subscription payment. Please try again.";
+                Toast.makeText(CookDetailsActivity.this, message, Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            public void onFailure(Call<com.tiffincraft.app.models.CreateSubscriptionResponse> call, Throwable t) {
+                Toast.makeText(CookDetailsActivity.this, "Network error. Please try again.", Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     // ─────────────────────────────────────────────
@@ -940,7 +965,7 @@ public class CookDetailsActivity extends AppCompatActivity {
             public void onFailure(Call<CustomerProfileResponse> call, Throwable t) { /* leave blank */ }
         });
 
-        String[] paymentLabels = { "Cash on Delivery", "Online (eSewa / QR)" };
+        String[] paymentLabels = { "Cash on Delivery", "Online payment (eSewa, Khalti, Fonepay, bank)" };
         String[] paymentValues = { "cod", "online" };
         final int[] selectedPayment = { 0 };
 
@@ -973,7 +998,21 @@ public class CookDetailsActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<RegisterResponse> call, Response<RegisterResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                    Toast.makeText(CookDetailsActivity.this, "Order placed for \"" + combo.getName() + "\"!", Toast.LENGTH_SHORT).show();
+                    if ("online".equals(paymentMethod)) {
+                        if (response.body().getOrderId() <= 0) {
+                            Toast.makeText(CookDetailsActivity.this,
+                                    "Could not start payment. Please open the order from My Orders.",
+                                    Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        Intent intent = new Intent(CookDetailsActivity.this,
+                                com.tiffincraft.app.activities.order.OrderDetailsCustomerActivity.class);
+                        intent.putExtra("order_id", response.body().getOrderId());
+                        startActivity(intent);
+                        return;
+                    }
+                    Toast.makeText(CookDetailsActivity.this,
+                            "Order placed for \"" + combo.getName() + "\"!", Toast.LENGTH_SHORT).show();
                 } else {
                     String msg = response.body() != null && response.body().getMessage() != null
                             ? response.body().getMessage() : "Failed to place combo order";

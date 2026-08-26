@@ -132,6 +132,21 @@
                     android:textSize="13.5sp" />
             </LinearLayout>
 
+            <!-- ============ COMMISSION BANNER ============ -->
+            <!-- Above the stats grid on purpose: money the cook owes the platform
+                 is the one thing on this screen with a deadline attached. Bound by
+                 CommissionBanner with hideWhenNothingDue=true, so it is absent
+                 entirely on days when nothing is owed and nothing has accrued —
+                 the permanent entry point lives on the Earnings screen. -->
+            <include
+                android:id="@+id/commissionBanner"
+                layout="@layout/view_commission_banner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp"
+                android:layout_marginBottom="16dp" />
+
             <!-- ============ STATS GRID (2x2) ============ -->
             <LinearLayout
                 android:layout_width="match_parent"

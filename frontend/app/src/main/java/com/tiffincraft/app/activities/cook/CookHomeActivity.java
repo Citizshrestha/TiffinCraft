@@ -41,6 +41,7 @@ import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.ChatPanelManager;
 import com.tiffincraft.app.utils.CurrencyUtils;
 import com.tiffincraft.app.utils.SocketManager;
+import com.tiffincraft.app.views.CommissionBanner;
 import com.tiffincraft.app.views.EarningsMarkerView;
 
 import org.json.JSONObject;
@@ -55,6 +56,8 @@ import retrofit2.Response;
 public class CookHomeActivity extends AppCompatActivity {
 
     private static final String TAG = "CookHomeActivity";
+
+    private CommissionBanner commissionBanner;
 
     private ImageView imgCookProfilePic;
     private TextView tvKitchenName, tvWelcome;
@@ -106,6 +109,11 @@ public class CookHomeActivity extends AppCompatActivity {
             applyEntranceAnimations();
             setupBackPressHandler();
 
+            // hideWhenNothingDue=true: this is a nudge, not a permanent menu item.
+            // A cook who owes nothing and has accrued nothing this month sees no
+            // card at all; the always-available entry point lives on Earnings.
+            commissionBanner = CommissionBanner.attach(this, R.id.commissionBanner, true);
+
             // Click on notification bell
             findViewById(R.id.btnNotifications).setOnClickListener(v -> {
                 Intent intent = new Intent(this, NotificationActivity.class);
@@ -150,6 +158,10 @@ public class CookHomeActivity extends AppCompatActivity {
             bottomNavigation.setSelectedItemId(R.id.nav_home);
         }
         fetchUnreadNotifications();
+
+        // Re-read the commission state on every return: the cook may have just
+        // paid, or the month may have rolled over into a new bill.
+        if (commissionBanner != null) commissionBanner.refresh();
 
         // Refresh stats, earnings and today's orders with real data every time we return here
         fetchDashboardData();

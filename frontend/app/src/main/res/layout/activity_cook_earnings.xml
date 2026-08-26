@@ -276,75 +276,18 @@
             </LinearLayout>
 
             <!-- ============ COMMISSION DUE CARD ============ -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardCommissionDue"
+            <!-- Live state (amount owed, due date, overdue/part-paid) is bound by
+                 CommissionBanner. hideWhenNothingDue is false here: this is the
+                 cook's permanent route into settlement history, so it stays
+                 visible even when nothing is owed. -->
+            <include
+                android:id="@+id/commissionBanner"
+                layout="@layout/view_commission_banner"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="20dp"
                 android:layout_marginTop="14dp"
-                android:layout_marginEnd="20dp"
-                android:clickable="true"
-                android:focusable="true"
-                app:cardBackgroundColor="@color/white"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:strokeColor="@color/stroke_soft"
-                app:strokeWidth="1dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:padding="14dp">
-
-                    <FrameLayout
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:background="@drawable/circle_bg_green_light">
-
-                        <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:layout_gravity="center"
-                            android:contentDescription="Commission due"
-                            android:src="@drawable/ic_wallet"
-                            app:tint="@color/green_primary_dark" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Platform Commission"
-                            android:textColor="@color/text_ink"
-                            android:textSize="13.5sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Pay what you owe and track past settlements"
-                            android:textColor="@color/text_subtitle"
-                            android:textSize="11.5sp" />
-                    </LinearLayout>
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:contentDescription="Open"
-                        android:src="@drawable/ic_chevron_down"
-                        android:rotation="-90"
-                        app:tint="@color/text_disabled" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                android:layout_marginEnd="20dp" />
 
             <!-- ============ EARNINGS TREND CHART ============ -->
             <com.google.android.material.card.MaterialCardView

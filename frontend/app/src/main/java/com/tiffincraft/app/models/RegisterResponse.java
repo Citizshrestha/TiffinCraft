@@ -1,6 +1,9 @@
 package com.tiffincraft.app.models;
 
 public class RegisterResponse {
+
+    @com.google.gson.annotations.SerializedName("orderId")
+    private int orderId;
     private boolean success;
     private String message;
     private int userId;
@@ -8,6 +11,10 @@ public class RegisterResponse {
 
     public boolean isSuccess() {
         return success;
+    }
+
+    public int getOrderId() {
+        return orderId;
     }
 
     public void setSuccess(boolean success) {

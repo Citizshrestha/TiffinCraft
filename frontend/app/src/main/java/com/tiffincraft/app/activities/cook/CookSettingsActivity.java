@@ -65,6 +65,10 @@ public class CookSettingsActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
+        // Platform Commission
+        binding.layoutPlatformCommission.setOnClickListener(v ->
+                startActivity(new Intent(this, CommissionSettlementActivity.class)));
+
         // Edit Kitchen Profile
         binding.layoutEditKitchenProfile.setOnClickListener(v -> {
             Intent intent = new Intent(this, EditCookProfileActivity.class);

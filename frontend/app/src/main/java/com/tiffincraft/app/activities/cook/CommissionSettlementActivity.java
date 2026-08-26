@@ -56,6 +56,7 @@ public class CommissionSettlementActivity extends AppCompatActivity {
     private SessionManager sessionManager;
 
     private CommissionSettlement current;
+    private CommissionSettlementCurrentResponse.Accruing accruing;
     private String adminEsewaQrUrl;
     private ActivityResultLauncher<Intent> imagePickerLauncher;
 
@@ -99,24 +100,84 @@ public class CommissionSettlementActivity extends AppCompatActivity {
         apiService.getAdminQr(token).enqueue(new Callback<AdminQrResponse>() {
             @Override
             public void onResponse(@NonNull Call<AdminQrResponse> call, @NonNull Response<AdminQrResponse> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()
-                        && response.body().getBankDetails() != null) {
-                    adminEsewaQrUrl = response.body().getBankDetails().getEsewaQrUrl();
-                    if (adminEsewaQrUrl != null && !adminEsewaQrUrl.isEmpty()) {
-                        Glide.with(CommissionSettlementActivity.this)
-                                .load(adminEsewaQrUrl)
-                                .placeholder(R.drawable.ic_image_placeholder)
-                                .error(R.drawable.ic_image_placeholder)
-                                .into(binding.ivAdminQr);
-                    }
+                if (!response.isSuccessful() || response.body() == null || !response.body().isSuccess()
+                        || response.body().getBankDetails() == null) {
+                    showQrUnavailable("Couldn't load the platform's payment QR.");
+                    return;
                 }
+
+                // The admin may have uploaded ANY of the three QR types — the old
+                // code read esewa_qr_url only, so an admin who uploaded just a
+                // bank QR left every cook staring at a blank box with no error.
+                // Fall back through them in the order a cook can most easily pay.
+                com.tiffincraft.app.models.BankDetails bd = response.body().getBankDetails();
+                String url = firstNonEmpty(bd.getEsewaQrUrl(), bd.getKhaltiQrUrl(), bd.getBankQrUrl());
+                String label = url == null ? null
+                        : url.equals(bd.getEsewaQrUrl()) ? "eSewa"
+                        : url.equals(bd.getKhaltiQrUrl()) ? "Khalti" : "bank";
+
+                if (url == null) {
+                    showQrUnavailable("The admin hasn't uploaded a payment QR yet — contact them to get one added.");
+                    return;
+                }
+
+                adminEsewaQrUrl = url;
+                binding.ivAdminQr.setVisibility(View.VISIBLE);
+                binding.tvScanToPay.setText("Or scan the platform's " + label + " QR (tap to save)");
+
+                // No .error(placeholder) — a broken asset used to render as an
+                // indistinguishable grey icon, so a dead URL looked identical to
+                // a QR that simply hadn't decoded yet. Say so instead.
+                Glide.with(CommissionSettlementActivity.this)
+                        .load(url)
+                        .placeholder(R.drawable.ic_image_placeholder)
+                        .listener(new com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable>() {
+                            @Override
+                            public boolean onLoadFailed(@Nullable com.bumptech.glide.load.engine.GlideException e,
+                                                        Object model,
+                                                        @NonNull com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target,
+                                                        boolean isFirstResource) {
+                                showQrUnavailable("The platform's QR image failed to load. Use \"Pay with eSewa\" or ask the admin to re-upload it.");
+                                return false;
+                            }
+
+                            @Override
+                            public boolean onResourceReady(@NonNull android.graphics.drawable.Drawable resource,
+                                                           @NonNull Object model,
+                                                           com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target,
+                                                           @NonNull com.bumptech.glide.load.DataSource dataSource,
+                                                           boolean isFirstResource) {
+                                return false;
+                            }
+                        })
+                        .into(binding.ivAdminQr);
             }
 
             @Override
             public void onFailure(@NonNull Call<AdminQrResponse> call, @NonNull Throwable t) {
                 // Non-fatal — the "Pay with eSewa" button still works without the QR.
+                showQrUnavailable("Couldn't reach the server to load the payment QR.");
             }
         });
+    }
+
+    /** Returns the first non-null, non-blank value, or null when there is none. */
+    private String firstNonEmpty(String... values) {
+        for (String v : values) {
+            if (v != null && !v.trim().isEmpty()) return v;
+        }
+        return null;
+    }
+
+    /**
+     * A cook who can't see the QR can't pay, so this must never fail silently:
+     * hide the dead image box and put the actual reason where the caption was.
+     */
+    private void showQrUnavailable(String reason) {
+        adminEsewaQrUrl = null;
+        if (binding == null) return;
+        binding.ivAdminQr.setVisibility(View.GONE);
+        binding.tvScanToPay.setText(reason);
     }
 
     private void loadCurrentSettlement() {
@@ -136,6 +197,7 @@ public class CommissionSettlementActivity extends AppCompatActivity {
                 CommissionSettlement toShow = response.body().getPastDue() != null
                         ? response.body().getPastDue() : response.body().getCurrent();
                 current = toShow;
+                accruing = response.body().getAccruing();
                 render();
             }
 
@@ -147,26 +209,96 @@ public class CommissionSettlementActivity extends AppCompatActivity {
         });
     }
 
-    private static final String[] MONTH_NAMES = {
-            "January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December"
-    };
+    // Shared with the CommissionBanner on home/earnings so a due date can never
+    // render one way here and another way there. See CommissionFormat.
+    private static final String[] MONTH_NAMES = com.tiffincraft.app.utils.CommissionFormat.MONTH_NAMES;
+
+    private String todayNptIso() {
+        return com.tiffincraft.app.utils.CommissionFormat.todayNptIso();
+    }
+
+    private String formatDueDate(String iso) {
+        return com.tiffincraft.app.utils.CommissionFormat.formatDueDate(iso);
+    }
+
+    /**
+     * Live accrual for the month in progress. Shown whether or not a bill
+     * exists, because the two answer different questions ("what do I owe?"
+     * vs "what am I building up?"). Hidden at zero so a cook with no
+     * deliveries this month isn't shown a meaningless ₹0.
+     */
+    private void renderAccruing() {
+        boolean show = accruing != null && accruing.getAmount() > 0;
+        binding.layoutAccruing.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (!show) return;
+
+        binding.tvAccruingAmount.setText(CurrencyUtils.formatRupees(accruing.getAmount()));
+        int n = accruing.getOrderCount();
+        String period = accruing.getMonth() >= 1 && accruing.getMonth() <= 12
+                ? MONTH_NAMES[accruing.getMonth() - 1] : "this month";
+        binding.tvAccruingLabel.setText("Accruing in " + period + " · " + n + " delivered order" + (n == 1 ? "" : "s"));
+    }
 
     private void render() {
+        renderAccruing();
+
         if (current == null) {
             setSectionVisible(false, false, false);
-            binding.layoutEmptyState.setVisibility(View.VISIBLE);
+            binding.layoutOverdueBanner.setVisibility(View.GONE);
+            binding.tvDueDateLabel.setVisibility(View.GONE);
+            // No bill exists, so the amount-due card would just show a stale
+            // "₹0 / This Month" above the accruing card and contradict it.
+            binding.layoutAmountDueCard.setVisibility(View.GONE);
+            // Only truly "nothing going on" if there's also no live accrual —
+            // otherwise the accruing card is the content and a competing
+            // "nothing due" illustration just contradicts it.
+            binding.layoutEmptyState.setVisibility(
+                    binding.layoutAccruing.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
             return;
         }
+        binding.layoutAmountDueCard.setVisibility(View.VISIBLE);
         binding.layoutEmptyState.setVisibility(View.GONE);
 
         binding.tvPeriodLabel.setText(MONTH_NAMES[current.getMonth() - 1] + " " + current.getYear());
-        binding.tvAmountDue.setText(CurrencyUtils.formatRupees(current.getAmountDue()));
-        binding.tvOrderCountLabel.setText(current.getOrderCount() + " order" + (current.getOrderCount() == 1 ? "" : "s") + " this period");
+
+        // EC3: once a part payment has been recorded, the headline figure must be
+        // what's still owed — showing the original amount_due would tell a cook who
+        // has already paid ₹100 of ₹145 to pay ₹145 again. amount_due itself is
+        // never rewritten, so it's still shown, as context on the line below.
+        String orderLine = current.getOrderCount() + " order" + (current.getOrderCount() == 1 ? "" : "s") + " this period";
+        if (current.isPartiallyPaid()) {
+            binding.tvAmountDue.setText(CurrencyUtils.formatRupees(current.getAmountRemaining()));
+            orderLine += " · " + CurrencyUtils.formatRupees(current.getAmountPaid())
+                    + " of " + CurrencyUtils.formatRupees(current.getAmountDue()) + " already received";
+        } else {
+            binding.tvAmountDue.setText(CurrencyUtils.formatRupees(current.getAmountDue()));
+        }
+        binding.tvOrderCountLabel.setText(orderLine);
+
+        // Due date + overdue warning. Policy: warn only — nothing is blocked.
+        String today = todayNptIso();
+        String pretty = formatDueDate(current.getDueDate());
+        boolean overdue = current.isOverdue(today);
+
+        if (pretty != null && !current.isVerified()) {
+            binding.tvDueDateLabel.setText(overdue ? "Was due " + pretty : "Due by " + pretty);
+            binding.tvDueDateLabel.setVisibility(View.VISIBLE);
+        } else {
+            binding.tvDueDateLabel.setVisibility(View.GONE);
+        }
+
+        if (overdue) {
+            binding.tvOverdueBanner.setText(pretty != null
+                    ? "This commission was due on " + pretty + ". Please pay it as soon as possible to keep your kitchen in good standing."
+                    : "This commission is past its due date. Please pay it as soon as possible to keep your kitchen in good standing.");
+            binding.layoutOverdueBanner.setVisibility(View.VISIBLE);
+        } else {
+            binding.layoutOverdueBanner.setVisibility(View.GONE);
+        }
 
         switch (current.getStatus()) {
             case "pending":
-                binding.tvStatusChip.setText("Pending");
+                binding.tvStatusChip.setText(current.isPartiallyPaid() ? "Part paid" : "Pending");
                 setSectionVisible(true, false, false);
                 break;
             case "submitted":

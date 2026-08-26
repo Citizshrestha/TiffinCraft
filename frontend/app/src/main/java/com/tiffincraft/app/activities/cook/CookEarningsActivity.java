@@ -36,6 +36,7 @@ import com.tiffincraft.app.models.MonthlyBreakdown;
 import com.tiffincraft.app.models.WeeklyBreakdown;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.CurrencyUtils;
+import com.tiffincraft.app.views.CommissionBanner;
 import com.tiffincraft.app.views.EarningsMarkerView;
 
 import java.io.File;
@@ -65,6 +66,8 @@ public class CookEarningsActivity extends AppCompatActivity {
     private ActivityCookEarningsBinding binding;
     private ApiService apiService;
     private SessionManager sessionManager;
+
+    private CommissionBanner commissionBanner;
 
     private EarningsAdapter adapter;
     private final List<EarningsTransaction> transactions = new ArrayList<>();
@@ -97,6 +100,19 @@ public class CookEarningsActivity extends AppCompatActivity {
         setupEarningsTrendChart();
         setupBottomNavigation();
         fetchEarnings();
+
+        // hideWhenNothingDue=false: on Earnings the banner doubles as the cook's
+        // permanent route into settlement history, so it must stay visible even
+        // when the balance is zero.
+        commissionBanner = CommissionBanner.attach(this, R.id.commissionBanner, false);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Coming back from the settlement screen after uploading proof must not
+        // leave a stale "Pay Now" banner behind.
+        if (commissionBanner != null) commissionBanner.refresh();
     }
 
     private void setupRecyclerView() {
@@ -121,9 +137,6 @@ public class CookEarningsActivity extends AppCompatActivity {
             trendRange = (trendRange + 1) % 3;
             renderTrendChart();
         });
-
-        binding.cardCommissionDue.setOnClickListener(v ->
-                startActivity(new Intent(this, CommissionSettlementActivity.class)));
     }
 
     // ==================== Data ====================
