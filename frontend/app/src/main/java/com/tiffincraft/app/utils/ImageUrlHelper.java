@@ -61,6 +61,29 @@ public final class ImageUrlHelper {
     }
 
     /**
+     * Load a profile/avatar image in a circular crop.
+     */
+    public static void loadCircle(ImageView target, @Nullable String imageUrl, @DrawableRes int placeholder) {
+        if (target == null) return;
+        String full = resolve(imageUrl);
+        if (full == null) {
+            target.setImageResource(placeholder);
+            return;
+        }
+
+        RequestOptions options = new RequestOptions()
+                .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
+                .placeholder(placeholder)
+                .error(placeholder)
+                .circleCrop();
+
+        Glide.with(target.getContext())
+                .load(modelFor(full))
+                .apply(options)
+                .into(target);
+    }
+
+    /**
      * @param cornerRadiusPx optional rounded corners (0 = none, only centerCrop)
      */
     public static void load(ImageView target, @Nullable String imageUrl,
