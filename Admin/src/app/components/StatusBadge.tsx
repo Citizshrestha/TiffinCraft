@@ -24,7 +24,11 @@ type StatusType =
   | "rejected"
   | "processed"
   | "submitted"
-  | "overdue";
+  | "overdue"
+  | "booked"
+  | "success"
+  | "canceled"
+  | "reverted";
 
 const statusConfig: Record<
   StatusType,
@@ -138,6 +142,26 @@ const statusConfig: Record<
     color: "#f25959",
     label: "Overdue",
   },
+  booked: {
+    bg: "rgba(242,199,64,0.12)",
+    color: "#f2c740",
+    label: "Booked",
+  },
+  success: {
+    bg: "rgba(16,185,129,0.12)",
+    color: "#10b981",
+    label: "Success",
+  },
+  canceled: {
+    bg: "rgba(242,89,89,0.12)",
+    color: "#f25959",
+    label: "Canceled",
+  },
+  reverted: {
+    bg: "rgba(120,135,250,0.12)",
+    color: "#7887fa",
+    label: "Reverted",
+  },
 };
 
 interface StatusBadgeProps {
@@ -145,7 +169,11 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {
-  const config = statusConfig[status];
+  const config = statusConfig[status] || {
+    bg: "rgba(148,153,166,0.12)",
+    color: "#9499a6",
+    label: status ? String(status).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Unknown",
+  };
   return (
     <span
       className="inline-flex items-center px-[10px] py-[4px] rounded-[12px] text-[12px] whitespace-nowrap"
