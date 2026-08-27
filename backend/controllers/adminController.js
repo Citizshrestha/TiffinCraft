@@ -73,15 +73,20 @@ export const getDashboard = async (req, res) => {
              LIMIT 5`
         );
 
+        // Top cooks by rating and actual order count (not the denormalized
+        // cp.total_orders which is never incremented). Counts delivered orders only.
         const [topCooks] = await db.promise().query(
             `SELECT cp.user_id, 
                     COALESCE(cp.kitchen_name, u.full_name, 'Cook') as kitchen_name, 
                     COALESCE(cp.rating, 0) as rating, 
-                    COALESCE(cp.total_orders, 0) as total_orders,
+                    COUNT(DISTINCT o.id) as total_orders,
                     u.profile_image
              FROM cook_profiles cp
              LEFT JOIN users u ON cp.user_id = u.id
-             ORDER BY cp.rating DESC, cp.total_orders DESC
+             LEFT JOIN orders o ON o.cook_id = cp.user_id AND o.status IN ('delivered', 'completed')
+             WHERE cp.is_approved = TRUE
+             GROUP BY cp.user_id, cp.kitchen_name, u.full_name, cp.rating, u.profile_image
+             ORDER BY cp.rating DESC, total_orders DESC
              LIMIT 5`
         );
 
@@ -1106,11 +1111,15 @@ export const deleteMeal = async (req, res) => {
 export const getAllCooks = async (req, res) => {
     try {
         const [cooks] = await db.promise().query(
-            `SELECT cp.user_id, cp.kitchen_name, cp.rating, cp.total_orders,
+            `SELECT cp.user_id, cp.kitchen_name, cp.rating, 
+                    COUNT(DISTINCT o.id) as total_orders,
                     cp.is_verified, cp.is_approved,
                     u.full_name, u.email, u.phone, u.is_active, u.profile_image, u.created_at
              FROM cook_profiles cp
              JOIN users u ON cp.user_id = u.id
+             LEFT JOIN orders o ON o.cook_id = cp.user_id AND o.status IN ('delivered', 'completed')
+             GROUP BY cp.user_id, cp.kitchen_name, cp.rating, cp.is_verified, cp.is_approved,
+                      u.full_name, u.email, u.phone, u.is_active, u.profile_image, u.created_at
              ORDER BY u.created_at DESC`
         );
 
