@@ -1,27 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-  One delivery day in the subscription calendar.
-
-  The action button is never hidden when a day can't be changed — it's greyed
-  out and relabelled ("Cutoff passed"). Hiding it made the screen look broken:
-  a row with no control gives the customer nothing to reason about, whereas a
-  disabled control plus tvDayLockedNote explains itself.
+  Professional delivery day card with modern visual hierarchy and enhanced status visualization.
 -->
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="10dp"
+    android:layout_marginBottom="12dp"
     app:cardBackgroundColor="@color/white"
-    app:cardCornerRadius="14dp"
-    app:cardElevation="0dp"
-    app:strokeColor="@color/stroke_soft"
-    app:strokeWidth="1dp">
+    app:cardCornerRadius="16dp"
+    app:cardElevation="2dp"
+    app:strokeWidth="0dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="14dp">
+        android:padding="18dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -29,13 +23,14 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <!-- Left colour rail: the at-a-glance signal when scanning the list. -->
+            <!-- Modern accent indicator -->
             <View
                 android:id="@+id/viewDayAccent"
-                android:layout_width="4dp"
-                android:layout_height="38dp"
-                android:layout_marginEnd="12dp"
-                android:background="@color/green_primary_dark" />
+                android:layout_width="5dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="16dp"
+                android:background="@drawable/bg_pill_green"
+                android:elevation="1dp" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -47,19 +42,22 @@
                     android:id="@+id/tvDayDate"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="-0.01"
                     android:text="Thu, 28 Aug"
-                    android:textColor="@color/text_ink"
-                    android:textSize="15sp"
+                    android:textColor="#1F2937"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/tvDayRelative"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="sans-serif"
                     android:text="Tomorrow"
-                    android:textColor="@color/text_subtitle"
-                    android:textSize="12sp" />
+                    android:textColor="#6B7280"
+                    android:textSize="13sp" />
             </LinearLayout>
 
             <TextView
@@ -67,48 +65,96 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/status_chip_delivered"
-                android:paddingStart="12dp"
-                android:paddingTop="5dp"
-                android:paddingEnd="12dp"
-                android:paddingBottom="5dp"
+                android:elevation="1dp"
+                android:fontFamily="sans-serif-medium"
+                android:paddingStart="14dp"
+                android:paddingTop="7dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="7dp"
                 android:text="Scheduled"
                 android:textColor="@color/status_delivered_text"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- The cook's reason for closing, or the customer's own note. -->
-        <TextView
-            android:id="@+id/tvDayReason"
+        <!-- Cook's reason or customer's note with better styling -->
+        <LinearLayout
+            android:id="@+id/layoutDayReason"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:textColor="@color/text_subtitle"
-            android:textSize="12sp"
-            android:visibility="gone" />
+            android:layout_marginStart="21dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginEnd="0dp"
+            android:background="#F9FAFB"
+            android:orientation="horizontal"
+            android:padding="12dp"
+            android:visibility="gone">
 
-        <!-- Why this day is frozen. Shown alongside the disabled button, not instead of it. -->
-        <TextView
-            android:id="@+id/tvDayLockedNote"
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:text="💬"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tvDayReason"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="sans-serif"
+                android:lineSpacingExtra="2dp"
+                android:textColor="#6B7280"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <!-- Locked note with icon -->
+        <LinearLayout
+            android:id="@+id/layoutDayLocked"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:textColor="@color/status_pending_text"
-            android:textSize="11sp"
-            android:visibility="gone" />
+            android:layout_marginStart="21dp"
+            android:layout_marginTop="12dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:text="🔒"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tvDayLockedNote"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="sans-serif"
+                android:textColor="#F59E0B"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Modern action button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnDayAction"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
-            android:layout_height="40dp"
-            android:layout_marginTop="10dp"
+            android:layout_height="46dp"
+            android:layout_marginStart="21dp"
+            android:layout_marginTop="14dp"
+            android:layout_marginEnd="0dp"
+            android:fontFamily="sans-serif-medium"
             android:insetTop="0dp"
             android:insetBottom="0dp"
+            android:letterSpacing="0.01"
             android:text="Skip this day"
-            android:textSize="13sp"
-            app:cornerRadius="10dp"
-            app:strokeColor="@color/green_primary_dark" />
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            app:cornerRadius="12dp"
+            app:strokeColor="@color/green_primary_dark"
+            app:strokeWidth="1.5dp" />
     </LinearLayout>
 
 </com.google.android.material.card.MaterialCardView>

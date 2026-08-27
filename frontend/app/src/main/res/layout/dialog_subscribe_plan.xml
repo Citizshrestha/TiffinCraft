@@ -289,7 +289,7 @@
                 android:layout_marginStart="12dp"
                 android:layout_weight="1.4"
                 android:backgroundTint="@color/sub_primary"
-                android:text="Pay with eSewa"
+                android:text="Pay"
                 android:textAllCaps="false"
                 android:textColor="@color/white"
                 android:textStyle="bold"

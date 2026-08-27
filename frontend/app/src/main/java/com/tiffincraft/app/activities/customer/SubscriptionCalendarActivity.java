@@ -67,6 +67,8 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             tvSummaryCredits, tvCutoffBanner, tvEmptyDays;
     private androidx.swiperefreshlayout.widget.SwipeRefreshLayout swipeRefresh;
 
+    private View cardCutoffBanner;
+
     private final List<SubscriptionCalendarResponse.Day> days = new ArrayList<>();
     private String todayNpt;
     private boolean isCustomerView = true;
@@ -90,6 +92,7 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
 
         layoutDays = findViewById(R.id.layoutDays);
         cardSummary = findViewById(R.id.cardSummary);
+        cardCutoffBanner = findViewById(R.id.cardCutoffBanner);
         progressLoading = findViewById(R.id.progressLoading);
         tvHeaderPlan = findViewById(R.id.tvHeaderPlan);
         tvSummaryTitle = findViewById(R.id.tvSummaryTitle);
@@ -217,7 +220,7 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
 
     private void renderCutoff(SubscriptionCalendarResponse.Cutoff cutoff) {
         if (cutoff == null || !isCustomerView) {
-            tvCutoffBanner.setVisibility(View.GONE);
+            cardCutoffBanner.setVisibility(View.GONE);
             return;
         }
         String label = cutoff.getLabel() != null ? cutoff.getLabel() : "the daily cutoff";
@@ -228,7 +231,7 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
                 ? "Changes to " + date + " close at " + label + " — " + remaining + " left."
                 : "Today's " + label + " cutoff has passed. The earliest day you can still change is the one after "
                         + date + ".");
-        tvCutoffBanner.setVisibility(View.VISIBLE);
+        cardCutoffBanner.setVisibility(View.VISIBLE);
     }
 
     private void renderDays() {
@@ -242,7 +245,9 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             TextView tvDate = row.findViewById(R.id.tvDayDate);
             TextView tvRelative = row.findViewById(R.id.tvDayRelative);
             TextView tvChip = row.findViewById(R.id.tvDayStatusChip);
+            LinearLayout layoutReason = row.findViewById(R.id.layoutDayReason);
             TextView tvReason = row.findViewById(R.id.tvDayReason);
+            LinearLayout layoutLocked = row.findViewById(R.id.layoutDayLocked);
             TextView tvLocked = row.findViewById(R.id.tvDayLockedNote);
             MaterialButton btnAction = row.findViewById(R.id.btnDayAction);
             View accent = row.findViewById(R.id.viewDayAccent);
@@ -259,12 +264,12 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
                 tvReason.setText("cook".equals(day.getToggledBy())
                         ? "Cook's note: " + day.getReason()
                         : "Your note: " + day.getReason());
-                tvReason.setVisibility(View.VISIBLE);
+                layoutReason.setVisibility(View.VISIBLE);
             } else {
-                tvReason.setVisibility(View.GONE);
+                layoutReason.setVisibility(View.GONE);
             }
 
-            applyDayAction(day, btnAction, tvLocked);
+            applyDayAction(day, btnAction, layoutLocked, tvLocked);
 
             layoutDays.addView(row);
         }
@@ -312,8 +317,8 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
      * bulk action on the cook's own Today's Deliveries screen, because it hits
      * every subscriber, not just this one.
      */
-    private void applyDayAction(SubscriptionCalendarResponse.Day day, MaterialButton btn, TextView lockedNote) {
-        lockedNote.setVisibility(View.GONE);
+    private void applyDayAction(SubscriptionCalendarResponse.Day day, MaterialButton btn, LinearLayout layoutLocked, TextView lockedNote) {
+        layoutLocked.setVisibility(View.GONE);
 
         if (!isCustomerView) {
             btn.setVisibility(View.GONE);
@@ -336,7 +341,7 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             btn.setText("Cutoff passed");
             if (day.getLockedMessage() != null) {
                 lockedNote.setText(day.getLockedMessage());
-                lockedNote.setVisibility(View.VISIBLE);
+                layoutLocked.setVisibility(View.VISIBLE);
             }
         } else if (day.isCustomerSkipped()) {
             btn.setText("You already skipped this day");
