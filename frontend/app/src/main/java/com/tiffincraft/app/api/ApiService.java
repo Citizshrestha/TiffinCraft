@@ -420,6 +420,57 @@ public interface ApiService {
     @PUT("subscriptions/{id}/verify-payment")
     Call<RegisterResponse> verifySubscriptionPayment(@Header("Authorization") String token, @Path("id") int subscriptionId, @Body com.google.gson.JsonObject requestBody);
 
+    // ==================== Per-day delivery schedule ====================
+    //
+    // Note the path prefix on the cook endpoints: the server mounts these under
+    // "/api/cook" (SINGULAR). "cooks/..." 404s.
+
+    /**
+     * The next ~14 delivery days for one subscription, each with its real logged
+     * status and whether it can still be changed. Served to the owning customer
+     * AND to the cook of that subscription; anyone else gets 403.
+     *
+     * Replaces the flat "Active" label — that showed a single on/off flag and a
+     * raw ISO timestamp for the next delivery.
+     */
+    @GET("subscriptions/{id}/calendar")
+    Call<com.tiffincraft.app.models.SubscriptionCalendarResponse> getSubscriptionCalendar(
+            @Header("Authorization") String token, @Path("id") int subscriptionId);
+
+    /**
+     * Customer skips one day. Body is {date: 'YYYY-MM-DD', reason?}.
+     *
+     * Free: no meal credit is spent and the cycle slides a day later, so the
+     * customer still gets every meal they paid for. Rejected with a specific
+     * message (not a generic failure) once that date's cutoff has passed.
+     */
+    @POST("subscriptions/{id}/skip-day")
+    Call<com.tiffincraft.app.models.DayActionResponse> skipSubscriptionDay(
+            @Header("Authorization") String token, @Path("id") int subscriptionId,
+            @Body com.google.gson.JsonObject requestBody);
+
+    /** Everyone the cook is cooking for on `date` (defaults to today in Nepal Time). */
+    @GET("cook/today-deliveries")
+    Call<com.tiffincraft.app.models.TodayDeliveriesResponse> getTodayDeliveries(
+            @Header("Authorization") String token, @Query("date") String date);
+
+    /**
+     * Cook closes the kitchen for a whole date. Body is {date, reason?}.
+     *
+     * BULK — every one of this cook's active subscribers loses that day (and is
+     * refunded it), in a single transaction. Days already delivered, or already
+     * skipped by the customer, are left untouched and reported back separately
+     * so nothing is compensated twice.
+     */
+    @POST("cook/daily-availability")
+    Call<com.tiffincraft.app.models.DayActionResponse> setCookDailyUnavailability(
+            @Header("Authorization") String token, @Body com.google.gson.JsonObject requestBody);
+
+    /** Cook reopens a date they had closed, restoring the affected subscriber days. */
+    @DELETE("cook/daily-availability/{date}")
+    Call<com.tiffincraft.app.models.DayActionResponse> clearCookDailyUnavailability(
+            @Header("Authorization") String token, @Path("date") String date);
+
     // ==================== Combo Deals (cook-authored, one-time bundle) ====================
 
     @POST("combos")

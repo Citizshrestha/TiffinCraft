@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  One delivery day in the subscription calendar.
+
+  The action button is never hidden when a day can't be changed — it's greyed
+  out and relabelled ("Cutoff passed"). Hiding it made the screen look broken:
+  a row with no control gives the customer nothing to reason about, whereas a
+  disabled control plus tvDayLockedNote explains itself.
+-->
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="10dp"
+    app:cardBackgroundColor="@color/white"
+    app:cardCornerRadius="14dp"
+    app:cardElevation="0dp"
+    app:strokeColor="@color/stroke_soft"
+    app:strokeWidth="1dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <!-- Left colour rail: the at-a-glance signal when scanning the list. -->
+            <View
+                android:id="@+id/viewDayAccent"
+                android:layout_width="4dp"
+                android:layout_height="38dp"
+                android:layout_marginEnd="12dp"
+                android:background="@color/green_primary_dark" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvDayDate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Thu, 28 Aug"
+                    android:textColor="@color/text_ink"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvDayRelative"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Tomorrow"
+                    android:textColor="@color/text_subtitle"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvDayStatusChip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/status_chip_delivered"
+                android:paddingStart="12dp"
+                android:paddingTop="5dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="5dp"
+                android:text="Scheduled"
+                android:textColor="@color/status_delivered_text"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- The cook's reason for closing, or the customer's own note. -->
+        <TextView
+            android:id="@+id/tvDayReason"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/text_subtitle"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+        <!-- Why this day is frozen. Shown alongside the disabled button, not instead of it. -->
+        <TextView
+            android:id="@+id/tvDayLockedNote"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/status_pending_text"
+            android:textSize="11sp"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnDayAction"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_marginTop="10dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="Skip this day"
+            android:textSize="13sp"
+            app:cornerRadius="10dp"
+            app:strokeColor="@color/green_primary_dark" />
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

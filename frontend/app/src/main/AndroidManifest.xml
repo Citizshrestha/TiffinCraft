@@ -252,6 +252,12 @@
             android:name=".activities.customer.CustomerSubscriptionsActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
+        <!-- Per-day delivery schedule. Opened by both sides — the response's
+             `viewer` field, not the session role, decides what's actionable. -->
+        <activity
+            android:name=".activities.customer.SubscriptionCalendarActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
         <activity
             android:name=".activities.customer.CustomerSettingsActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
@@ -303,6 +309,10 @@
 
         <activity
             android:name=".activities.cook.CookSubscribersActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.TodayDeliveriesActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
         <activity

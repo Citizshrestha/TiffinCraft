@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  Optional note attached to a kitchen closure.
+
+  Optional on purpose: making a reason mandatory would tempt a cook in a hurry
+  to type "x" — and the closure itself has to be possible before the cutoff
+  regardless. When a note IS given the customer sees it on the closed day, which
+  is the difference between "kitchen closed" and "closed — family emergency".
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="4dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="4dp">
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Reason (optional — shown to customers)"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etReason"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textCapSentences|textMultiLine"
+            android:maxLength="200"
+            android:maxLines="3"
+            android:textSize="14sp" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+</LinearLayout>
