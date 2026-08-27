@@ -20,12 +20,10 @@ import com.tiffincraft.app.models.RegisterResponse;
 import com.tiffincraft.app.models.SubscriptionResponse;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.CurrencyUtils;
+import com.tiffincraft.app.utils.DeliveryDateUtils;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -142,6 +140,15 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
 
             applyStatus(sub, tvStatusChip, tvDetail, btnManage);
 
+            // Tapping the card itself opens the schedule for any subscription
+            // that has actually been paid for — one tap to the thing customers
+            // come here for, with pause/cancel still behind the Manage button.
+            if (sub.isLiveAndPaid() || "verified".equals(sub.getStatus())) {
+                card.setOnClickListener(v -> openCalendar(sub));
+            } else {
+                card.setClickable(false);
+            }
+
             layoutSubscriptions.addView(card);
         }
     }
@@ -235,13 +242,51 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
             return;
         }
 
+        if ("pending_verification".equals(status)) {
+            // Paid, but the cook hasn't confirmed it yet. A real state the
+            // customer waits in — not the same as "hasn't paid".
+            chip.setText("Awaiting Verification");
+            chip.setBackgroundResource(R.drawable.status_chip_preparing);
+            chip.setTextColor(getColor(R.color.status_preparing_text));
+            detail.setText("The cook is confirming your payment. Deliveries start "
+                    + DeliveryDateUtils.formatLongDate(sub.getStartDate()) + ".");
+            btnManage.setText("View Status");
+            btnManage.setOnClickListener(v -> openSubscriptionPayment(sub));
+            return;
+        }
+
+        if ("verified".equals(status) || "scheduled".equals(status)) {
+            // Paid AND confirmed — the customer's chosen start date simply hasn't
+            // arrived. Showing "Active" here would promise deliveries that aren't
+            // coming yet; showing a payment prompt would ask for money twice.
+            chip.setText("Starts soon");
+            chip.setBackgroundResource(R.drawable.status_chip_preparing);
+            chip.setTextColor(getColor(R.color.status_preparing_text));
+            detail.setText("All set — your first delivery is "
+                    + DeliveryDateUtils.formatLongDate(sub.getStartDate())
+                    + ". Nothing to do until then.");
+            btnManage.setText("View Schedule");
+            btnManage.setOnClickListener(v -> openCalendar(sub));
+            return;
+        }
+
         // active
         chip.setText("Active");
         chip.setBackgroundResource(R.drawable.status_chip_delivered);
         chip.setTextColor(getColor(R.color.status_delivered_text));
-        detail.setText("Next delivery: " + formatShortDate(sub.getNextDeliveryDate()));
+        // Nullable now: a subscription whose every remaining day is skipped has
+        // no next delivery, and printing "null" (or the raw ISO timestamp this
+        // used to show) is worse than saying so.
+        detail.setText(sub.getNextDeliveryDate() != null
+                ? "Next delivery " + DeliveryDateUtils.formatLongDate(sub.getNextDeliveryDate())
+                : "No upcoming delivery — every remaining day is skipped or closed.");
         btnManage.setText("Manage");
         btnManage.setOnClickListener(v -> showManageDialog(sub));
+    }
+
+    /** The per-day schedule: skip a day, see what the cook has closed. */
+    private void openCalendar(SubscriptionResponse.Subscription sub) {
+        startActivity(SubscriptionCalendarActivity.intentFor(this, sub.getId(), sub.getPlanName()));
     }
 
     /**
@@ -268,12 +313,21 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    /**
+     * Pause/cancel, plus the way into the per-day schedule.
+     *
+     * The calendar option is listed FIRST and worded as the everyday action:
+     * skipping one day is what a customer actually wants most of the time, and
+     * before this screen had it the only thing they could do to a single
+     * inconvenient day was pause or cancel the whole subscription.
+     */
     private void showManageDialog(SubscriptionResponse.Subscription sub) {
-        String[] options = { "Pause subscription", "Cancel subscription" };
+        String[] options = { "View & skip delivery days", "Pause subscription", "Cancel subscription" };
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Manage Subscription")
                 .setItems(options, (dialog, which) -> {
-                    if (which == 0) pauseSubscription(sub);
+                    if (which == 0) openCalendar(sub);
+                    else if (which == 1) pauseSubscription(sub);
                     else confirmCancel(sub);
                 })
                 .show();
@@ -345,17 +399,5 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
         intent.putExtra(SubscriptionPaymentActivity.EXTRA_PAYMENT_STATUS, sub.getPaymentStatus());
         intent.putExtra(SubscriptionPaymentActivity.EXTRA_VERIFICATION_NOTES, sub.getVerificationNotes());
         startActivity(intent);
-    }
-
-    private String formatShortDate(String isoDate) {
-        if (isoDate == null || isoDate.isEmpty()) return "—";
-        try {
-            SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
-            SimpleDateFormat outputFormat = new SimpleDateFormat("d MMM yyyy", Locale.US);
-            Date date = inputFormat.parse(isoDate.substring(0, 10));
-            return date != null ? outputFormat.format(date) : isoDate;
-        } catch (Exception e) {
-            return isoDate;
-        }
     }
 }

@@ -40,7 +40,6 @@ import com.tiffincraft.app.models.SubscriptionPlanResponse;
 import com.tiffincraft.app.adapters.ReviewAdapter;
 import com.tiffincraft.app.session.SessionManager;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -802,17 +801,59 @@ public class CookDetailsActivity extends AppCompatActivity {
     }
 
     /**
-     * Starts the manual eSewa payment flow. The subscription stays
-     * pending_payment until the customer uploads proof and the cook verifies it.
+     * Asks when deliveries should start, then starts the manual eSewa payment
+     * flow. The subscription stays pending_payment until the customer uploads
+     * proof and the cook verifies it.
+     *
+     * The date is the customer's to choose, and it survives verification — the
+     * cook confirming payment today for a start date next week produces a
+     * 'scheduled' subscription that activates on the day, not one that starts
+     * immediately. Before this, the start date was hardcoded to *today*, which
+     * silently discarded the choice and promised a meal for a day whose kitchen
+     * cutoff had already passed.
      */
     private void startSubscriptionCheckout(SubscriptionPlanResponse.Plan plan, String deliveryAddress) {
         if (sessionManager.getToken() == null || sessionManager.getToken().isEmpty()) {
             Toast.makeText(this, "Your session expired. Please log in again.", Toast.LENGTH_LONG).show();
             return;
         }
+        promptForStartDate(plan, deliveryAddress);
+    }
 
+    /**
+     * Tomorrow by default, and never earlier: today's kitchen cutoff has already
+     * passed by the time anyone is looking at this screen, so a same-day start
+     * would commit the cook to a meal they can no longer be told about.
+     *
+     * Bounds are the device's calendar, which is only a UI convenience — the
+     * server re-validates the date against Nepal Time and rejects anything past
+     * +30 days or in the past, so a wrong device clock can't smuggle a bad date
+     * through.
+     */
+    private void promptForStartDate(SubscriptionPlanResponse.Plan plan, String deliveryAddress) {
+        long tomorrowMillis = com.tiffincraft.app.utils.DeliveryDateUtils.deviceMillisPlusDays(1);
+
+        java.util.Calendar initial = java.util.Calendar.getInstance();
+        initial.setTimeInMillis(tomorrowMillis);
+
+        android.app.DatePickerDialog picker = new android.app.DatePickerDialog(
+                this,
+                (view, year, month, dayOfMonth) -> {
+                    String chosen = String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, dayOfMonth);
+                    submitSubscription(plan, deliveryAddress, chosen);
+                },
+                initial.get(java.util.Calendar.YEAR),
+                initial.get(java.util.Calendar.MONTH),
+                initial.get(java.util.Calendar.DAY_OF_MONTH));
+
+        picker.setTitle("First delivery day");
+        picker.getDatePicker().setMinDate(tomorrowMillis);
+        picker.getDatePicker().setMaxDate(com.tiffincraft.app.utils.DeliveryDateUtils.deviceMillisPlusDays(30));
+        picker.show();
+    }
+
+    private void submitSubscription(SubscriptionPlanResponse.Plan plan, String deliveryAddress, String startDate) {
         String token = "Bearer " + sessionManager.getToken();
-        String startDate = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
         CreateCustomerSubscriptionRequest request = new CreateCustomerSubscriptionRequest(
                 plan.getId(), deliveryAddress, startDate);
 

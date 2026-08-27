@@ -64,6 +64,9 @@ public class CookSubscriptionsActivity extends AppCompatActivity {
                 startActivity(new Intent(this, CookSubscribersActivity.class)));
         findViewById(R.id.rowViewCombos).setOnClickListener(v ->
                 startActivity(new Intent(this, CookCombosActivity.class)));
+        // No date extra — the server decides what "today" is in Nepal Time.
+        findViewById(R.id.rowTodayDeliveries).setOnClickListener(v ->
+                startActivity(TodayDeliveriesActivity.intentFor(this, null)));
 
         loadSubscriberCount();
     }

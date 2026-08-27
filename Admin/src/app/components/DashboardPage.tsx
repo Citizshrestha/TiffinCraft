@@ -435,7 +435,7 @@ function RatingBarChartCard({ topCooks }: { topCooks: { kitchen_name: string | n
 
       {/* Legend */}
       <div className="flex flex-col gap-2">
-        {data.map((cook, i) => (
+        {topCooks.map((cook, i) => (
           <div key={i} className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div
@@ -447,6 +447,42 @@ function RatingBarChartCard({ topCooks }: { topCooks: { kitchen_name: string | n
                   flexShrink: 0,
                 }}
               />
+              {/* Circular Cook Image */}
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  overflow: "hidden",
+                  flexShrink: 0,
+                  background: "#f0f2f5",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {cook.profile_image ? (
+                  <img
+                    src={cook.profile_image}
+                    alt={cook.kitchen_name || "Cook"}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <span
+                    style={{
+                      fontFamily: "Inter",
+                      fontSize: 14,
+                      color: "#9499a6",
+                    }}
+                  >
+                    👨‍🍳
+                  </span>
+                )}
+              </div>
               <p
                 style={{
                   fontFamily: "Inter",
@@ -455,12 +491,12 @@ function RatingBarChartCard({ topCooks }: { topCooks: { kitchen_name: string | n
                   fontWeight: 500,
                 }}
               >
-                {cook.name}
+                {(cook.kitchen_name || "—").slice(0, 14)}
               </p>
             </div>
             <div className="flex items-center gap-3">
               <p style={{ fontFamily: "Inter", fontSize: 12, color: "#9499a6" }}>
-                {formatNumber(cook.orders)} orders
+                {formatNumber(cook.total_orders)} orders
               </p>
               <span
                 style={{
@@ -473,7 +509,7 @@ function RatingBarChartCard({ topCooks }: { topCooks: { kitchen_name: string | n
                   color: "#f59e0b",
                 }}
               >
-                ⭐ {cook.rating.toFixed(1)}
+                ⭐ {parseFloat(String(cook.rating)).toFixed(1)}
               </span>
             </div>
           </div>

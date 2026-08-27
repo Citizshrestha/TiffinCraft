@@ -142,15 +142,12 @@ public class SubscriptionPaymentActivity extends AppCompatActivity {
                 binding.layoutStatusPanel.setVisibility(View.VISIBLE);
                 binding.tvStatusPanelTitle.setText("Waiting for the cook to verify");
                 binding.tvStatusPanelSubtitle.setText("You'll be notified once your payment is confirmed.");
-                // Add a button to let user go back to subscriptions easily
-                binding.btnBack.setText("Back to Subscriptions");
                 break;
             case "verified":
                 binding.tvStatusChip.setText("Verified ✅");
                 binding.layoutStatusPanel.setVisibility(View.VISIBLE);
                 binding.tvStatusPanelTitle.setText("Subscription Active!");
                 binding.tvStatusPanelSubtitle.setText("Your first delivery is scheduled per the plan's cadence.");
-                binding.btnBack.setText("Back to Subscriptions");
                 break;
             case "rejected":
                 binding.tvStatusChip.setText("Rejected");
@@ -158,12 +155,10 @@ public class SubscriptionPaymentActivity extends AppCompatActivity {
                 binding.layoutRejectedNotes.setVisibility(View.VISIBLE);
                 binding.tvRejectedNotes.setText(verificationNotes != null && !verificationNotes.isEmpty()
                         ? verificationNotes : "Please re-upload a clearer payment screenshot.");
-                binding.btnBack.setText("Back");
                 break;
             default: // pending
                 binding.tvStatusChip.setText("Awaiting Payment");
                 binding.layoutPaySection.setVisibility(View.VISIBLE);
-                binding.btnBack.setText("Back");
                 break;
         }
     }

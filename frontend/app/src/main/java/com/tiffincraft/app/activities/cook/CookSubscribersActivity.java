@@ -20,16 +20,17 @@ import com.bumptech.glide.Glide;
 import com.google.android.material.button.MaterialButton;
 import com.google.gson.JsonObject;
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.customer.SubscriptionCalendarActivity;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.CookSubscribersResponse;
 import com.tiffincraft.app.models.RegisterResponse;
 import com.tiffincraft.app.models.SubscriptionResponse;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.DeliveryDateUtils;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -150,10 +151,15 @@ public class CookSubscribersActivity extends AppCompatActivity {
                     if ("submitted".equals(sub.getPaymentStatus())) filtered.add(sub);
                     break;
                 case "active":
-                    if ("active".equals(sub.getStatus())) filtered.add(sub);
+                    // `scheduled` belongs here, not in "other": the customer has
+                    // paid and been verified, they're simply waiting for their
+                    // chosen start date. Filing them beside cancelled rows would
+                    // hide the people the cook is about to start cooking for.
+                    if ("active".equals(sub.getStatus()) || "scheduled".equals(sub.getStatus())) filtered.add(sub);
                     break;
                 case "other":
-                    if (!"active".equals(sub.getStatus()) && !"submitted".equals(sub.getPaymentStatus())) filtered.add(sub);
+                    if (!"active".equals(sub.getStatus()) && !"scheduled".equals(sub.getStatus())
+                            && !"submitted".equals(sub.getPaymentStatus())) filtered.add(sub);
                     break;
                 default:
                     filtered.add(sub);
@@ -177,16 +183,30 @@ public class CookSubscribersActivity extends AppCompatActivity {
             MaterialButton btnVerify = card.findViewById(R.id.btnVerifySubscriber);
 
             tvCustomerName.setText(sub.getCustomerName() != null ? sub.getCustomerName() : "Customer");
-            String durationLabel = "weekly".equals(sub.getDuration()) ? "1 Week" : "1 Month";
-            tvPlanName.setText((sub.getPlanName() != null ? sub.getPlanName() : "Plan") + " · " + durationLabel);
+            // getDurationLabel() rather than a weekly/monthly ternary — the old
+            // version silently printed "1 Month" for a 2-week plan.
+            tvPlanName.setText((sub.getPlanName() != null ? sub.getPlanName() : "Plan")
+                    + " · " + sub.getDurationLabel());
 
             applyPaymentStatusChip(tvPaymentStatusChip, sub);
 
-            if ("active".equals(sub.getStatus()) && sub.getNextDeliveryDate() != null) {
-                tvNextDelivery.setText("Next delivery: " + sub.getNextDeliveryDate());
+            if ("scheduled".equals(sub.getStatus())) {
+                // Nothing to do yet, and saying so is the point — a cook who
+                // sees only "Verified" has no idea whether to cook tomorrow.
+                String starts = DeliveryDateUtils.formatLongDate(sub.getStartDate());
+                tvNextDelivery.setText("Starts " + starts + " — no action needed until then");
+                tvNextDelivery.setVisibility(View.VISIBLE);
+            } else if ("active".equals(sub.getStatus())) {
+                // Nullable once every remaining day is skipped or closed.
+                tvNextDelivery.setText(sub.getNextDeliveryDate() != null
+                        ? "Next delivery: " + DeliveryDateUtils.formatLongDate(sub.getNextDeliveryDate())
+                        : "No upcoming delivery — every remaining day is skipped or closed");
                 tvNextDelivery.setVisibility(View.VISIBLE);
             } else if ("paused".equals(sub.getStatus())) {
                 tvNextDelivery.setText("Paused by customer");
+                tvNextDelivery.setVisibility(View.VISIBLE);
+            } else if ("completed".equals(sub.getStatus())) {
+                tvNextDelivery.setText("Completed — every meal used");
                 tvNextDelivery.setVisibility(View.VISIBLE);
             } else if ("cancelled".equals(sub.getStatus())) {
                 tvNextDelivery.setText("Cancelled");
@@ -202,6 +222,17 @@ public class CookSubscribersActivity extends AppCompatActivity {
                 btnVerify.setVisibility(View.GONE);
             }
 
+            // Read-only for the cook: the calendar shows which days this one
+            // customer skipped. Closing a date is a bulk action and lives on
+            // Today's Deliveries instead, because it hits every subscriber.
+            if (sub.isLiveAndPaid()) {
+                card.setOnClickListener(v -> startActivity(
+                        SubscriptionCalendarActivity.intentFor(this, sub.getId(), sub.getPlanName())));
+            } else {
+                card.setOnClickListener(null);
+                card.setClickable(false);
+            }
+
             layoutSubscribers.addView(card);
         }
     }
@@ -212,6 +243,14 @@ public class CookSubscribersActivity extends AppCompatActivity {
 
         switch (paymentStatus) {
             case "verified":
+                if ("scheduled".equals(sub.getStatus())) {
+                    // Paid and verified, but NOT delivering yet. "Active" here
+                    // would tell the cook to start cooking days early.
+                    chip.setText("Starts soon");
+                    chip.setBackgroundResource(R.drawable.status_chip_preparing);
+                    chip.setTextColor(getColor(R.color.status_preparing_text));
+                    break;
+                }
                 chip.setText("active".equals(sub.getStatus()) ? "Active" : "Verified");
                 chip.setBackgroundResource(R.drawable.status_chip_delivered);
                 chip.setTextColor(getColor(R.color.status_delivered_text));
@@ -253,6 +292,30 @@ public class CookSubscribersActivity extends AppCompatActivity {
         }
         dialogLayout.addView(ivScreenshot);
 
+        // The customer picked a start date at checkout, and verifying no longer
+        // means "start today" — so the cook has to see that date before tapping
+        // Verify, or they'll expect a delivery that isn't coming for a week.
+        TextView tvStartDate = new TextView(ctx);
+        LinearLayout.LayoutParams startParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        startParams.topMargin = pad;
+        tvStartDate.setLayoutParams(startParams);
+        tvStartDate.setTextColor(getColor(R.color.text_ink));
+        tvStartDate.setTextSize(14f);
+
+        String requestedStart = sub.getStartDate();
+        if (requestedStart != null) {
+            // Only the date is stated, not whether it's in the future: "today" is
+            // the server's in Nepal Time, and a phone with a skewed clock would
+            // otherwise promise an immediate start the server is going to defer.
+            // The response message says which one actually happened.
+            tvStartDate.setText("First delivery: " + DeliveryDateUtils.formatLongDate(requestedStart)
+                    + "\nVerifying confirms the payment — deliveries begin on that date, not today.");
+        } else {
+            tvStartDate.setText("No start date on file — verifying will start deliveries today.");
+        }
+        dialogLayout.addView(tvStartDate);
+
         EditText etNotes = new EditText(ctx);
         etNotes.setHint("Notes (optional)");
         LinearLayout.LayoutParams notesParams = new LinearLayout.LayoutParams(
@@ -282,9 +345,16 @@ public class CookSubscribersActivity extends AppCompatActivity {
             @Override
             public void onResponse(@NonNull Call<RegisterResponse> call, @NonNull Response<RegisterResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                    Toast.makeText(CookSubscribersActivity.this,
-                            "verified".equals(status) ? "Subscription activated!" : "Payment rejected — customer notified.",
-                            Toast.LENGTH_SHORT).show();
+                    // The server's message is shown verbatim on success because it
+                    // is the only thing that distinguishes "active, cook today"
+                    // from "deliveries start Sep 3 — nothing to do until then".
+                    String okMsg = response.body().getMessage();
+                    if (okMsg == null || okMsg.isEmpty()) {
+                        okMsg = "verified".equals(status)
+                                ? "Payment verified."
+                                : "Payment rejected — customer notified.";
+                    }
+                    Toast.makeText(CookSubscribersActivity.this, okMsg, Toast.LENGTH_LONG).show();
                     loadSubscribers();
                 } else {
                     String msg = response.body() != null && response.body().getMessage() != null
