@@ -1408,3 +1408,126 @@ export const adminDeleteReview = async (req, res) => {
         connection.release();
     }
 };
+
+// GET /api/admin/payments
+// Returns paginated payment transactions with stats for admin panel
+export const getAdminPayments = async (req, res) => {
+    try {
+        const page    = Math.max(1, parseInt(req.query.page) || 1);
+        const limit   = Math.min(50, parseInt(req.query.limit) || 10);
+        const offset  = (page - 1) * limit;
+        const search  = req.query.search ? `%${req.query.search}%` : null;
+        const status  = req.query.status && req.query.status !== 'all' ? req.query.status : null;
+
+        // Build WHERE clause
+        const conditions = [];
+        const params = [];
+
+        if (search) {
+            conditions.push(`(
+                p.id LIKE ? OR 
+                p.transaction_code LIKE ? OR 
+                o.id LIKE ? OR 
+                COALESCE(u.full_name, '') LIKE ? OR
+                COALESCE(cp.kitchen_name, cu.full_name, '') LIKE ?
+            )`);
+            params.push(search, search, search, search, search);
+        }
+        if (status) {
+            conditions.push(`p.status = ?`);
+            params.push(status);
+        }
+
+        const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+        // Payment stats (unfiltered platform-wide totals)
+        const [[stats]] = await db.promise().query(
+            `SELECT
+                COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END), 0) AS total_collected,
+                COALESCE(SUM(CASE WHEN p.status = 'pending' THEN p.amount ELSE 0 END), 0) AS pending_payouts,
+                COALESCE(SUM(CASE WHEN o.refund_status = 'refunded' THEN p.amount ELSE 0 END), 0) AS refunds_issued,
+                COALESCE(SUM(CASE WHEN p.status = 'failed' THEN 1 ELSE 0 END), 0) AS failed_transactions
+             FROM payments p
+             LEFT JOIN orders o ON p.order_id = o.id`
+        );
+
+        // Total count for pagination (filtered)
+        const [[countResult]] = await db.promise().query(
+            `SELECT COUNT(*) AS total
+             FROM payments p
+             LEFT JOIN orders o ON p.order_id = o.id
+             LEFT JOIN users u ON o.customer_id = u.id
+             LEFT JOIN users cu ON o.cook_id = cu.id
+             LEFT JOIN cook_profiles cp ON o.cook_id = cp.user_id
+             ${where}`,
+            params
+        );
+        const total = countResult?.total || 0;
+
+        // Paginated payment rows
+        const [rows] = await db.promise().query(
+            `SELECT
+                p.id,
+                p.transaction_code,
+                p.amount,
+                p.payment_method,
+                p.status,
+                p.created_at,
+                o.id AS order_id,
+                COALESCE(u.full_name, 'Customer') AS customer_name,
+                COALESCE(cp.kitchen_name, cu.full_name, 'Cook') AS cook_name,
+                o.refund_status
+             FROM payments p
+             LEFT JOIN orders o ON p.order_id = o.id
+             LEFT JOIN users u ON o.customer_id = u.id
+             LEFT JOIN users cu ON o.cook_id = cu.id
+             LEFT JOIN cook_profiles cp ON o.cook_id = cp.user_id
+             ${where}
+             ORDER BY p.created_at DESC
+             LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
+
+        // Format the response
+        const payments = rows.map(row => ({
+            id: `#PAY-${row.id}`,
+            orderId: row.order_id ? `#ORD-${row.order_id}` : 'N/A',
+            customer: row.customer_name,
+            cook: row.cook_name,
+            amount: `₹${parseFloat(row.amount || 0).toFixed(2)}`,
+            method: row.payment_method || 'eSewa',
+            status: row.status === 'completed' ? 'paid' : row.status,
+            date: new Date(row.created_at).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            }),
+            refundStatus: row.refund_status
+        }));
+
+        return res.status(200).json({
+            success: true,
+            stats: {
+                total_collected: parseFloat(stats?.total_collected || 0),
+                pending_payouts: parseFloat(stats?.pending_payouts || 0),
+                refunds_issued: parseFloat(stats?.refunds_issued || 0),
+                failed_transactions: parseInt(stats?.failed_transactions || 0)
+            },
+            payments,
+            pagination: {
+                page,
+                limit,
+                total: parseInt(total) || 0,
+                totalPages: Math.max(1, Math.ceil((parseInt(total) || 0) / limit))
+            }
+        });
+
+    } catch (error) {
+        console.error("getAdminPayments error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error.",
+            error: error.message
+        });
+    }
+};

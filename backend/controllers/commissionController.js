@@ -6,6 +6,7 @@ import {
     notifyCommissionSettlementRejected
 } from "../utils/notificationHelper.js";
 import { getNptNow, getNptMonthYear, toNpt } from "../utils/nepaliTime.js";
+import { notifyAllCooksOfRateChange, getCommissionRateHistory } from "../utils/commissionHelper.js";
 
 /**
  * Platform commission — one global rate admins can change, snapshotted onto
@@ -56,25 +57,61 @@ export const getCommissionSettings = async (req, res) => {
 // PUT /api/admin/commission/settings
 export const updateCommissionSettings = async (req, res) => {
     try {
-        const { commission_pct } = req.body;
+        const { commission_pct, change_reason } = req.body;
         const pct = Number(commission_pct);
 
         if (commission_pct === undefined || Number.isNaN(pct) || pct < 0 || pct > 100) {
             return res.status(400).json({ success: false, message: "commission_pct must be a number between 0 and 100." });
         }
 
+        // Get current rate before updating
+        const [[currentSettings]] = await db.promise().query(
+            "SELECT commission_pct FROM platform_settings WHERE id = 1"
+        );
+        const oldRate = currentSettings ? parseFloat(currentSettings.commission_pct) : 5.00;
+
+        // Check if rate actually changed
+        if (Math.abs(oldRate - pct) < 0.01) {
+            return res.status(200).json({ 
+                success: true, 
+                message: "Commission rate unchanged.", 
+                commission_pct: pct,
+                no_change: true
+            });
+        }
+
+        // Update the rate
         await db.promise().query(
             "UPDATE platform_settings SET commission_pct = ?, updated_by = ? WHERE id = 1",
             [pct, req.user.id]
         );
 
+        // Log admin action
         await db.promise().query(
             `INSERT INTO admin_records (admin_id, action_type, description)
              VALUES (?, ?, ?)`,
-            [req.user.id, "commission_updated", `Platform commission rate set to ${pct}%`]
+            [req.user.id, "commission_updated", `Platform commission rate changed from ${oldRate}% to ${pct}%` + (change_reason ? ` - Reason: ${change_reason}` : '')]
         );
 
-        return res.status(200).json({ success: true, message: "Commission rate updated.", commission_pct: pct });
+        // Notify all active cooks via notifications AND chat messages
+        const io = req.app.get("io");
+        const { notifiedCount, chatsSent } = await notifyAllCooksOfRateChange(
+            oldRate,
+            pct,
+            req.user.id,
+            change_reason,
+            io
+        );
+
+        return res.status(200).json({ 
+            success: true, 
+            message: `Commission rate updated from ${oldRate}% to ${pct}%. Notified ${notifiedCount} cooks.`, 
+            commission_pct: pct,
+            old_rate: oldRate,
+            new_rate: pct,
+            notified_cooks: notifiedCount,
+            chats_sent: chatsSent
+        });
     } catch (error) {
         console.error("updateCommissionSettings error:", error);
         return res.status(500).json({ success: false, message: "Server error." });
@@ -763,6 +800,24 @@ export const uploadSettlementScreenshot = async (req, res) => {
         return res.status(200).json({ success: true, message: "Payment proof submitted. An admin will verify it shortly." });
     } catch (error) {
         console.error("uploadSettlementScreenshot error:", error);
+        return res.status(500).json({ success: false, message: "Server error." });
+    }
+};
+
+
+// GET /api/commission/rate-history — admin only
+// Returns the history of all commission rate changes
+export const getCommissionRateHistoryEndpoint = async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 20;
+        const history = await getCommissionRateHistory(limit);
+        
+        return res.status(200).json({
+            success: true,
+            history
+        });
+    } catch (error) {
+        console.error("getCommissionRateHistoryEndpoint error:", error);
         return res.status(500).json({ success: false, message: "Server error." });
     }
 };

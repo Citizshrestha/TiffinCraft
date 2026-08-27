@@ -11,7 +11,8 @@ import {
     verifySettlement,
     getMyCurrentSettlement,
     listMySettlements,
-    uploadSettlementScreenshot
+    uploadSettlementScreenshot,
+    getCommissionRateHistoryEndpoint
 } from "../controllers/commissionController.js";
 
 const router = Router();
@@ -20,6 +21,7 @@ const router = Router();
 router.get("/settings", protect, roleOnly("admin"), getCommissionSettings);
 router.put("/settings", protect, roleOnly("admin"), updateCommissionSettings);
 router.get("/summary", protect, roleOnly("admin"), getCommissionSummary);
+router.get("/rate-history", protect, roleOnly("admin"), getCommissionRateHistoryEndpoint);
 
 // Admin's own payment QR — admin manages it, cooks (and admin) can view it
 router.put("/admin-qr", protect, roleOnly("admin"), updateAdminBankDetails);

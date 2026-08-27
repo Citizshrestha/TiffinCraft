@@ -395,6 +395,31 @@ export const notifyCommissionSettlementRejected = async (cookId, amount, adminNo
 };
 
 /**
+ * Create notification when admin changes the platform commission rate
+ * (sent to all active cooks).
+ */
+export const notifyCommissionRateChange = async (cookId, oldRate, newRate) => {
+    const direction = newRate > oldRate ? 'increased' : 'decreased';
+    const message = `Platform commission rate has been ${direction} from ${oldRate}% to ${newRate}%. This applies to all future orders. Your pending settlements remain unchanged.`;
+    
+    return createNotification(
+        cookId,
+        'Commission Rate Updated',
+        message,
+        'commission_rate_change',
+        null,
+        'platform_update',
+        {
+            pushData: {
+                type: 'commission_rate_change',
+                old_rate: String(oldRate),
+                new_rate: String(newRate)
+            }
+        }
+    );
+};
+
+/**
  * Create notification when a subscription's recurring delivery is skipped
  * because one of its meals is currently unavailable (sent to the customer,
  * who paid for a real, fulfillable delivery every cycle — not silence).
@@ -546,6 +571,7 @@ export default {
     notifyCommissionSettlementSubmitted,
     notifyCommissionSettlementVerified,
     notifyCommissionSettlementRejected,
+    notifyCommissionRateChange,
     notifySubscriptionDeliverySkipped,
     notifySubscriptionDeliverySkippedToCook,
     notifySubscriptionPaymentSubmitted,
