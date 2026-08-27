@@ -1,7 +1,12 @@
 package com.tiffincraft.app.utils;
 
+import android.Manifest;
 import android.app.Activity;
+import android.content.ContentResolver;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.provider.ContactsContract;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.Editable;
@@ -16,6 +21,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.activity.ComponentActivity;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -34,7 +43,9 @@ import com.tiffincraft.app.models.CreateConversationResponse;
 import com.tiffincraft.app.session.SessionManager;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -72,6 +83,7 @@ public class ChatPanelManager {
     private final Handler searchHandler = new Handler(Looper.getMainLooper());
     private Runnable      pendingSearch;
     private String        currentQuery = "";
+    private ActivityResultLauncher<String> contactsPermissionLauncher;
 
     private ChatPanelManager(Activity activity) {
         this.activity = activity;
@@ -95,6 +107,20 @@ public class ChatPanelManager {
     }
 
     private void setup(boolean inflateOwnFab) {
+        if (activity instanceof ComponentActivity) {
+            contactsPermissionLauncher = ((ComponentActivity) activity).registerForActivityResult(
+                    new ActivityResultContracts.RequestPermission(), granted -> {
+                        if (granted) {
+                            loadContacts(currentQuery);
+                        } else {
+                            clearContactResults();
+                            Toast.makeText(activity,
+                                    "Contacts permission is required to show saved contacts.",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    });
+        }
+
         apiService     = RetrofitClient.getInstance(activity).getApiService();
         sessionManager = new SessionManager(activity);
         socketManager  = SocketManager.getInstance(activity);
@@ -234,6 +260,13 @@ public class ChatPanelManager {
     }
 
     private void loadContacts(String search) {
+        if (!hasContactsPermission()) {
+            clearContactResults();
+            requestContactsPermission();
+            return;
+        }
+
+        final Set<String> savedPhoneNumbers = readSavedPhoneNumbers();
         String token = "Bearer " + sessionManager.getToken();
         apiService.getChatContacts(token, search).enqueue(new Callback<ChatContactsResponse>() {
             @Override
@@ -245,7 +278,10 @@ public class ChatPanelManager {
                     List<ChatContactsResponse.ApiContact> contacts = response.body().getContacts();
                     if (contacts != null) {
                         for (ChatContactsResponse.ApiContact c : contacts) {
-                            allContacts.add(ChatContact.fromApiContact(c));
+                            String contactNumber = normalizePhoneNumber(c.getPhone());
+                            if (!contactNumber.isEmpty() && savedPhoneNumbers.contains(contactNumber)) {
+                                allContacts.add(ChatContact.fromApiContact(c));
+                            }
                         }
                     }
                     adapter.notifyDataSetChanged();
@@ -262,6 +298,55 @@ public class ChatPanelManager {
                 Toast.makeText(activity, "Could not load contacts.", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private boolean hasContactsPermission() {
+        return ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_CONTACTS)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestContactsPermission() {
+        if (contactsPermissionLauncher != null) {
+            contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS);
+        } else {
+            Toast.makeText(activity,
+                    "Contacts permission is unavailable on this screen.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /** Read phone numbers only; names and other address-book data are not needed. */
+    private Set<String> readSavedPhoneNumbers() {
+        Set<String> numbers = new HashSet<>();
+        ContentResolver resolver = activity.getContentResolver();
+        try (Cursor cursor = resolver.query(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                new String[]{ContactsContract.CommonDataKinds.Phone.NUMBER},
+                null, null, null)) {
+            if (cursor != null) {
+                int numberColumn = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
+                while (numberColumn >= 0 && cursor.moveToNext()) {
+                    String normalized = normalizePhoneNumber(cursor.getString(numberColumn));
+                    if (!normalized.isEmpty()) numbers.add(normalized);
+                }
+            }
+        } catch (SecurityException e) {
+            Log.w(TAG, "Unable to read saved phone contacts", e);
+        }
+        return numbers;
+    }
+
+    /** Compare local/international formats by their final ten digits. */
+    private String normalizePhoneNumber(String phone) {
+        if (phone == null) return "";
+        String digits = phone.replaceAll("[^0-9]", "");
+        if (digits.length() > 10) return digits.substring(digits.length() - 10);
+        return digits;
+    }
+
+    private void clearContactResults() {
+        allContacts.clear();
+        if (adapter != null) adapter.notifyDataSetChanged();
+        updateContactCount(0);
     }
 
     private void updateContactCount(int count) {

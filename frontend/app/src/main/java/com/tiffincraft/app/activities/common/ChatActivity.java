@@ -224,19 +224,24 @@ public class ChatActivity extends AppCompatActivity {
 
     private void setupHeader(String name, boolean online) {
         tvChatName.setText(name != null ? name : "Chat");
-        tvChatStatus.setText(online ? "Online" : "Offline");
-        int statusColor = online
-                ? getColor(R.color.green_primary)
-                : getColor(R.color.text_hint);
-        tvChatStatus.setTextColor(statusColor);
-        findViewById(R.id.viewStatusDot).setVisibility(online ? View.VISIBLE : View.GONE);
+        updatePresenceUi(online);
 
-        com.tiffincraft.app.utils.ImageUrlHelper.load(ivChatAvatar, contactAvatar, R.drawable.avatar_customer);
+        com.tiffincraft.app.utils.ImageUrlHelper.loadCircle(ivChatAvatar, contactAvatar, R.drawable.avatar_customer);
+        if (adapter != null) {
+            adapter.setContactAvatar(contactAvatar);
+        }
 
         boolean canOpenProfile = contactId > 0 && contactRole != null;
         View.OnClickListener openProfile = canOpenProfile ? v -> openContactProfile() : null;
         chatHeader.findViewById(R.id.ivChatAvatar).setOnClickListener(openProfile);
         chatHeader.findViewById(R.id.tvChatName).setOnClickListener(openProfile);
+    }
+
+    /** Keep the status label and its indicator synchronized for every presence source. */
+    private void updatePresenceUi(boolean online) {
+        tvChatStatus.setText(online ? "Online" : "Offline");
+        tvChatStatus.setTextColor(getColor(online ? R.color.green_primary : R.color.text_hint));
+        findViewById(R.id.viewStatusDot).setVisibility(online ? View.VISIBLE : View.GONE);
     }
 
     /** Called when this screen is opened with only a conversation ID and no
@@ -290,7 +295,9 @@ public class ChatActivity extends AppCompatActivity {
 
     private void setupRecyclerView() {
         messages = new ArrayList<>();
-        adapter = new MessageAdapter(this, messages);
+        int avatarPlaceholder = "cook".equalsIgnoreCase(contactRole)
+            ? R.drawable.avatar_cook : R.drawable.avatar_customer;
+        adapter = new MessageAdapter(this, messages, contactAvatar, avatarPlaceholder);
         adapter.setOnMessageActionListener(this::onSelectionChanged);
         LinearLayoutManager lm = new LinearLayoutManager(this);
         lm.setStackFromEnd(true);
@@ -383,7 +390,7 @@ public class ChatActivity extends AppCompatActivity {
         socketManager.onChatTyping(args -> runOnUiThread(() -> {
             tvChatStatus.setText("typing...");
             tvChatStatus.postDelayed(() ->
-                    tvChatStatus.setText(isOnline ? "Online" : "Offline"), 3000);
+                    updatePresenceUi(isOnline), 3000);
         }));
 
         socketManager.onPresenceChanged(args -> {
@@ -394,9 +401,7 @@ public class ChatActivity extends AppCompatActivity {
                 boolean nowOnline = json.optBoolean("is_online", false);
                 runOnUiThread(() -> {
                     isOnline = nowOnline;
-                    tvChatStatus.setText(nowOnline ? "Online" : "Offline");
-                    tvChatStatus.setTextColor(getColor(nowOnline ? R.color.green_primary : R.color.text_hint));
-                    findViewById(R.id.viewStatusDot).setVisibility(nowOnline ? View.VISIBLE : View.GONE);
+                    updatePresenceUi(nowOnline);
                 });
             } catch (Exception e) {
                 Log.e(TAG, "Error handling presenceChanged", e);

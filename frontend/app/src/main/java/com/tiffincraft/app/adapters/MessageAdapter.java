@@ -20,6 +20,7 @@ import com.bumptech.glide.Glide;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.activities.common.MediaViewerActivity;
 import com.tiffincraft.app.models.ChatMessage;
+import com.tiffincraft.app.utils.ImageUrlHelper;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -37,14 +38,28 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
     private final Context context;
     private final List<ChatMessage> messages;
+    private String contactAvatar;
+    private final int contactAvatarPlaceholder;
     private OnMessageActionListener actionListener;
 
     private boolean selectionMode = false;
     private final Set<Integer> selectedServerIds = new LinkedHashSet<>();
 
     public MessageAdapter(Context context, List<ChatMessage> messages) {
+        this(context, messages, null, R.drawable.avatar_customer);
+    }
+
+    public MessageAdapter(Context context, List<ChatMessage> messages,
+                          String contactAvatar, int contactAvatarPlaceholder) {
         this.context  = context;
         this.messages = messages;
+        this.contactAvatar = contactAvatar;
+        this.contactAvatarPlaceholder = contactAvatarPlaceholder;
+    }
+
+    public void setContactAvatar(String contactAvatar) {
+        this.contactAvatar = contactAvatar;
+        notifyDataSetChanged();
     }
 
     public void setOnMessageActionListener(OnMessageActionListener listener) {
@@ -170,6 +185,9 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 timeLabel = timeLabel.isEmpty() ? "edited" : timeLabel + " · edited";
             }
             vh.tvTimestamp.setText(timeLabel);
+            if (msg.getViewType() == ChatMessage.TYPE_TEXT_RECEIVED && vh.ivAvatar != null) {
+                ImageUrlHelper.loadCircle(vh.ivAvatar, contactAvatar, contactAvatarPlaceholder);
+            }
             bindMessageActions(vh.itemView, msg, null);
 
         } else if (holder instanceof MediaViewHolder) {
@@ -192,6 +210,12 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                         .placeholder(R.drawable.ic_image_placeholder)
                         .centerCrop()
                         .into(vh.ivMedia);
+            }
+
+            if ((msg.getViewType() == ChatMessage.TYPE_IMAGE_RECEIVED
+                    || msg.getViewType() == ChatMessage.TYPE_VIDEO_RECEIVED)
+                    && vh.ivAvatar != null) {
+                ImageUrlHelper.loadCircle(vh.ivAvatar, contactAvatar, contactAvatarPlaceholder);
             }
 
             bindMessageActions(vh.itemView, msg, () -> {
@@ -287,19 +311,22 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
     static class TextViewHolder extends RecyclerView.ViewHolder {
         TextView tvText, tvTimestamp;
+        ImageView ivAvatar;
         TextViewHolder(@NonNull View itemView) {
             super(itemView);
             tvText      = itemView.findViewById(R.id.tvMessageText);
             tvTimestamp = itemView.findViewById(R.id.tvTimestamp);
+            ivAvatar    = itemView.findViewById(R.id.ivAvatar);
         }
     }
 
     static class MediaViewHolder extends RecyclerView.ViewHolder {
-        ImageView ivMedia;
+        ImageView ivMedia, ivAvatar;
         TextView tvMediaLabel, tvTimestamp;
         MediaViewHolder(@NonNull View itemView) {
             super(itemView);
             ivMedia = itemView.findViewById(R.id.ivMedia);
+            ivAvatar = itemView.findViewById(R.id.ivAvatar);
             tvMediaLabel = itemView.findViewById(R.id.tvMediaLabel);
             tvTimestamp = itemView.findViewById(R.id.tvTimestamp);
         }
