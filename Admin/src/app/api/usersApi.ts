@@ -1,5 +1,6 @@
 import { apiGet, apiPost, apiPut, apiDelete } from "./client";
 import { capitalizeRole, formatJoinedDate } from "../utils/format";
+import { resolveImageUrl } from "./cooksApi";
 
 export type UStatus = "active" | "inactive";
 
@@ -52,7 +53,7 @@ export function mapBackendUser(u: BackendUser): User {
     phone: u.phone,
     status: u.is_active === 1 || u.is_active === true ? "active" : "inactive",
     joined: formatJoinedDate(u.created_at),
-    profileImage: u.profile_image,
+    profileImage: resolveImageUrl(u.profile_image) || null,
   };
 }
 

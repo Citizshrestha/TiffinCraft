@@ -1,4 +1,5 @@
 import { apiGet, apiPost, apiPut, apiDelete } from "./client";
+import { resolveImageUrl } from "./cooksApi";
 
 export interface BackendMeal {
   id: number;
@@ -53,7 +54,7 @@ export function mapBackendMeal(m: BackendMeal): DbMeal {
     available: m.is_available === 1 || m.is_available === true,
     isVegetarian: m.is_vegetarian === 1 || m.is_vegetarian === true,
     isVegan: m.is_vegan === 1 || m.is_vegan === true,
-    imageUrl: m.image_url,
+    imageUrl: resolveImageUrl(m.image_url) || null,
   };
 }
 
