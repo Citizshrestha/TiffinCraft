@@ -1435,7 +1435,7 @@ export const getAdminPayments = async (req, res) => {
         if (search) {
             conditions.push(`(
                 p.id LIKE ? OR 
-                p.transaction_code LIKE ? OR 
+                p.transaction_uuid LIKE ? OR 
                 o.id LIKE ? OR 
                 COALESCE(u.full_name, '') LIKE ? OR
                 COALESCE(cp.kitchen_name, cu.full_name, '') LIKE ?
@@ -1443,19 +1443,22 @@ export const getAdminPayments = async (req, res) => {
             params.push(search, search, search, search, search);
         }
         if (status) {
+            // Map frontend status to database ENUM values
+            const dbStatus = status === 'paid' ? 'SUCCESS' : status.toUpperCase();
             conditions.push(`p.status = ?`);
-            params.push(status);
+            params.push(dbStatus);
         }
 
         const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
         // Payment stats (unfiltered platform-wide totals)
+        // status: BOOKED, PENDING, SUCCESS, FAILED, CANCELED, REVERTED
         const [[stats]] = await db.promise().query(
             `SELECT
-                COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END), 0) AS total_collected,
-                COALESCE(SUM(CASE WHEN p.status = 'pending' THEN p.amount ELSE 0 END), 0) AS pending_payouts,
+                COALESCE(SUM(CASE WHEN p.status = 'SUCCESS' THEN p.amount ELSE 0 END), 0) AS total_collected,
+                COALESCE(SUM(CASE WHEN p.status IN ('PENDING', 'BOOKED') THEN p.amount ELSE 0 END), 0) AS pending_payouts,
                 COALESCE(SUM(CASE WHEN o.refund_status = 'refunded' THEN p.amount ELSE 0 END), 0) AS refunds_issued,
-                COALESCE(SUM(CASE WHEN p.status = 'failed' THEN 1 ELSE 0 END), 0) AS failed_transactions
+                COALESCE(SUM(CASE WHEN p.status = 'FAILED' THEN 1 ELSE 0 END), 0) AS failed_transactions
              FROM payments p
              LEFT JOIN orders o ON p.order_id = o.id`
         );
@@ -1477,9 +1480,8 @@ export const getAdminPayments = async (req, res) => {
         const [rows] = await db.promise().query(
             `SELECT
                 p.id,
-                p.transaction_code,
+                p.transaction_uuid,
                 p.amount,
-                p.payment_method,
                 p.status,
                 p.created_at,
                 o.id AS order_id,
@@ -1504,8 +1506,8 @@ export const getAdminPayments = async (req, res) => {
             customer: row.customer_name,
             cook: row.cook_name,
             amount: `₹${parseFloat(row.amount || 0).toFixed(2)}`,
-            method: row.payment_method || 'eSewa',
-            status: row.status === 'completed' ? 'paid' : row.status,
+            method: 'eSewa', // Always eSewa since that's the only payment method in schema
+            status: row.status === 'SUCCESS' ? 'paid' : row.status.toLowerCase(),
             date: new Date(row.created_at).toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
