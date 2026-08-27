@@ -63,6 +63,9 @@ export function CommissionSettlementsPage() {
 
   // Commission rate
   const [commissionPct, setCommissionPct] = useState<string>("");
+  const [editingRate, setEditingRate] = useState(false);
+  const [newRate, setNewRate] = useState<string>("");
+  const [changeReason, setChangeReason] = useState<string>("");
   const [savingRate, setSavingRate] = useState(false);
 
   // Admin's own payment QR
@@ -201,15 +204,26 @@ export function CommissionSettlementsPage() {
   };
 
   const handleSaveRate = async () => {
-    const pct = Number(commissionPct);
+    const pct = Number(newRate);
     if (Number.isNaN(pct) || pct < 0 || pct > 100) {
       showToast("Commission % must be a number between 0 and 100.", "error");
       return;
     }
     setSavingRate(true);
     try {
-      await updateCommissionSettings(pct);
-      showToast("Commission rate updated.", "success");
+      const result = await updateCommissionSettings(pct, changeReason || undefined);
+      if (result.no_change) {
+        showToast("Commission rate unchanged.", "info");
+      } else {
+        showToast(
+          `Commission rate updated from ${result.old_rate}% to ${result.new_rate}%. ${result.notified_cooks} cooks notified via push notification and ${result.chats_sent} via chat message.`,
+          "success"
+        );
+      }
+      setCommissionPct(String(pct));
+      setEditingRate(false);
+      setChangeReason("");
+      await load();
     } catch (e: any) {
       showToast(e?.message || "Failed to update commission rate.", "error");
     } finally {
@@ -279,24 +293,22 @@ export function CommissionSettlementsPage() {
 
       {/* Commission rate + generate */}
       <div className="bg-white rounded-[12px] p-4 sm:p-6 flex flex-col sm:flex-row sm:items-end gap-4" style={{ boxShadow: "0px 2px 8px rgba(0,0,0,0.08)" }}>
-        <div style={{ maxWidth: 220 }}>
+        <div style={{ flex: 1 }}>
           <p style={{ fontFamily: "Inter", fontWeight: 600, fontSize: 13, color: "#1c1f29", marginBottom: 6 }}>Platform Commission Rate</p>
-          <div className="flex items-center gap-2">
-            <input
-              type="number" min={0} max={100} step={0.5}
-              value={commissionPct}
-              onChange={e => setCommissionPct(e.target.value)}
-              style={{ border: "1px solid #e5e8ed", fontFamily: "Inter", color: "#1c1f29", width: 90, padding: "10px 12px", borderRadius: 8, fontSize: 14, outline: "none" }}
-            />
-            <span style={{ fontFamily: "Inter", fontSize: 14, color: "#9499a6" }}>%</span>
-            <button onClick={handleSaveRate} disabled={savingRate}
-              style={{ background: "#3b82f6", border: "none", fontFamily: "Inter", fontWeight: 600, color: "white", fontSize: 13, padding: "10px 14px", borderRadius: 8, cursor: savingRate ? "not-allowed" : "pointer", opacity: savingRate ? 0.7 : 1 }}>
-              {savingRate ? "Saving…" : "Save"}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span style={{ fontFamily: "Inter", fontWeight: 700, fontSize: 24, color: "#3b82f6" }}>{commissionPct}%</span>
+            </div>
+            <button 
+              onClick={() => { setNewRate(commissionPct); setChangeReason(""); setEditingRate(true); }}
+              style={{ background: "#3b82f6", border: "none", fontFamily: "Inter", fontWeight: 600, color: "white", fontSize: 13, padding: "10px 16px", borderRadius: 8, cursor: "pointer" }}>
+              Update Rate
             </button>
           </div>
-          <p style={{ fontFamily: "Inter", fontSize: 11, color: "#9499a6", marginTop: 6 }}>Applied to orders going forward — past orders keep their snapshotted rate.</p>
+          <p style={{ fontFamily: "Inter", fontSize: 11, color: "#9499a6", marginTop: 6 }}>
+            Applied to orders going forward — past orders keep their snapshotted rate.
+          </p>
         </div>
-        <div className="flex-1" />
         <div>
           <button onClick={handleGenerate} disabled={generating}
             style={{ background: "#7887fa", border: "none", fontFamily: "Inter", fontWeight: 600, color: "white", fontSize: 13, padding: "12px 18px", borderRadius: 8, cursor: generating ? "not-allowed" : "pointer", opacity: generating ? 0.7 : 1 }}>
@@ -545,6 +557,50 @@ export function CommissionSettlementsPage() {
           </div>
           <FormField label="How was this paid? (required)" value={recordNotes} onChange={setRecordNotes} />
           <SaveCancel onCancel={() => setRecording(null)} onSave={submitRecord} saving={saving} saveLabel="Record Payment" />
+        </Modal>
+      )}
+
+      {/* Commission Rate Update Modal */}
+      {editingRate && (
+        <Modal title="Update Commission Rate" onClose={() => setEditingRate(false)}>
+          <p style={{ fontFamily: "Inter", fontSize: 13, color: "#9499a6", marginBottom: 16 }}>
+            Changing the commission rate will:
+          </p>
+          <ul style={{ fontFamily: "Inter", fontSize: 13, color: "#6b7280", marginBottom: 16, paddingLeft: 20 }}>
+            <li style={{ marginBottom: 6 }}>✅ Apply to all <strong>future orders</strong> starting now</li>
+            <li style={{ marginBottom: 6 }}>✅ Send <strong>push notifications</strong> to all active cooks</li>
+            <li style={{ marginBottom: 6 }}>✅ Send <strong>automated chat messages</strong> to all cooks with details</li>
+            <li style={{ marginBottom: 6 }}>✅ Keep existing settlements at their original rates (no retroactive changes)</li>
+          </ul>
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontFamily: "Inter", fontWeight: 500, fontSize: 13, color: "#1c1f29", marginBottom: 6 }}>
+              Current Rate: <span style={{ color: "#3b82f6", fontWeight: 700 }}>{commissionPct}%</span>
+            </p>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontFamily: "Inter", fontWeight: 500, fontSize: 13, color: "#1c1f29", marginBottom: 6 }}>New Commission Rate (%)</p>
+            <input
+              type="number" min={0} max={100} step={0.5}
+              value={newRate}
+              onChange={e => setNewRate(e.target.value)}
+              style={{ border: "1px solid #e5e8ed", fontFamily: "Inter", color: "#1c1f29", width: "100%", padding: "12px 16px", borderRadius: 8, fontSize: 14, outline: "none" }}
+              placeholder="e.g., 7.5"
+            />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontFamily: "Inter", fontWeight: 500, fontSize: 13, color: "#1c1f29", marginBottom: 6 }}>Reason for Change (optional)</p>
+            <textarea
+              value={changeReason}
+              onChange={e => setChangeReason(e.target.value)}
+              rows={3}
+              style={{ border: "1px solid #e5e8ed", fontFamily: "Inter", color: "#1c1f29", width: "100%", padding: "12px 16px", borderRadius: 8, fontSize: 13, outline: "none", resize: "vertical" }}
+              placeholder="e.g., Adjusting for increased operational costs..."
+            />
+            <p style={{ fontFamily: "Inter", fontSize: 11, color: "#9499a6", marginTop: 6 }}>
+              This will be included in the chat message sent to all cooks. Leave blank if no specific reason.
+            </p>
+          </div>
+          <SaveCancel onCancel={() => setEditingRate(false)} onSave={handleSaveRate} saving={savingRate} saveLabel="Update & Notify All Cooks" />
         </Modal>
       )}
     </div>

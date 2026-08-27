@@ -136,8 +136,34 @@ export async function fetchCommissionSettings(): Promise<{ commission_pct: numbe
   return apiGet(`/commission/settings`);
 }
 
-export async function updateCommissionSettings(pct: number): Promise<void> {
-  await apiPut(`/commission/settings`, { commission_pct: pct });
+export async function updateCommissionSettings(pct: number, changeReason?: string): Promise<{
+  old_rate: number;
+  new_rate: number;
+  notified_cooks: number;
+  chats_sent: number;
+  no_change?: boolean;
+}> {
+  return apiPut(`/commission/settings`, { 
+    commission_pct: pct,
+    change_reason: changeReason 
+  });
+}
+
+export interface CommissionRateHistory {
+  id: number;
+  old_rate: number;
+  new_rate: number;
+  changed_by: number;
+  change_reason: string | null;
+  affected_cooks_count: number;
+  created_at: string;
+  admin_name: string | null;
+}
+
+export async function fetchCommissionRateHistory(limit?: number): Promise<CommissionRateHistory[]> {
+  const params = limit ? `?limit=${limit}` : "";
+  const data = await apiGet<{ success: boolean; history: CommissionRateHistory[] }>(`/commission/rate-history${params}`);
+  return data.history;
 }
 
 export interface CommissionTrendPoint {
