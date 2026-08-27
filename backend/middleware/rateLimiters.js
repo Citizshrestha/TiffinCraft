@@ -35,3 +35,27 @@ export const subscriptionInitiateLimiter = perUserLimiter({
     limit: 6,
     message: "Too many payment attempts. Please wait a few minutes before trying again."
 });
+
+/**
+ * Cook daily-availability toggle. One call fans a push notification out to every
+ * one of that cook's active subscribers, so an unbounded loop of
+ * close/reopen/close is a way to spam a hundred customers' phones at will — and
+ * to burn the FCM quota the whole platform shares. 12 per hour is far more than
+ * a real kitchen needs (a cook closes a day, occasionally undoes a mistake)
+ * while capping the blast radius of a stolen token.
+ */
+export const cookAvailabilityLimiter = perUserLimiter({
+    windowMs: 60 * 60 * 1000,
+    limit: 12,
+    message: "Too many availability changes. Please wait a while before changing more dates."
+});
+
+/**
+ * Per-day skip toggle. Cheap for us, but it notifies the cook every time, and a
+ * customer flipping one day back and forth is a pager for someone's kitchen.
+ */
+export const skipDayLimiter = perUserLimiter({
+    windowMs: 60 * 60 * 1000,
+    limit: 20,
+    message: "Too many changes to your delivery days. Please wait a while before making more."
+});

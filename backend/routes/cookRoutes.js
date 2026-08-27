@@ -1,6 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { protect, roleOnly } from "../middleware/authMiddleware.js";
+import { cookAvailabilityLimiter } from "../middleware/rateLimiters.js";
 import { uploadSingle } from "../middleware/uploadMiddleware.js";
 import {
     setupCookProfile,
@@ -16,6 +17,11 @@ import {
     updateBankDetails,
     getNearbyCooks
 } from "../controllers/cookController.js";
+import {
+    setCookDailyUnavailability,
+    clearCookDailyUnavailability,
+    getTodayDeliveries
+} from "../controllers/cookDeliveryController.js";
 
 const router = Router();
 
@@ -62,6 +68,13 @@ router.get("/dashboard", protect, roleOnly("cook"), getCookDashboard);
 // CRITICAL: /nearby must precede the greedy "/:cookId" route below, or Express
 // matches the literal string "nearby" as :cookId and this route is dead.
 router.get("/nearby", nearbyLimiter, protect, roleOnly("customer"), getNearbyCooks);
+
+// Subscription delivery operations. Same CRITICAL ordering constraint as
+// /nearby above — these are literal paths and must be declared before
+// "/:cookId", or "today-deliveries" is matched as a cook id.
+router.get("/today-deliveries", protect, roleOnly("cook"), getTodayDeliveries);
+router.post("/daily-availability", protect, roleOnly("cook"), cookAvailabilityLimiter, setCookDailyUnavailability);
+router.delete("/daily-availability/:date", protect, roleOnly("cook"), cookAvailabilityLimiter, clearCookDailyUnavailability);
 
 router.get("/", getAllCooks);
 router.get("/:cookId", getCookById);

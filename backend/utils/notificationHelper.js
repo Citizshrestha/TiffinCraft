@@ -520,6 +520,134 @@ export const notifySubscriptionRejected = async (customerId, subscriptionId, pla
 };
 
 /**
+ * "Sep 3, 2026" from a 'YYYY-MM-DD' string. Built from the string's own parts
+ * rather than new Date(str) so the message never shows a day-shifted date on a
+ * UTC server (Nepal is UTC+05:45 — see utils/nptTime.js).
+ */
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export const formatDeliveryDate = (dateStr) => {
+    const match = String(dateStr || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return String(dateStr || 'the scheduled date');
+    const [, y, m, d] = match;
+    return `${MONTH_NAMES[Number(m) - 1]} ${Number(d)}, ${y}`;
+};
+
+/**
+ * Customer skipped one day of their subscription (sent to the COOK, who is the
+ * one that must not cook that meal). Fires before the cutoff by definition —
+ * the endpoint rejects late skips — so the cook always has time to act on it.
+ */
+export const notifySkipDay = async (cookId, subscriptionId, customerName, planName, deliveryDate, reason) => {
+    const message = `${customerName} skipped their "${planName}" delivery on ${formatDeliveryDate(deliveryDate)}`
+        + (reason ? ` — "${reason}"` : '')
+        + '. Don\'t prepare this one; their meal credit was not used.';
+    return createNotification(
+        cookId,
+        'Delivery Skipped by Customer',
+        message,
+        'subscription_day_skipped',
+        subscriptionId,
+        'subscription',
+        {
+            pushData: {
+                type: 'subscription_day_skipped',
+                subscriptionId: String(subscriptionId),
+                deliveryDate: String(deliveryDate)
+            }
+        }
+    );
+};
+
+/**
+ * Cook marked a whole date unavailable (sent to EVERY affected customer — this
+ * is the fan-out arm of the bulk toggle). Says explicitly that no credit was
+ * consumed, because the alternative reading — "I paid for a meal I never got" —
+ * is what turns a closed kitchen into a refund request.
+ */
+export const notifyCookUnavailable = async (customerId, subscriptionId, cookName, deliveryDate, reason) => {
+    const message = `${cookName} is not delivering on ${formatDeliveryDate(deliveryDate)}`
+        + (reason ? ` — "${reason}"` : '')
+        + '. You have not been charged a meal credit for that day.';
+    return createNotification(
+        customerId,
+        'Kitchen Closed That Day',
+        message,
+        'cook_unavailable',
+        subscriptionId,
+        'subscription',
+        {
+            pushData: {
+                type: 'cook_unavailable',
+                subscriptionId: String(subscriptionId),
+                deliveryDate: String(deliveryDate)
+            }
+        }
+    );
+};
+
+/**
+ * Payment verified but the customer's chosen start date is still in the future
+ * (sent to the customer). Deliberately distinct from
+ * notifySubscriptionVerified, whose "your first delivery is on the way" is a
+ * lie for a scheduled subscription — this one names the date so nobody waits
+ * by the door a week early.
+ */
+export const notifySubscriptionScheduled = async (customerId, subscriptionId, planName, startDate) => {
+    return createNotification(
+        customerId,
+        'Subscription Confirmed ✅',
+        `Your payment for "${planName}" was verified. Deliveries begin on ${formatDeliveryDate(startDate)} — nothing more to do until then.`,
+        'subscription_scheduled',
+        subscriptionId,
+        'subscription',
+        {
+            pushData: {
+                type: 'subscription_scheduled',
+                subscriptionId: String(subscriptionId),
+                startDate: String(startDate)
+            }
+        }
+    );
+};
+
+/**
+ * Every paid meal has been used (sent to the customer). Sent by the cron at the
+ * moment credits hit zero, not when end_date passes — a customer who skipped
+ * days finishes later than their end_date, and one who never skipped finishes
+ * on it.
+ */
+export const notifySubscriptionCompleted = async (customerId, subscriptionId, planName, mealsTotal) => {
+    const count = Number(mealsTotal) > 0 ? `all ${mealsTotal} ` : 'all ';
+    return createNotification(
+        customerId,
+        'Subscription Complete',
+        `You've received ${count}deliveries from "${planName}". Subscribe again to keep them coming.`,
+        'subscription_completed',
+        subscriptionId,
+        'subscription',
+        {
+            pushData: {
+                type: 'subscription_completed',
+                subscriptionId: String(subscriptionId)
+            }
+        }
+    );
+};
+
+/** Same completion event, cook-facing — a paying subscriber just lapsed. */
+export const notifySubscriptionCompletedToCook = async (cookId, subscriptionId, customerName, planName) => {
+    return createNotification(
+        cookId,
+        'Subscription Ended',
+        `${customerName}'s "${planName}" subscription has used all its paid deliveries. No more meals are scheduled for them.`,
+        'subscription_completed',
+        subscriptionId,
+        'subscription',
+        {}
+    );
+};
+
+/**
  * Mark all notifications as read for a user
  */
 export const markAllAsRead = async (userId) => {
@@ -577,6 +705,11 @@ export default {
     notifySubscriptionPaymentSubmitted,
     notifySubscriptionVerified,
     notifySubscriptionRejected,
+    notifySkipDay,
+    notifyCookUnavailable,
+    notifySubscriptionScheduled,
+    notifySubscriptionCompleted,
+    notifySubscriptionCompletedToCook,
     markAllAsRead,
     cleanupOldNotifications
 };

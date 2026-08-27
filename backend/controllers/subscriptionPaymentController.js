@@ -3,6 +3,8 @@ import { buildEpayFormFields } from "../utils/esewaEpayClient.js";
 import { getRedirectBaseUrl } from "../utils/publicUrl.js";
 import { fetchPlanWithItems } from "./subscriptionPlanController.js";
 import { logSubscriptionPaymentEvent } from "../utils/subscriptionPaymentState.js";
+import { validateStartDate, LIVE_STATUSES } from "./subscriptionController.js";
+import { SQL_NPT_TODAY, getNptTomorrow } from "../utils/nptTime.js";
 
 /**
  * Pay-first subscription checkout.
@@ -27,12 +29,31 @@ function resolvePlanAmount(fullPlan) {
     return Number(fullPlan.price_per_delivery);
 }
 
-// POST /api/subscriptions/initiate  { cook_id, plan_id, delivery_address }
+/**
+ * Plain-English phrase for a blocking subscription's status.
+ *
+ * Raw enum values leak into the duplicate-purchase error otherwise, and
+ * "your subscription is currently pending_verification" is not a sentence any
+ * customer should be shown. Each phrase also tells them what to DO about it,
+ * because "you already have one" without a next step is a dead end.
+ */
+function describeLiveStatus(status) {
+    switch (status) {
+        case "pending_verification": return "it's waiting for the cook to confirm your payment";
+        case "verified": return "the cook has confirmed your payment and it's about to start";
+        case "scheduled": return "it's scheduled to start on your chosen date";
+        case "active": return "it's currently active";
+        case "paused": return "it's currently paused";
+        default: return `it's currently "${status}"`;
+    }
+}
+
+// POST /api/subscriptions/initiate  { cook_id, plan_id, delivery_address, start_date? }
 export const initiateSubscriptionPayment = async (req, res) => {
     try {
         // From the JWT only. A customer_id in the body is ignored on purpose.
         const customerId = req.user.id;
-        const { cook_id, plan_id, delivery_address } = req.body;
+        const { cook_id, plan_id, delivery_address, start_date } = req.body;
 
         if (!plan_id) {
             return res.status(400).json({ success: false, message: "plan_id is required." });
@@ -41,6 +62,17 @@ export const initiateSubscriptionPayment = async (req, res) => {
         if (!address) {
             return res.status(400).json({ success: false, message: "A delivery address is required." });
         }
+
+        // The customer's chosen first delivery day, validated the same way the
+        // manual-QR flow validates it (real date, not past, at most 30 days
+        // ahead, all against NPT today). Defaults to tomorrow rather than today:
+        // today's cutoff has already passed, so a same-day start would promise a
+        // meal for a day the kitchen can no longer be told about.
+        const startCheck = validateStartDate(start_date === undefined ? getNptTomorrow() : start_date);
+        if (!startCheck.ok) {
+            return res.status(400).json({ success: false, message: startCheck.message });
+        }
+        const startDate = startCheck.startDate;
 
         const fullPlan = await fetchPlanWithItems(plan_id);
         if (!fullPlan) {
@@ -76,15 +108,25 @@ export const initiateSubscriptionPayment = async (req, res) => {
         // An already-running (not expired) subscription with the SAME COOK
         // blocks a new checkout, so a double-tap or a replayed request can't
         // buy the same thing twice. Checked before any booking is generated.
+        //
+        // LIVE_STATUSES, not just active/paused: with the lifecycle redesign a
+        // subscription spends real time in 'pending_verification', 'verified' and
+        // 'scheduled' before it ever delivers. The old two-status guard let a
+        // customer buy a second subscription to the same cook during that whole
+        // window and be charged twice.
+        //
+        // SQL_NPT_TODAY, not CURDATE(): on a UTC server CURDATE() is yesterday
+        // for the first 5h45m of every Nepali day, so a subscription that ends
+        // today would stop blocking a duplicate purchase overnight.
         const [live] = await db.promise().query(
             `SELECT s.id, s.status, s.end_date, p.name AS plan_name
              FROM subscriptions s
              JOIN subscription_plans p ON s.plan_id = p.id
              WHERE s.customer_id = ? AND s.cook_id = ?
-               AND s.status IN ('active', 'paused')
-               AND (s.end_date IS NULL OR s.end_date >= CURDATE())
+               AND s.status IN (?)
+               AND (s.end_date IS NULL OR s.end_date >= ${SQL_NPT_TODAY})
              LIMIT 1`,
-            [customerId, cookId]
+            [customerId, cookId, LIVE_STATUSES]
         );
         if (live.length > 0) {
             await logSubscriptionPaymentEvent({
@@ -95,9 +137,7 @@ export const initiateSubscriptionPayment = async (req, res) => {
             });
             return res.status(409).json({
                 success: false,
-                // Phrased so it reads correctly for every status value in the
-                // enum ("a active"/"a paused" would both be wrong).
-                message: `You already have a subscription with this cook ("${live[0].plan_name}") that is currently ${live[0].status}. Cancel it first, or wait for it to finish.`
+                message: `You already have a subscription with this cook ("${live[0].plan_name}") — ${describeLiveStatus(live[0].status)}. Cancel it first, or wait for it to finish.`
             });
         }
 
@@ -117,28 +157,25 @@ export const initiateSubscriptionPayment = async (req, res) => {
             subscriptionId = pending[0].id;
             await db.promise().query(
                 `UPDATE subscriptions
-                 SET delivery_address = ?, payment_status = 'pending', payment_method = 'esewa'
+                 SET delivery_address = ?, start_date = ?, next_delivery_date = ?,
+                     payment_status = 'pending', payment_method = 'esewa'
                  WHERE id = ? AND status = 'pending_payment'`,
-                [address, subscriptionId]
+                [address, startDate, startDate, subscriptionId]
             );
             await logSubscriptionPaymentEvent({
                 subscriptionId, event: "reused_pending", amount,
-                detail: "Retrying payment against the existing pending subscription."
+                detail: `Retrying payment against the existing pending subscription. Start date ${startDate}.`
             });
         } else {
-            // start_date / next_delivery_date are placeholders — both are
-            // recomputed from the real payment date on activation, so a
-            // customer who pays two days later doesn't get a delivery date
-            // already in the past.
-            // Local calendar date — toISOString() would give the previous day
-            // for any local time before 05:45 (Nepal is UTC+05:45).
-            const now = new Date();
-            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+            // start_date is the customer's CHOICE and survives to activation —
+            // it is no longer a placeholder overwritten with the payment date.
+            // next_delivery_date mirrors it because under the daily model the
+            // first delivery IS the start date.
             const [created] = await db.promise().query(
                 `INSERT INTO subscriptions
                    (customer_id, cook_id, plan_id, delivery_address, start_date, next_delivery_date, status, payment_status, payment_method)
                  VALUES (?, ?, ?, ?, ?, ?, 'pending_payment', 'pending', 'esewa')`,
-                [customerId, cookId, plan_id, address, today, today]
+                [customerId, cookId, plan_id, address, startDate, startDate]
             );
             subscriptionId = created.insertId;
         }

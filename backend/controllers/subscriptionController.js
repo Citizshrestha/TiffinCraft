@@ -3,14 +3,94 @@ import { fetchPlanWithItems } from "./subscriptionPlanController.js";
 import {
     notifySubscriptionPaymentSubmitted,
     notifySubscriptionVerified,
-    notifySubscriptionRejected
+    notifySubscriptionRejected,
+    notifySubscriptionScheduled,
+    notifySkipDay,
+    formatDeliveryDate
 } from "../utils/notificationHelper.js";
+import {
+    dateOnly,
+    isValidDateString,
+    getNptToday,
+    getNptTomorrow,
+    addDays,
+    daysBetween,
+    isDateLocked,
+    msUntilCutoff,
+    formatCutoffLabel,
+    getCutoffHour,
+    SQL_NPT_TODAY
+} from "../utils/nptTime.js";
+import {
+    DAY_STATUS,
+    DAY_STATUS_LABELS,
+    applyDayStatus,
+    getDayRowsInRange,
+    getCookClosuresInRange,
+    isCookClosedOn,
+    placeDayOrder,
+    logDayEvent
+} from "../utils/subscriptionDailyLog.js";
 
 export function getDurationDays(duration) {
     if (duration === "2_weeks" || duration === "biweekly") return 14;
     if (duration === "monthly" || duration === "1_month") return 30;
     return 7;
 }
+
+/**
+ * How far ahead a customer may choose to start. Enforced server-side, not just
+ * by the app's date picker — a hand-rolled request must not be able to park a
+ * paid subscription two years out, where the cook's plan and prices no longer
+ * exist.
+ */
+export const MAX_START_DATE_DAYS_AHEAD = 30;
+
+/** Days shown by the delivery calendar endpoint. */
+export const CALENDAR_WINDOW_DAYS = 14;
+
+/**
+ * Statuses in which a subscription is waiting on the cook's verification. Both
+ * exist because 'pending_payment' is where a row starts (money not in yet) and
+ * 'pending_verification' is where the money-in-but-unconfirmed rows land; a
+ * cook may legitimately verify from either, since the manual-QR flow has no
+ * automatic transition between them.
+ */
+export const AWAITING_VERIFICATION_STATUSES = ["pending_payment", "pending_verification"];
+
+/** A subscription that is running or about to run — blocks a duplicate signup. */
+export const LIVE_STATUSES = ["pending_verification", "verified", "scheduled", "active", "paused"];
+
+/**
+ * Validates a customer-chosen start date against the Nepal-Time calendar.
+ * Returns { ok: true, startDate } or { ok: false, message }.
+ *
+ * Server-side and NPT-based on purpose. The app's picker enforces the same
+ * window, but a request that bypasses the app must not be able to (a) backdate a
+ * subscription so the cron thinks it owes deliveries for days that already
+ * passed, or (b) push it past the horizon where the plan still exists. And
+ * "today" has to mean today IN NEPAL — between 00:00 and 05:45 NPT a UTC server
+ * would reject tomorrow's date as being in the past.
+ */
+export const validateStartDate = (raw) => {
+    if (!isValidDateString(raw)) {
+        return { ok: false, message: "start_date must be a real calendar date in YYYY-MM-DD form." };
+    }
+    const startDate = raw.trim();
+    const today = getNptToday();
+    const offset = daysBetween(today, startDate);
+
+    if (offset < 0) {
+        return { ok: false, message: "start_date can't be in the past. Pick today or a later date." };
+    }
+    if (offset > MAX_START_DATE_DAYS_AHEAD) {
+        return {
+            ok: false,
+            message: `start_date can be at most ${MAX_START_DATE_DAYS_AHEAD} days from today (latest: ${addDays(today, MAX_START_DATE_DAYS_AHEAD)}).`
+        };
+    }
+    return { ok: true, startDate };
+};
 
 /**
  * POST /api/subscriptions
@@ -22,10 +102,11 @@ export function getDurationDays(duration) {
  * customer still has to pay the cook, upload a screenshot via
  * uploadSubscriptionScreenshot, and the cook has to verify it via
  * verifySubscriptionPayment before this ever generates a real delivery.
- * start_date/next_delivery_date are placeholders here — they're recomputed
- * from the actual verification date once payment is confirmed, since the
- * cook may take a day or two to verify and a stale requested date would
- * otherwise leave next_delivery_date sitting in the past.
+ *
+ * start_date is the customer's CHOICE and is honoured: it is validated against
+ * the Nepal-Time calendar here and kept verbatim through verification, rather
+ * than being overwritten with the verification day as it used to be. A customer
+ * who picks next Monday starts next Monday even if the cook verifies on Friday.
  * Body: { plan_id, delivery_address, start_date }
  */
 export const createSubscription = async (req, res) => {
@@ -67,32 +148,33 @@ export const createSubscription = async (req, res) => {
             });
         }
 
-        // Only a subscription that's actually RUNNING blocks a new one. The
-        // previous check was `status != 'cancelled'`, which also matched
-        // abandoned 'pending_payment' rows — so one tap that never got paid
-        // for permanently locked the customer out of that plan with a flat
-        // "You already have a subscription to this plan."
+        // Only a subscription that's actually RUNNING (or queued to run) blocks
+        // a new one. The original check was `status != 'cancelled'`, which also
+        // matched abandoned 'pending_payment' rows — so one tap that never got
+        // paid for permanently locked the customer out of that plan.
         const [live] = await db.promise().query(
             `SELECT id, status FROM subscriptions
-             WHERE customer_id = ? AND plan_id = ? AND status IN ('active', 'paused')
-               AND (end_date IS NULL OR end_date >= CURDATE())
+             WHERE customer_id = ? AND plan_id = ? AND status IN (?)
+               AND (end_date IS NULL OR end_date >= ${SQL_NPT_TODAY})
              LIMIT 1`,
-            [customerId, plan_id]
+            [customerId, plan_id, LIVE_STATUSES]
         );
         if (live.length > 0) {
             return res.status(409).json({
                 success: false,
-                message: `You already have a ${live[0].status} subscription to this plan. Cancel it first, or wait for it to finish.`
+                message: `You already have a ${live[0].status.replace(/_/g, " ")} subscription to this plan. Cancel it first, or wait for it to finish.`
             });
         }
 
-        const interval = getDurationDays(plan.duration);
-        const startDate = new Date(start_date);
-        if (Number.isNaN(startDate.getTime())) {
-            return res.status(400).json({ success: false, message: "start_date is invalid." });
+        const startCheck = validateStartDate(start_date);
+        if (!startCheck.ok) {
+            return res.status(400).json({ success: false, message: startCheck.message });
         }
-        const nextDelivery = new Date(startDate);
-        nextDelivery.setDate(nextDelivery.getDate() + interval);
+        const startDate = startCheck.startDate;
+        // next_delivery_date IS the start date: deliveries are daily from day
+        // one. end_date is left for verification to set, because the number of
+        // paid meals is only fixed once the payment is confirmed.
+        const nextDelivery = startDate;
 
         // Reuse an unpaid attempt for this plan instead of stacking dead rows.
         const [pending] = await db.promise().query(
@@ -108,25 +190,27 @@ export const createSubscription = async (req, res) => {
                      payment_status = 'pending', payment_method = 'manual_qr',
                      payment_screenshot_url = NULL
                  WHERE id = ? AND status = 'pending_payment'`,
-                [delivery_address, start_date, nextDelivery.toISOString().split('T')[0], pending[0].id]
+                [delivery_address, startDate, nextDelivery, pending[0].id]
             );
             return res.status(200).json({
                 success: true,
                 message: "Continuing your unpaid subscription — pay the cook and upload proof to activate it.",
-                subscriptionId: pending[0].id
+                subscriptionId: pending[0].id,
+                start_date: startDate
             });
         }
 
         const [result] = await db.promise().query(
             `INSERT INTO subscriptions (customer_id, cook_id, plan_id, delivery_address, start_date, next_delivery_date, status, payment_status, payment_method)
              VALUES (?, ?, ?, ?, ?, ?, 'pending_payment', 'pending', 'manual_qr')`,
-            [customerId, plan.cook_id, plan_id, delivery_address, start_date, nextDelivery.toISOString().split('T')[0]]
+            [customerId, plan.cook_id, plan_id, delivery_address, startDate, nextDelivery]
         );
 
         return res.status(201).json({
             success: true,
             message: "Subscription created — pay the cook and upload proof to activate it.",
-            subscriptionId: result.insertId
+            subscriptionId: result.insertId,
+            start_date: startDate
         });
 
     } catch (error) {
@@ -172,10 +256,24 @@ export const uploadSubscriptionScreenshot = async (req, res) => {
             return res.status(400).json({ success: false, message: `Cannot submit payment proof — this subscription's payment is already "${sub.payment_status}".` });
         }
 
+        // Moves the lifecycle to 'pending_verification': the customer's side is
+        // done and the ball is entirely in the cook's court. Distinct from
+        // 'pending_payment' so the cook's subscriber list can show "N waiting on
+        // you" without also counting people who never paid.
         await db.promise().query(
-            `UPDATE subscriptions SET payment_screenshot_url = ?, payment_status = 'submitted' WHERE id = ?`,
+            `UPDATE subscriptions
+             SET payment_screenshot_url = ?, payment_status = 'submitted',
+                 status = CASE WHEN status = 'pending_payment' THEN 'pending_verification' ELSE status END
+             WHERE id = ?`,
             [payment_screenshot_url, id]
         );
+
+        await logDayEvent({
+            subscriptionId: id,
+            event: "proof_submitted",
+            actor: "customer",
+            detail: `Payment proof uploaded; awaiting cook verification. Requested start ${dateOnly(sub.start_date)}.`
+        });
 
         const [[customer]] = await db.promise().query("SELECT full_name FROM users WHERE id = ?", [customerId]);
         await notifySubscriptionPaymentSubmitted(sub.cook_id, id, customer?.full_name || "A customer", sub.plan_name);
@@ -190,9 +288,20 @@ export const uploadSubscriptionScreenshot = async (req, res) => {
 /**
  * PUT /api/subscriptions/:id/verify-payment — cook only.
  * Body: { status: 'verified'|'rejected', notes }
- * On verify: activates the subscription and (re)computes start_date/
- * next_delivery_date from TODAY, not the customer's originally requested
- * date — see createSubscription's comment for why.
+ *
+ * Verifying confirms the MONEY. It does not, by itself, start deliveries.
+ *
+ *   start_date in the future  -> 'scheduled'. The 06:00 cron flips it to
+ *                                'active' on the morning of start_date.
+ *   start_date today (or past)-> 'active' immediately, plus today's log row and,
+ *                                if the 06:00 batch has already run, today's
+ *                                order placed on the spot so a paid day isn't
+ *                                lost to the cook's verification timing.
+ *
+ * A past start_date is CLAMPED to today rather than honoured. Honouring it would
+ * mean the cron owes deliveries for days that already went by — it would either
+ * dump several days of orders at once or mark them all missed, and either way
+ * the customer's meal credits drain for food nobody cooked.
  */
 export const verifySubscriptionPayment = async (req, res) => {
     try {
@@ -206,7 +315,8 @@ export const verifySubscriptionPayment = async (req, res) => {
         }
 
         const [subs] = await db.promise().query(
-            `SELECT s.*, p.name AS plan_name, p.duration FROM subscriptions s
+            `SELECT s.*, p.name AS plan_name, p.duration, p.price_per_delivery
+             FROM subscriptions s
              JOIN subscription_plans p ON s.plan_id = p.id
              WHERE s.id = ?`,
             [id]
@@ -216,46 +326,216 @@ export const verifySubscriptionPayment = async (req, res) => {
         }
         const sub = subs[0];
 
+        // Ownership: the cook_id on the row must be the authenticated user. The
+        // :id in the URL is never trusted on its own.
         if (sub.cook_id !== cookId) {
             return res.status(403).json({ success: false, message: "This subscription does not belong to your kitchen." });
         }
         if (sub.payment_status !== "submitted") {
-            return res.status(400).json({ success: false, message: `Cannot ${status === "verified" ? "verify" : "reject"} — payment proof hasn't been submitted (current status: ${sub.payment_status}).` });
+            return res.status(400).json({
+                success: false,
+                message: `Cannot ${status === "verified" ? "verify" : "reject"} — payment proof hasn't been submitted (current status: ${sub.payment_status}).`
+            });
         }
 
-        if (status === "verified") {
-            const interval = getDurationDays(sub.duration);
-            const today = new Date();
-            const nextDelivery = new Date(today);
-            nextDelivery.setDate(nextDelivery.getDate() + interval);
-            // A subscription is a single up-front payment, so the delivery
-            // window it buys is bounded — same rule the gateway path applies
-            // in subscriptionPaymentState.js, enforced in subscriptionOrderJob.js.
-            const endDate = new Date(today);
-            endDate.setDate(endDate.getDate() + interval);
-
+        if (status === "rejected") {
             await db.promise().query(
                 `UPDATE subscriptions
-                 SET status = 'active', payment_status = 'verified', payment_verified_at = NOW(),
-                     verification_notes = ?, start_date = ?, end_date = ?, next_delivery_date = ?
-                 WHERE id = ? AND status = 'pending_payment'`,
-                [notes || null, today.toISOString().split('T')[0], endDate.toISOString().split('T')[0],
-                 nextDelivery.toISOString().split('T')[0], id]
-            );
-            await notifySubscriptionVerified(sub.customer_id, sub.id, sub.plan_name);
-        } else {
-            await db.promise().query(
-                `UPDATE subscriptions SET payment_status = 'rejected', verification_notes = ? WHERE id = ?`,
+                 SET payment_status = 'rejected', verification_notes = ?,
+                     status = CASE WHEN status = 'pending_verification' THEN 'pending_payment' ELSE status END
+                 WHERE id = ?`,
                 [notes || null, id]
             );
+            await logDayEvent({
+                subscriptionId: id,
+                event: "verification_rejected",
+                actor: "cook",
+                detail: notes ? `Rejected: ${notes}` : "Rejected by cook."
+            });
             await notifySubscriptionRejected(sub.customer_id, sub.id, sub.plan_name, notes);
+            return res.status(200).json({ success: true, message: "Subscription payment marked rejected." });
         }
 
-        return res.status(200).json({ success: true, message: `Subscription payment marked ${status}.` });
+        // ---- verified ----------------------------------------------------
+        const today = getNptToday();
+        const requestedStart = dateOnly(sub.start_date);
+        const clamped = !requestedStart || daysBetween(today, requestedStart) < 0;
+        const effectiveStart = clamped ? today : requestedStart;
+
+        // One paid meal per delivery day. meals_total is the authoritative bound
+        // on the cycle; end_date is the date the last of them lands if nothing is
+        // skipped, and is pushed out by a day each time a day is skipped so the
+        // customer never loses a meal they paid for.
+        const mealsTotal = getDurationDays(sub.duration);
+        const endDate = addDays(effectiveStart, mealsTotal - 1);
+        const startsNow = effectiveStart === today;
+        const newStatus = startsNow ? "active" : "scheduled";
+
+        const connection = await db.promise().getConnection();
+        let dayOutcome = null;
+        try {
+            await connection.beginTransaction();
+
+            // Gated on the row still awaiting verification: two cooks on two
+            // devices (or a double tap) can both reach here, and only one may
+            // seed the meal credits. The loser gets affectedRows = 0.
+            const [upd] = await connection.query(
+                `UPDATE subscriptions
+                 SET status = ?, payment_status = 'verified', payment_verified_at = NOW(),
+                     verified_by = ?, verified_at = NOW(), verification_notes = ?,
+                     start_date = ?, end_date = ?, next_delivery_date = ?,
+                     meals_total = ?, meals_remaining = ?
+                 WHERE id = ? AND status IN (?) AND payment_status = 'submitted'`,
+                [newStatus, cookId, notes || null, effectiveStart, endDate, effectiveStart,
+                 mealsTotal, mealsTotal, id, AWAITING_VERIFICATION_STATUSES]
+            );
+
+            if (upd.affectedRows === 0) {
+                await connection.rollback();
+                return res.status(409).json({
+                    success: false,
+                    message: "This subscription was already processed — refresh to see its current state."
+                });
+            }
+
+            if (startsNow) {
+                // Today's log row. A cook who closed today BEFORE this
+                // subscription existed never got a fan-out row for it, so the
+                // closure has to be re-checked here — otherwise the customer's
+                // very first day would be scheduled into a shut kitchen.
+                const closedToday = await isCookClosedOn(connection, cookId, today);
+
+                if (closedToday) {
+                    await applyDayStatus(connection, {
+                        subscriptionId: sub.id,
+                        deliveryDate: today,
+                        status: DAY_STATUS.COOK_UNAVAILABLE,
+                        toggledBy: "cook",
+                        reason: "Kitchen already closed for this date when the subscription activated",
+                        creditDeducted: false
+                    });
+                    // The day costs nothing, so the cycle simply ends a day later.
+                    await connection.query(
+                        `UPDATE subscriptions SET end_date = DATE_ADD(end_date, INTERVAL 1 DAY),
+                                                 next_delivery_date = DATE_ADD(next_delivery_date, INTERVAL 1 DAY)
+                         WHERE id = ?`,
+                        [sub.id]
+                    );
+                    dayOutcome = "cook_unavailable";
+                } else {
+                    // Row first, order second: placeDayOrder writes the order_id
+                    // back onto this row, so it has to exist. The credit is
+                    // deducted only once the order actually exists — a plan whose
+                    // meal the cook has 86'd produces no order, and charging a
+                    // meal credit for food nobody cooked is the one outcome the
+                    // credit system exists to prevent.
+                    await applyDayStatus(connection, {
+                        subscriptionId: sub.id,
+                        deliveryDate: today,
+                        status: DAY_STATUS.SCHEDULED,
+                        toggledBy: "system",
+                        reason: "Activated on verification",
+                        creditDeducted: false
+                    });
+
+                    const placement = await placeDayOrder(connection, sub, today);
+
+                    if (placement.placed) {
+                        await connection.query(
+                            `UPDATE subscription_daily_log SET credit_deducted = TRUE
+                             WHERE subscription_id = ? AND delivery_date = ?`,
+                            [sub.id, today]
+                        );
+                        await connection.query(
+                            `UPDATE subscriptions
+                             SET meals_remaining = GREATEST(meals_remaining - 1, 0),
+                                 next_delivery_date = DATE_ADD(next_delivery_date, INTERVAL 1 DAY)
+                             WHERE id = ?`,
+                            [sub.id]
+                        );
+                        dayOutcome = "order_placed";
+                    } else {
+                        // Treated exactly like a kitchen closure: no meal, no
+                        // charge, cycle slides a day.
+                        const names = (placement.items || []).map(i => i.meal_name).filter(Boolean).join(", ");
+                        await connection.query(
+                            `UPDATE subscription_daily_log
+                             SET status = 'cook_unavailable', toggled_by = 'system', reason = ?, toggled_at = NOW()
+                             WHERE subscription_id = ? AND delivery_date = ? AND status <> 'delivered'`,
+                            [`Plan item unavailable on activation day${names ? `: ${names}` : ""}`, sub.id, today]
+                        );
+                        await connection.query(
+                            `UPDATE subscriptions
+                             SET end_date = DATE_ADD(end_date, INTERVAL 1 DAY),
+                                 next_delivery_date = DATE_ADD(next_delivery_date, INTERVAL 1 DAY)
+                             WHERE id = ?`,
+                            [sub.id]
+                        );
+                        dayOutcome = "unavailable_items";
+                    }
+                }
+            }
+
+            await connection.commit();
+        } catch (err) {
+            await connection.rollback();
+            throw err;
+        } finally {
+            connection.release();
+        }
+
+        await logDayEvent({
+            subscriptionId: id,
+            event: startsNow ? "activated" : "scheduled",
+            actor: "cook",
+            detail: `Payment verified by cook ${cookId}. ${mealsTotal} meals, ${effectiveStart} → ${endDate}.`
+                + (clamped ? ` Requested start ${requestedStart || "(none)"} was in the past and was clamped to today.` : "")
+                + (dayOutcome ? ` Day one: ${dayOutcome}.` : "")
+        });
+
+        if (startsNow) {
+            await notifySubscriptionVerified(sub.customer_id, sub.id, sub.plan_name);
+        } else {
+            await notifySubscriptionScheduled(sub.customer_id, sub.id, sub.plan_name, effectiveStart);
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: startsNow
+                ? "Payment verified — this subscription is active and today's delivery is scheduled."
+                : `Payment verified — deliveries start ${formatDeliveryDate(effectiveStart)}. Nothing to do until then.`,
+            subscription: {
+                id: Number(id),
+                status: newStatus,
+                start_date: effectiveStart,
+                end_date: endDate,
+                meals_total: mealsTotal,
+                start_date_clamped: clamped
+            }
+        });
     } catch (error) {
         console.error("verifySubscriptionPayment error:", error);
         return res.status(500).json({ success: false, message: "Server error.", error: error.message });
     }
+};
+
+/**
+ * Every DATE column on `subscriptions`, normalised to 'YYYY-MM-DD' before the
+ * row leaves the server.
+ *
+ * This is the fix for the raw "2026-09-03T00:00:00.000Z" the app was rendering
+ * in "Next delivery": mysql2 hydrates a DATE into a JS Date at local midnight,
+ * JSON.stringify turns that into a full UTC timestamp, and the client had no way
+ * to tell a date from an instant. Normalising here means no current or future
+ * screen can receive one by accident.
+ */
+const DATE_FIELDS = ["start_date", "end_date", "next_delivery_date"];
+const withDateOnlyFields = (row) => {
+    const out = { ...row };
+    for (const field of DATE_FIELDS) {
+        if (field in out) out[field] = dateOnly(out[field]);
+    }
+    return out;
 };
 
 const formatSubscriptionRow = async (row) => {
@@ -273,7 +553,7 @@ const formatSubscriptionRow = async (row) => {
     } catch (_) { /* legacy/malformed JSON — no QR */ }
 
     const { cook_bank_details, ...rest } = row;
-    return { ...rest, plan, cook_esewa_qr_url: cookEsewaQrUrl };
+    return { ...withDateOnlyFields(rest), plan, cook_esewa_qr_url: cookEsewaQrUrl };
 };
 
 /**
@@ -328,15 +608,24 @@ export const getCookSubscribers = async (req, res) => {
             [cookId]
         );
 
-        const [[{ count }]] = await db.promise().query(
-            "SELECT COUNT(*) as count FROM subscriptions WHERE cook_id = ? AND status = 'active'",
+        // 'active' is no longer the only live state — a verified subscription
+        // waiting for its start date is a real subscriber the cook has been paid
+        // by, and counting only 'active' would under-report them.
+        const [[counts]] = await db.promise().query(
+            `SELECT
+                SUM(status = 'active')    AS active_count,
+                SUM(status = 'scheduled') AS scheduled_count,
+                SUM(status = 'pending_verification' OR payment_status = 'submitted') AS awaiting_verification_count
+             FROM subscriptions WHERE cook_id = ?`,
             [cookId]
         );
 
         return res.status(200).json({
             success: true,
-            activeSubscriberCount: count,
-            subscriptions
+            activeSubscriberCount: Number(counts?.active_count || 0),
+            scheduledSubscriberCount: Number(counts?.scheduled_count || 0),
+            awaitingVerificationCount: Number(counts?.awaiting_verification_count || 0),
+            subscriptions: subscriptions.map(withDateOnlyFields)
         });
 
     } catch (error) {
@@ -351,7 +640,9 @@ export const getCookSubscribers = async (req, res) => {
 
 /**
  * PUT /api/subscriptions/:id/pause
- * Pause a subscription
+ * An INDEFINITE hold — deliberately distinct from skipping a single day, which
+ * is a subscription_daily_log row. Pausing stops the cron creating any further
+ * day rows; the remaining meal credits are untouched and wait for a resume.
  */
 export const pauseSubscription = async (req, res) => {
     try {
@@ -360,7 +651,7 @@ export const pauseSubscription = async (req, res) => {
 
         // Verify ownership
         const [subs] = await db.promise().query(
-            "SELECT * FROM subscriptions WHERE id = ? AND (customer_id = ? OR cook_id = ?)",
+            "SELECT id, cook_id, status FROM subscriptions WHERE id = ? AND (customer_id = ? OR cook_id = ?)",
             [id, userId, userId]
         );
 
@@ -371,14 +662,28 @@ export const pauseSubscription = async (req, res) => {
             });
         }
 
+        if (!["active", "scheduled"].includes(subs[0].status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Only a running or scheduled subscription can be paused — this one is "${subs[0].status.replace(/_/g, " ")}".`
+            });
+        }
+
         await db.promise().query(
-            "UPDATE subscriptions SET status = 'paused' WHERE id = ?",
+            "UPDATE subscriptions SET status = 'paused' WHERE id = ? AND status IN ('active','scheduled')",
             [id]
         );
 
+        await logDayEvent({
+            subscriptionId: id,
+            event: "paused",
+            actor: userId === subs[0].cook_id ? "cook" : "customer",
+            detail: `Paused indefinitely from "${subs[0].status}". Remaining meal credits preserved.`
+        });
+
         return res.status(200).json({
             success: true,
-            message: "Subscription paused successfully."
+            message: "Subscription paused. Today's and tomorrow's deliveries already past their cutoff are unaffected."
         });
 
     } catch (error) {
@@ -393,7 +698,12 @@ export const pauseSubscription = async (req, res) => {
 
 /**
  * PUT /api/subscriptions/:id/resume
- * Resume a paused subscription
+ * Resume a paused subscription.
+ *
+ * Deliveries restart TOMORROW (Nepal time), never today: today's cutoff passed
+ * yesterday evening, the cook has already planned their day, and quietly adding
+ * a meal to it would be exactly the surprise the cutoff exists to prevent.
+ * A subscription whose start date is still ahead goes back to 'scheduled'.
  */
 export const resumeSubscription = async (req, res) => {
     try {
@@ -401,7 +711,9 @@ export const resumeSubscription = async (req, res) => {
         const { id } = req.params;
 
         const [subs] = await db.promise().query(
-            "SELECT * FROM subscriptions WHERE id = ? AND (customer_id = ? OR cook_id = ?)",
+            `SELECT id, cook_id, status, meals_remaining,
+                    DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date
+             FROM subscriptions WHERE id = ? AND (customer_id = ? OR cook_id = ?)`,
             [id, userId, userId]
         );
 
@@ -413,22 +725,44 @@ export const resumeSubscription = async (req, res) => {
         }
 
         const sub = subs[0];
-        const [[plan]] = await db.promise().query(
-            "SELECT duration FROM subscription_plans WHERE id = ?",
-            [sub.plan_id]
-        );
-        const interval = getDurationDays(plan?.duration);
-        const nextDelivery = new Date();
-        nextDelivery.setDate(nextDelivery.getDate() + interval);
+        if (sub.status !== "paused") {
+            return res.status(400).json({
+                success: false,
+                message: `Only a paused subscription can be resumed — this one is "${sub.status.replace(/_/g, " ")}".`
+            });
+        }
+        if (sub.meals_remaining !== null && Number(sub.meals_remaining) <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Every meal in this subscription has been used. Subscribe again to keep going."
+            });
+        }
+
+        const today = getNptToday();
+        const tomorrow = getNptTomorrow();
+        const startsLater = sub.start_date && daysBetween(today, sub.start_date) > 0;
+        // Resuming after the original start date passed means deliveries pick up
+        // tomorrow; resuming before it means they still wait for it.
+        const resumeDate = startsLater ? sub.start_date : tomorrow;
+        const resumeStatus = startsLater ? "scheduled" : "active";
 
         await db.promise().query(
-            "UPDATE subscriptions SET status = 'active', next_delivery_date = ? WHERE id = ?",
-            [nextDelivery.toISOString().split('T')[0], id]
+            "UPDATE subscriptions SET status = ?, next_delivery_date = ? WHERE id = ? AND status = 'paused'",
+            [resumeStatus, resumeDate, id]
         );
+
+        await logDayEvent({
+            subscriptionId: id,
+            event: "resumed",
+            actor: userId === sub.cook_id ? "cook" : "customer",
+            detail: `Resumed as "${resumeStatus}"; next delivery ${resumeDate}.`
+        });
 
         return res.status(200).json({
             success: true,
-            message: "Subscription resumed successfully."
+            message: `Subscription resumed — next delivery ${resumeDate}.`,
+            next_delivery_date: resumeDate,
+            status: resumeStatus
         });
 
     } catch (error) {
@@ -442,58 +776,345 @@ export const resumeSubscription = async (req, res) => {
 };
 
 /**
- * PUT /api/subscriptions/:id/skip
- * Customer skips a specific delivery date
- * Body: { date }
+ * GET /api/subscriptions/:id/calendar — customer OR cook (owner of either side).
+ *
+ * The per-day view that replaces the single "Active" flag. Returns a window of
+ * delivery days, each with its REAL logged status where one exists and a
+ * projected 'scheduled' where none does yet, plus everything the UI needs to
+ * decide whether a day can still be changed — so the client never has to
+ * recompute the cutoff and get it wrong.
+ *
+ * All dates are emitted as 'YYYY-MM-DD' strings. Nothing here returns a DATE
+ * column raw: mysql2 turns those into Date objects that JSON-serialise as
+ * "2026-09-03T00:00:00.000Z", which is what the app used to display verbatim.
+ */
+export const getSubscriptionCalendar = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+
+        const [subs] = await db.promise().query(
+            `SELECT s.id, s.customer_id, s.cook_id, s.plan_id, s.status, s.payment_status,
+                    DATE_FORMAT(s.start_date, '%Y-%m-%d')        AS start_date,
+                    DATE_FORMAT(s.end_date, '%Y-%m-%d')          AS end_date,
+                    DATE_FORMAT(s.next_delivery_date, '%Y-%m-%d') AS next_delivery_date,
+                    s.meals_total, s.meals_remaining,
+                    p.name AS plan_name, p.duration,
+                    cu.full_name AS customer_name,
+                    ck.full_name AS cook_name
+             FROM subscriptions s
+             JOIN subscription_plans p ON s.plan_id = p.id
+             JOIN users cu ON cu.id = s.customer_id
+             JOIN users ck ON ck.id = s.cook_id
+             WHERE s.id = ?`,
+            [id]
+        );
+        if (subs.length === 0) {
+            return res.status(404).json({ success: false, message: "Subscription not found." });
+        }
+        const sub = subs[0];
+
+        // Ownership: only the customer who bought it or the cook who serves it.
+        // Checked against req.user.id, never against anything in the request.
+        const isCustomer = sub.customer_id === userId;
+        const isCook = sub.cook_id === userId;
+        if (!isCustomer && !isCook) {
+            return res.status(403).json({ success: false, message: "This subscription isn't yours to view." });
+        }
+
+        const cutoffHour = await getCutoffHour();
+        const today = getNptToday();
+
+        // A scheduled subscription's window starts on its first delivery day —
+        // showing 14 mostly-empty days before it starts tells the customer
+        // nothing. An active one starts today.
+        const windowStart = sub.start_date && daysBetween(today, sub.start_date) > 0 ? sub.start_date : today;
+        let windowEnd = addDays(windowStart, CALENDAR_WINDOW_DAYS - 1);
+        if (sub.end_date && daysBetween(sub.end_date, windowEnd) > 0) windowEnd = sub.end_date;
+
+        const [logRows, closures] = await Promise.all([
+            getDayRowsInRange(db.promise(), sub.id, windowStart, windowEnd),
+            getCookClosuresInRange(db.promise(), sub.cook_id, windowStart, windowEnd)
+        ]);
+
+        // Only a running (or about-to-run) subscription has changeable days at
+        // all. A paused/cancelled/completed one is shown read-only.
+        const isLive = ["active", "scheduled"].includes(sub.status);
+
+        const days = [];
+        const total = Math.max(0, (daysBetween(windowStart, windowEnd) ?? -1) + 1);
+        for (let i = 0; i < total; i++) {
+            const date = addDays(windowStart, i);
+            const row = logRows.get(date) || null;
+            const locked = isDateLocked(date, cutoffHour);
+
+            let status;
+            let toggledBy = null;
+            let reason = null;
+            let creditDeducted = false;
+            let orderId = null;
+
+            if (row) {
+                status = row.status;
+                toggledBy = row.toggled_by;
+                reason = row.reason;
+                creditDeducted = !!row.credit_deducted;
+                orderId = row.order_id;
+            } else if (closures.has(date)) {
+                // Projected from the cook's closure list. There is no row yet
+                // because the fan-out only reaches subscribers who existed when
+                // the cook closed the date — a subscription that activates later
+                // must still show the closure rather than a false "Scheduled".
+                status = DAY_STATUS.COOK_UNAVAILABLE;
+                toggledBy = "cook";
+                reason = closures.get(date);
+            } else {
+                status = DAY_STATUS.SCHEDULED;
+            }
+
+            days.push({
+                date,
+                status,
+                label: DAY_STATUS_LABELS[status] || status,
+                toggled_by: toggledBy,
+                reason,
+                credit_deducted: creditDeducted,
+                order_id: orderId,
+                is_today: date === today,
+                is_locked: locked,
+                // A day is skippable only if a meal is actually still expected on
+                // it AND the cutoff hasn't passed. Days the cook already closed
+                // are excluded — there's nothing left to skip.
+                can_skip: isLive && !locked && status === DAY_STATUS.SCHEDULED,
+                // Surfaced even when false so the UI can grey the toggle out with
+                // "Cutoff passed" rather than hiding it and looking broken.
+                locked_message: locked
+                    ? `Too late to change this day — the cutoff was ${formatCutoffLabel(cutoffHour)} on ${addDays(date, -1)}.`
+                    : null
+            });
+        }
+
+        const nextEditableDate = getNptTomorrow();
+        return res.status(200).json({
+            success: true,
+            viewer: isCustomer ? "customer" : "cook",
+            today,
+            subscription: {
+                id: sub.id,
+                status: sub.status,
+                payment_status: sub.payment_status,
+                plan_name: sub.plan_name,
+                duration: sub.duration,
+                customer_name: sub.customer_name,
+                cook_name: sub.cook_name,
+                start_date: sub.start_date,
+                end_date: sub.end_date,
+                next_delivery_date: sub.next_delivery_date,
+                meals_total: sub.meals_total,
+                meals_remaining: sub.meals_remaining,
+                // Drives "Starts Sep 3, 2026 · in 7 days" for a scheduled
+                // subscription, which must read differently from an active one.
+                days_until_start: sub.start_date ? Math.max(0, daysBetween(today, sub.start_date)) : null
+            },
+            cutoff: {
+                hour: cutoffHour,
+                label: formatCutoffLabel(cutoffHour),
+                next_editable_date: nextEditableDate,
+                ms_until_cutoff: msUntilCutoff(nextEditableDate, cutoffHour)
+            },
+            window: { from: windowStart, to: windowEnd },
+            days
+        });
+    } catch (error) {
+        console.error("getSubscriptionCalendar error:", error);
+        return res.status(500).json({ success: false, message: "Server error.", error: error.message });
+    }
+};
+
+/**
+ * POST /api/subscriptions/:id/skip-day — customer only.
+ * Body: { date: 'YYYY-MM-DD', reason? }
+ *
+ * Skipping is free: credit_deducted stays FALSE and end_date slides out by a
+ * day, so the customer still receives every meal they paid for — just not on
+ * that date. This replaces the old skipped_dates JSON append, which recorded no
+ * actor, no reason and no timestamp, and which two concurrent writes could
+ * clobber (read-modify-write on a JSON column).
+ *
+ * Rejections are specific on purpose. "Too late" and "the kitchen is closed
+ * anyway" call for completely different reactions from the customer, and a
+ * generic failure teaches them to just retry.
  */
 export const skipDay = async (req, res) => {
     try {
         const customerId = req.user.id;
         const { id } = req.params;
-        const { date } = req.body;
+        const { date, reason } = req.body;
 
-        if (!date) {
+        if (!isValidDateString(date)) {
             return res.status(400).json({
                 success: false,
-                message: "date is required."
+                message: "date is required, as a real calendar date in YYYY-MM-DD form."
             });
         }
+        const target = date.trim();
 
         const [subs] = await db.promise().query(
-            "SELECT * FROM subscriptions WHERE id = ? AND customer_id = ?",
-            [id, customerId]
+            `SELECT s.id, s.customer_id, s.cook_id, s.status, s.meals_remaining,
+                    DATE_FORMAT(s.start_date, '%Y-%m-%d') AS start_date,
+                    DATE_FORMAT(s.end_date, '%Y-%m-%d')   AS end_date,
+                    p.name AS plan_name
+             FROM subscriptions s
+             JOIN subscription_plans p ON s.plan_id = p.id
+             WHERE s.id = ?`,
+            [id]
         );
-
         if (subs.length === 0) {
-            return res.status(404).json({
+            return res.status(404).json({ success: false, message: "Subscription not found." });
+        }
+        const sub = subs[0];
+
+        // Ownership against req.user.id — the :id alone proves nothing.
+        if (sub.customer_id !== customerId) {
+            return res.status(403).json({ success: false, message: "This subscription does not belong to you." });
+        }
+        if (!["active", "scheduled"].includes(sub.status)) {
+            return res.status(400).json({
                 success: false,
-                message: "Subscription not found."
+                message: `Only a running or scheduled subscription has days to skip — this one is "${sub.status.replace(/_/g, " ")}".`
             });
         }
 
-        // Append date to skipped_dates JSON array
-        const sub = subs[0];
-        const skipped = sub.skipped_dates ? JSON.parse(sub.skipped_dates) : [];
-        skipped.push(date);
-        const updatedSkipped = JSON.stringify(skipped);
+        const cutoffHour = await getCutoffHour();
+        const today = getNptToday();
 
-        await db.promise().query(
-            "UPDATE subscriptions SET skipped_dates = ? WHERE id = ?",
-            [updatedSkipped, id]
-        );
+        if (daysBetween(today, target) < 0) {
+            return res.status(400).json({ success: false, message: "That date has already passed." });
+        }
+        if (sub.start_date && daysBetween(sub.start_date, target) < 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Deliveries don't start until ${sub.start_date} — there's nothing to skip on ${target}.`
+            });
+        }
+        if (sub.end_date && daysBetween(sub.end_date, target) > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `${target} is past the end of this subscription (${sub.end_date}).`
+            });
+        }
+        // The cutoff. Note this also rejects TODAY without a separate branch —
+        // today's cutoff was yesterday evening, which is unavoidably past.
+        if (isDateLocked(target, cutoffHour)) {
+            return res.status(409).json({
+                success: false,
+                code: "cutoff_passed",
+                message: target === today
+                    ? `Too late to change today's meal — the cutoff was ${formatCutoffLabel(cutoffHour)} yesterday.`
+                    : `Too late to change ${target === getNptTomorrow() ? "tomorrow's" : `the meal on ${target}`} — cutoff was ${formatCutoffLabel(cutoffHour)} on ${addDays(target, -1)}.`,
+                cutoff: { hour: cutoffHour, label: formatCutoffLabel(cutoffHour) }
+            });
+        }
+
+        const connection = await db.promise().getConnection();
+        try {
+            await connection.beginTransaction();
+
+            const outcome = await applyDayStatus(connection, {
+                subscriptionId: sub.id,
+                deliveryDate: target,
+                status: DAY_STATUS.CUSTOMER_SKIPPED,
+                toggledBy: "customer",
+                reason: reason ? String(reason).slice(0, 500) : null,
+                creditDeducted: false,
+                // Only a day that was actually going to be delivered. Without
+                // this, skipping a day the cook had already closed would overwrite
+                // the cook's reason AND extend the cycle a second time for a
+                // single non-delivered day. It is also what makes the
+                // 'cook_unavailable' branch below reachable at all.
+                onlyFrom: [DAY_STATUS.SCHEDULED]
+            });
+
+            if (!outcome.applied) {
+                await connection.rollback();
+
+                // Both attempts are recorded even when the write loses, so a
+                // later dispute shows what each side tried to do and when.
+                await logDayEvent({
+                    subscriptionId: sub.id,
+                    event: "skip_rejected",
+                    actor: "customer",
+                    detail: `Skip of ${target} not applied — day is "${outcome.previousStatus}" (${outcome.blockedBy}).`
+                });
+
+                if (outcome.blockedBy === "delivered") {
+                    return res.status(409).json({
+                        success: false,
+                        code: "already_delivered",
+                        message: `${target}'s meal has already been delivered, so it can't be skipped.`
+                    });
+                }
+                if (outcome.previousStatus === DAY_STATUS.CUSTOMER_SKIPPED) {
+                    return res.status(200).json({
+                        success: true,
+                        code: "already_skipped",
+                        message: `You'd already skipped ${target}. Nothing changed.`,
+                        day: { date: target, status: DAY_STATUS.CUSTOMER_SKIPPED }
+                    });
+                }
+                if (outcome.previousStatus === DAY_STATUS.COOK_UNAVAILABLE) {
+                    // The customer's goal (no meal, no charge) already holds.
+                    // Overwriting would erase the cook's reason for closing.
+                    return res.status(200).json({
+                        success: true,
+                        code: "cook_unavailable",
+                        message: `The kitchen is already closed on ${target}, so no meal was coming and no credit was used.`,
+                        day: { date: target, status: DAY_STATUS.COOK_UNAVAILABLE }
+                    });
+                }
+                return res.status(409).json({
+                    success: false,
+                    code: "not_applied",
+                    message: `Couldn't skip ${target} — it's currently "${outcome.previousStatus}".`
+                });
+            }
+
+            // The skipped day cost nothing, so the cycle runs one day longer and
+            // the customer still gets every meal they paid for. Only extend when
+            // the day was genuinely going to consume a credit.
+            if (sub.end_date) {
+                await connection.query(
+                    `UPDATE subscriptions SET end_date = DATE_ADD(end_date, INTERVAL 1 DAY) WHERE id = ?`,
+                    [sub.id]
+                );
+            }
+
+            await connection.commit();
+        } catch (err) {
+            await connection.rollback();
+            throw err;
+        } finally {
+            connection.release();
+        }
+
+        await logDayEvent({
+            subscriptionId: sub.id,
+            event: "day_skipped",
+            actor: "customer",
+            detail: `Customer skipped ${target}${reason ? ` — "${String(reason).slice(0, 200)}"` : ""}. No credit charged; cycle extended by a day.`
+        });
+
+        const [[customer]] = await db.promise().query("SELECT full_name FROM users WHERE id = ?", [customerId]);
+        await notifySkipDay(sub.cook_id, sub.id, customer?.full_name || "A customer", sub.plan_name, target, reason);
 
         return res.status(200).json({
             success: true,
-            message: "Delivery date skipped successfully."
+            message: `${target} skipped. You weren't charged a meal credit, and your subscription now runs a day longer.`,
+            day: { date: target, status: DAY_STATUS.CUSTOMER_SKIPPED, credit_deducted: false }
         });
-
     } catch (error) {
         console.error("skipDay error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Server error.",
-            error: error.message
-        });
+        return res.status(500).json({ success: false, message: "Server error.", error: error.message });
     }
 };
 
@@ -507,7 +1128,7 @@ export const cancelSubscription = async (req, res) => {
         const { id } = req.params;
 
         const [subs] = await db.promise().query(
-            "SELECT * FROM subscriptions WHERE id = ? AND (customer_id = ? OR cook_id = ?)",
+            "SELECT id, cook_id, status FROM subscriptions WHERE id = ? AND (customer_id = ? OR cook_id = ?)",
             [id, userId, userId]
         );
 
@@ -522,6 +1143,13 @@ export const cancelSubscription = async (req, res) => {
             "UPDATE subscriptions SET status = 'cancelled' WHERE id = ?",
             [id]
         );
+
+        await logDayEvent({
+            subscriptionId: id,
+            event: "cancelled",
+            actor: userId === subs[0].cook_id ? "cook" : "customer",
+            detail: `Cancelled from "${subs[0].status}". No further delivery days will be created.`
+        });
 
         return res.status(200).json({
             success: true,
