@@ -252,6 +252,11 @@
             android:name=".activities.customer.CustomerSubscriptionsActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
+        <!-- One screen for all four stages of a subscription request. -->
+        <activity
+            android:name=".activities.customer.SubscriptionStatusActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
         <!-- Per-day delivery schedule. Opened by both sides — the response's
              `viewer` field, not the session role, decides what's actionable. -->
         <activity
@@ -313,6 +318,15 @@
 
         <activity
             android:name=".activities.cook.TodayDeliveriesActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <!-- Request → accept → pay → active flow (cook side) -->
+        <activity
+            android:name=".activities.cook.SubscriptionRequestsActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
+            android:name=".activities.cook.VerifyPaymentProofActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
         <activity

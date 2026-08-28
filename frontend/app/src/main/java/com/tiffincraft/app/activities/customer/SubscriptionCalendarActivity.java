@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -17,7 +18,10 @@ import com.google.gson.JsonObject;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
+import com.tiffincraft.app.models.CustomMeal;
 import com.tiffincraft.app.models.DayActionResponse;
+import com.tiffincraft.app.models.RegisterResponse;
+import com.tiffincraft.app.models.SubscriptionActionResponse;
 import com.tiffincraft.app.models.SubscriptionCalendarResponse;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.DeliveryDateUtils;
@@ -199,7 +203,7 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             tvSummaryStatusChip.setText("Completed");
             tvSummaryStatusChip.setBackgroundResource(R.drawable.status_chip_delivered);
             tvSummaryStatusChip.setTextColor(getColor(R.color.status_delivered_text));
-            tvSummaryDetail.setText("Every meal in this plan has been used.");
+            tvSummaryDetail.setText("Its calendar window has ended.");
         } else {
             tvSummaryStatusChip.setText(info.getStatus() != null ? info.getStatus() : "—");
             tvSummaryStatusChip.setBackgroundResource(R.drawable.status_chip_pending);
@@ -207,11 +211,15 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             tvSummaryDetail.setText("This subscription isn't delivering right now.");
         }
 
-        // Legacy rows predate meal credits and have neither number — showing
-        // "null of null meals left" would be worse than showing nothing.
-        if (info.getMealsRemaining() != null && info.getMealsTotal() != null) {
-            tvSummaryCredits.setText(info.getMealsRemaining() + " of " + info.getMealsTotal()
-                    + " meals left · runs to " + DeliveryDateUtils.formatLongDate(info.getEndDate()));
+        // The window, not a meal count, is what the customer needs here:
+        // meals_remaining is bookkeeping now and a skipped day never buys an extra
+        // one at the end, so leading with "N meals left" would mislead.
+        if (info.getEndDate() != null) {
+            String range = DeliveryDateUtils.formatShortDate(info.getStartDate())
+                    + " – " + DeliveryDateUtils.formatLongDate(info.getEndDate());
+            tvSummaryCredits.setText(info.getMealsTotal() != null
+                    ? range + " · " + info.getMealsTotal() + " days"
+                    : range);
             tvSummaryCredits.setVisibility(View.VISIBLE);
         } else {
             tvSummaryCredits.setVisibility(View.GONE);
@@ -270,6 +278,7 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             }
 
             applyDayAction(day, btnAction, layoutLocked, tvLocked);
+            applyCustomMeal(day, row);
 
             layoutDays.addView(row);
         }
@@ -356,12 +365,155 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * The swap row and the "request a different meal" button for one day.
+     *
+     * Both are driven entirely by the server: `customMeal` is the request that
+     * already exists, and `canRequestCustom` is the server's own answer to
+     * "would I accept a request for this date right now" — same conditions the
+     * create endpoint enforces, so the button never appears for a day the server
+     * would refuse.
+     */
+    private void applyCustomMeal(SubscriptionCalendarResponse.Day day, View row) {
+        LinearLayout layout = row.findViewById(R.id.layoutDayCustomMeal);
+        TextView tvMeal = row.findViewById(R.id.tvDayCustomMeal);
+        TextView tvStatus = row.findViewById(R.id.tvDayCustomMealStatus);
+        TextView tvCancel = row.findViewById(R.id.tvDayCustomMealCancel);
+        MaterialButton btnRequest = row.findViewById(R.id.btnDayCustomMeal);
+
+        CustomMeal swap = day.getCustomMeal();
+        if (swap == null) {
+            layout.setVisibility(View.GONE);
+        } else {
+            layout.setVisibility(View.VISIBLE);
+            tvMeal.setText(swap.describe());
+            tvStatus.setText(swap.isAccepted()
+                    ? "The cook agreed to this instead of the usual plan meal."
+                    : swap.isPending()
+                        ? "Waiting for the cook to accept or decline."
+                        : swap.isDeclined()
+                            ? "Declined — you'll get the usual plan meal."
+                            : "This request is closed.");
+
+            boolean canWithdraw = isCustomerView && swap.canCancel() && !day.isLocked();
+            tvCancel.setVisibility(canWithdraw ? View.VISIBLE : View.GONE);
+            tvCancel.setOnClickListener(canWithdraw ? v -> confirmWithdrawSwap(swap) : null);
+        }
+
+        boolean canRequest = isCustomerView && day.canRequestCustom();
+        btnRequest.setVisibility(canRequest ? View.VISIBLE : View.GONE);
+        btnRequest.setOnClickListener(canRequest ? v -> promptCustomMeal(day) : null);
+    }
+
+    /**
+     * Asks for the swap as free text.
+     *
+     * A meal picker would be better, but it needs the plan's own meal list, and
+     * the note field is what the server already accepts on its own — meal_id is
+     * optional there. Sending a note keeps this one dialog honest instead of
+     * shipping a picker that can't be populated from this screen's payload.
+     */
+    private void promptCustomMeal(SubscriptionCalendarResponse.Day day) {
+        String pretty = DeliveryDateUtils.formatLongDate(day.getDate());
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setHint("e.g. dal bhat instead of momo");
+        input.setMinLines(2);
+
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        FrameLayout wrapper = new FrameLayout(this);
+        wrapper.setPadding(pad, pad / 2, pad, 0);
+        wrapper.addView(input);
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Different meal on " + pretty + "?")
+                .setMessage("Tell the cook what you'd like instead. They'll accept or decline it, "
+                        + "and you'll get the usual plan meal if they can't do it.")
+                .setView(wrapper)
+                .setPositiveButton("Send request", (d, w) -> {
+                    String note = input.getText().toString().trim();
+                    if (note.isEmpty()) {
+                        Toast.makeText(this, "Write what you'd like instead.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    requestCustomMeal(day, note);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void requestCustomMeal(SubscriptionCalendarResponse.Day day, String note) {
+        if (actionInFlight) return;
+        actionInFlight = true;
+
+        JsonObject body = new JsonObject();
+        body.addProperty("delivery_date", day.getDate());
+        body.addProperty("note", note);
+
+        apiService.createCustomMealRequest("Bearer " + sessionManager.getToken(), subscriptionId, body)
+                .enqueue(new Callback<SubscriptionActionResponse>() {
+                    @Override
+                    public void onResponse(@NonNull Call<SubscriptionActionResponse> call,
+                                           @NonNull Response<SubscriptionActionResponse> response) {
+                        actionInFlight = false;
+                        // Server wording verbatim: "that day is already skipped"
+                        // and "the cutoff has passed" call for different reactions.
+                        SubscriptionActionResponse b = response.body();
+                        Toast.makeText(SubscriptionCalendarActivity.this,
+                                b != null && b.getMessage() != null
+                                        ? b.getMessage()
+                                        : "Couldn't send that request.",
+                                Toast.LENGTH_LONG).show();
+                        loadCalendar();
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull Call<SubscriptionActionResponse> call, @NonNull Throwable t) {
+                        actionInFlight = false;
+                        Toast.makeText(SubscriptionCalendarActivity.this, "Network error. Try again.", Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    private void confirmWithdrawSwap(CustomMeal swap) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Withdraw this request?")
+                .setMessage("The cook will make the usual plan meal for that day instead.")
+                .setPositiveButton("Withdraw", (d, w) -> withdrawSwap(swap))
+                .setNegativeButton("Keep it", null)
+                .show();
+    }
+
+    private void withdrawSwap(CustomMeal swap) {
+        if (actionInFlight) return;
+        actionInFlight = true;
+
+        apiService.cancelCustomMealRequest("Bearer " + sessionManager.getToken(), swap.getRequestId())
+                .enqueue(new Callback<RegisterResponse>() {
+                    @Override
+                    public void onResponse(@NonNull Call<RegisterResponse> call, @NonNull Response<RegisterResponse> response) {
+                        actionInFlight = false;
+                        RegisterResponse b = response.body();
+                        Toast.makeText(SubscriptionCalendarActivity.this,
+                                b != null && b.getMessage() != null ? b.getMessage() : "Request withdrawn.",
+                                Toast.LENGTH_SHORT).show();
+                        loadCalendar();
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull Call<RegisterResponse> call, @NonNull Throwable t) {
+                        actionInFlight = false;
+                        Toast.makeText(SubscriptionCalendarActivity.this, "Network error. Try again.", Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
     private void confirmSkip(SubscriptionCalendarResponse.Day day) {
         String pretty = DeliveryDateUtils.formatLongDate(day.getDate());
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Skip " + pretty + "?")
-                .setMessage("No meal will be delivered that day and you won't be charged for it — "
-                        + "your subscription just runs a day longer instead.\n\n"
+                .setMessage("No meal will be delivered that day and you won't be charged for it.\n\n"
+                        + "Your subscription still ends on its original date — skipping a day "
+                        + "doesn't add one at the end.\n\n"
                         + "This can't be undone once the cutoff passes.")
                 .setPositiveButton("Skip this day", (d, w) -> skipDay(day))
                 .setNegativeButton("Keep it", null)

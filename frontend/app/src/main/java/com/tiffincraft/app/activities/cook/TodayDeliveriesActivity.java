@@ -199,11 +199,15 @@ public class TodayDeliveriesActivity extends AppCompatActivity {
         if (summary.getCustomerSkipped() > 0) detail.append(" · ").append(summary.getCustomerSkipped()).append(" skipped by customer");
         if (summary.getCookUnavailable() > 0) detail.append(" · ").append(summary.getCookUnavailable()).append(" kitchen closed");
         if (summary.getMissed() > 0) detail.append(" · ").append(summary.getMissed()).append(" missed");
+        if (summary.getCustomMealsConfirmed() > 0) detail.append(" · ").append(summary.getCustomMealsConfirmed()).append(" swapped");
+        if (summary.getCustomMealsPending() > 0) detail.append(" · ").append(summary.getCustomMealsPending()).append(" swap to answer");
         tvSummaryBreakdown.setText(detail.toString());
 
         if (body.isViewedDateUnavailable()) {
+            // No extension: the window was fixed at verification and a closed
+            // date is simply a day with no meal and no charge.
             tvViewedDateClosed.setText("You marked this date closed. Nothing is being delivered — "
-                    + "no one is charged and every subscription runs a day longer.");
+                    + "no one is charged, and no subscription's end date moves.");
             tvViewedDateClosed.setVisibility(View.VISIBLE);
         } else {
             tvViewedDateClosed.setVisibility(View.GONE);
@@ -304,7 +308,17 @@ public class TodayDeliveriesActivity extends AppCompatActivity {
                     ? delivery.getDeliveryAddress()
                     : "No delivery address on file — call to confirm.");
 
-            if (delivery.getReason() != null && !delivery.getReason().trim().isEmpty()) {
+            // The swap belongs on the customer's own row: it changes what to cook
+            // for them, so putting it on a separate screen means cooking the wrong
+            // thing while a correct answer sits one tap away. It takes priority
+            // over the skip/close note because it is the actionable one.
+            com.tiffincraft.app.models.CustomMeal swap = delivery.getCustomMeal();
+            if (swap != null && (swap.isPending() || swap.isConfirmed())) {
+                tvReason.setText(swap.isConfirmed()
+                        ? "Cook instead: " + swap.describe()
+                        : "Asked for instead: " + swap.describe() + " — needs your answer");
+                tvReason.setVisibility(View.VISIBLE);
+            } else if (delivery.getReason() != null && !delivery.getReason().trim().isEmpty()) {
                 tvReason.setText("cook".equals(delivery.getToggledBy())
                         ? "Your note: " + delivery.getReason()
                         : "Customer's note: " + delivery.getReason());
@@ -325,11 +339,70 @@ public class TodayDeliveriesActivity extends AppCompatActivity {
                 btnCall.setOnClickListener(null);
             }
 
-            btnSchedule.setOnClickListener(v -> startActivity(SubscriptionCalendarActivity.intentFor(
-                    TodayDeliveriesActivity.this, delivery.getSubscriptionId(), delivery.getPlanName())));
+            // Same button, repurposed when there is a swap waiting: an unanswered
+            // request is the only thing on this row the cook has to decide, and a
+            // second button would make the common row (no swap) busier for nothing.
+            if (swap != null && swap.isPending()) {
+                btnSchedule.setText("Answer swap");
+                btnSchedule.setOnClickListener(v -> promptSwapDecision(delivery, swap));
+            } else {
+                btnSchedule.setText("Schedule");
+                btnSchedule.setOnClickListener(v -> startActivity(SubscriptionCalendarActivity.intentFor(
+                        TodayDeliveriesActivity.this, delivery.getSubscriptionId(), delivery.getPlanName())));
+            }
 
             layoutDeliveries.addView(row);
         }
+    }
+
+    /**
+     * Accept or decline one swap.
+     *
+     * Declining asks for no reason and sends none: the day still gets the plan's
+     * default meal, so there is nothing for the customer to fix. Accepting is the
+     * one that changes what gets cooked, which is why it names the meal back.
+     */
+    private void promptSwapDecision(TodayDeliveriesResponse.Delivery delivery,
+                                    com.tiffincraft.app.models.CustomMeal swap) {
+        String who = delivery.getCustomerName() != null ? delivery.getCustomerName() : "This customer";
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Cook something else?")
+                .setMessage(who + " asked for:\n\n" + swap.describe()
+                        + "\n\nAccept and this replaces their plan meal for this day only. "
+                        + "Decline and they get the usual plan meal — either way they're charged the same.")
+                .setPositiveButton("Accept", (d, w) -> sendSwapDecision(swap.getRequestId(), "accept"))
+                .setNegativeButton("Decline", (d, w) -> sendSwapDecision(swap.getRequestId(), "decline"))
+                .setNeutralButton("Later", null)
+                .show();
+    }
+
+    private void sendSwapDecision(int requestId, String action) {
+        com.google.gson.JsonObject body = new com.google.gson.JsonObject();
+        body.addProperty("action", action);
+
+        apiService.respondToCustomMealRequest("Bearer " + sessionManager.getToken(), requestId, body)
+                .enqueue(new Callback<com.tiffincraft.app.models.SubscriptionActionResponse>() {
+                    @Override
+                    public void onResponse(@NonNull Call<com.tiffincraft.app.models.SubscriptionActionResponse> call,
+                                           @NonNull Response<com.tiffincraft.app.models.SubscriptionActionResponse> response) {
+                        com.tiffincraft.app.models.SubscriptionActionResponse b = response.body();
+                        boolean ok = response.isSuccessful() && b != null && b.isSuccess();
+                        Toast.makeText(TodayDeliveriesActivity.this,
+                                b != null && b.getMessage() != null ? b.getMessage()
+                                        : (ok ? "Answered." : "Couldn't send that."),
+                                Toast.LENGTH_LONG).show();
+                        // Re-read rather than patch the row: the summary counters
+                        // move too, and the swap may have expired past its cutoff.
+                        if (ok) loadDeliveries();
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull Call<com.tiffincraft.app.models.SubscriptionActionResponse> call,
+                                          @NonNull Throwable t) {
+                        Toast.makeText(TodayDeliveriesActivity.this, "Network error", Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 
     private void applyStatusChip(TodayDeliveriesResponse.Delivery delivery, TextView chip, View accent) {

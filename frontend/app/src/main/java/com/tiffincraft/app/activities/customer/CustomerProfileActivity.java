@@ -454,9 +454,14 @@ public class CustomerProfileActivity extends AppCompatActivity {
     }
 
     private void confirmCancelSubscription() {
+        // This card only ever shows a running subscription, so the cook has already
+        // confirmed the payment and the full amount is owed. Saying so here matches
+        // what the server will report back.
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Cancel Subscription")
-                .setMessage("Are you sure you want to cancel this subscription? This cannot be undone.")
+                .setMessage("You'll still owe the full plan amount — the cook has already committed "
+                        + "these days, so cancelling part-way through doesn't reduce it."
+                        + "\n\nThis cannot be undone.")
                 .setPositiveButton("Cancel Subscription", (dialog, which) -> cancelSubscription())
                 .setNegativeButton("Keep it", null)
                 .show();
@@ -465,15 +470,25 @@ public class CustomerProfileActivity extends AppCompatActivity {
     private void cancelSubscription() {
         String token = "Bearer " + sessionManager.getToken();
         ApiService apiService = RetrofitClient.getInstance(this).getApiService();
-        apiService.cancelSubscription(token, activeSubscription.getId()).enqueue(new Callback<RegisterResponse>() {
+        apiService.cancelSubscription(token, activeSubscription.getId()).enqueue(new Callback<com.tiffincraft.app.models.SubscriptionActionResponse>() {
             @Override
-            public void onResponse(@NonNull Call<RegisterResponse> call, @NonNull Response<RegisterResponse> response) {
-                Toast.makeText(CustomerProfileActivity.this, "Subscription cancelled", Toast.LENGTH_SHORT).show();
+            public void onResponse(@NonNull Call<com.tiffincraft.app.models.SubscriptionActionResponse> call, @NonNull Response<com.tiffincraft.app.models.SubscriptionActionResponse> response) {
+                com.tiffincraft.app.models.SubscriptionActionResponse b = response.body();
+                // The server's sentence names the amount owed; a generic toast would
+                // hide the one fact the customer needs out of this.
+                String note = b != null && b.getMessage() != null && !b.getMessage().trim().isEmpty()
+                        ? b.getMessage()
+                        : (response.isSuccessful() ? "Subscription cancelled" : "Could not cancel. Try again.");
+                new MaterialAlertDialogBuilder(CustomerProfileActivity.this)
+                        .setTitle(response.isSuccessful() ? "Cancelled" : "Not cancelled")
+                        .setMessage(note)
+                        .setPositiveButton("OK", null)
+                        .show();
                 loadSubscription();
             }
 
             @Override
-            public void onFailure(@NonNull Call<RegisterResponse> call, @NonNull Throwable t) {
+            public void onFailure(@NonNull Call<com.tiffincraft.app.models.SubscriptionActionResponse> call, @NonNull Throwable t) {
                 Toast.makeText(CustomerProfileActivity.this, "Network error. Try again.", Toast.LENGTH_SHORT).show();
             }
         });

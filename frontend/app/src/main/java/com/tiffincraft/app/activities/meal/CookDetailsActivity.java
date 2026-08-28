@@ -852,40 +852,43 @@ public class CookDetailsActivity extends AppCompatActivity {
         picker.show();
     }
 
+    /**
+     * Sends a *request*, not a subscription — the cook has to accept before any
+     * money is asked for.
+     *
+     * This deliberately no longer opens the pay screen. Paying before the cook
+     * agrees is the failure the request-first ordering exists to prevent, and the
+     * proof endpoint refuses it anyway; the status screen shows the customer where
+     * they actually are and grows a pay block once the cook has accepted.
+     */
     private void submitSubscription(SubscriptionPlanResponse.Plan plan, String deliveryAddress, String startDate) {
         String token = "Bearer " + sessionManager.getToken();
-        CreateCustomerSubscriptionRequest request = new CreateCustomerSubscriptionRequest(
-                plan.getId(), deliveryAddress, startDate);
+        com.google.gson.JsonObject body = new com.google.gson.JsonObject();
+        body.addProperty("plan_id", plan.getId());
+        body.addProperty("delivery_address", deliveryAddress);
+        body.addProperty("start_date", startDate);
 
-        apiService.createSubscription(token, request).enqueue(new Callback<com.tiffincraft.app.models.CreateSubscriptionResponse>() {
+        apiService.createSubscriptionRequest(token, body).enqueue(new Callback<com.tiffincraft.app.models.SubscriptionActionResponse>() {
             @Override
-            public void onResponse(Call<com.tiffincraft.app.models.CreateSubscriptionResponse> call,
-                                   Response<com.tiffincraft.app.models.CreateSubscriptionResponse> response) {
-                com.tiffincraft.app.models.CreateSubscriptionResponse body = response.body();
-                if (response.isSuccessful() && body != null && body.isSuccess() && body.getSubscriptionId() > 0) {
-                    Intent intent = new Intent(CookDetailsActivity.this,
-                            com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.class);
-                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_SUBSCRIPTION_ID,
-                            body.getSubscriptionId());
-                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_PLAN_NAME,
-                            plan.getName());
-                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_PLAN_PRICE,
-                            plan.getPricePerDelivery());
-                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_PLAN_DURATION,
-                            plan.getDuration());
-                    intent.putExtra(com.tiffincraft.app.activities.customer.SubscriptionPaymentActivity.EXTRA_COOK_ESEWA_QR_URL,
-                            cookEsewaQrUrl);
-                    startActivity(intent);
+            public void onResponse(Call<com.tiffincraft.app.models.SubscriptionActionResponse> call,
+                                   Response<com.tiffincraft.app.models.SubscriptionActionResponse> response) {
+                com.tiffincraft.app.models.SubscriptionActionResponse b = response.body();
+                if (response.isSuccessful() && b != null && b.isSuccess()
+                        && b.getSubscriptionId() != null && b.getSubscriptionId() > 0) {
+                    startActivity(com.tiffincraft.app.activities.customer.SubscriptionStatusActivity
+                            .intentFor(CookDetailsActivity.this, b.getSubscriptionId()));
                     return;
                 }
 
-                String message = body != null && body.getMessage() != null
-                        ? body.getMessage() : "Could not start subscription payment. Please try again.";
+                // The refusals are specific — an existing plan with this same cook,
+                // a start date outside the window — so show the server's sentence.
+                String message = b != null && b.getMessage() != null
+                        ? b.getMessage() : "Could not send the request. Please try again.";
                 Toast.makeText(CookDetailsActivity.this, message, Toast.LENGTH_LONG).show();
             }
 
             @Override
-            public void onFailure(Call<com.tiffincraft.app.models.CreateSubscriptionResponse> call, Throwable t) {
+            public void onFailure(Call<com.tiffincraft.app.models.SubscriptionActionResponse> call, Throwable t) {
                 Toast.makeText(CookDetailsActivity.this, "Network error. Please try again.", Toast.LENGTH_LONG).show();
             }
         });

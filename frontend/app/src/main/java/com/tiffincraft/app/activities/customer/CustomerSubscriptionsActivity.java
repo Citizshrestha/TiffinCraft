@@ -17,6 +17,7 @@ import com.tiffincraft.app.R;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.RegisterResponse;
+import com.tiffincraft.app.models.SubscriptionActionResponse;
 import com.tiffincraft.app.models.SubscriptionResponse;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.CurrencyUtils;
@@ -158,6 +159,28 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
         String paymentStatus = sub.getPaymentStatus();
 
         btnManage.setVisibility(View.VISIBLE);
+
+        // The request-flow statuses. They all resolve to the same answer — "open
+        // the status screen" — because that screen renders the server's own
+        // headline/detail, and re-wording them here is how the two sides start
+        // telling the customer different things. Without this branch these three
+        // fell through to the "active" tail and claimed deliveries were running.
+        if ("requested".equals(status) || "accepted".equals(status) || "rejected".equals(status)) {
+            boolean declined = "rejected".equals(status);
+            boolean accepted = "accepted".equals(status);
+            chip.setText(declined ? "Declined" : accepted ? "Pay now" : "Waiting for the cook");
+            chip.setBackgroundResource(declined ? R.drawable.status_chip_sold_out
+                    : accepted ? R.drawable.status_chip_pending : R.drawable.status_chip_new);
+            chip.setTextColor(declined ? getColor(R.color.sub_error) : getColor(R.color.status_pending_text));
+            detail.setText(declined
+                    ? "The cook declined this request. Nothing was charged."
+                    : accepted
+                        ? "The cook accepted. Pay and upload a screenshot to start."
+                        : "Sent to the cook. Don't pay until they've accepted.");
+            btnManage.setText(declined ? "Details" : accepted ? "Pay Now" : "View Status");
+            btnManage.setOnClickListener(v -> openSubscriptionPayment(sub));
+            return;
+        }
 
         if ("pending_payment".equals(status)) {
             // A gateway payment that failed or was abandoned retries through
@@ -365,21 +388,55 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Cancel — and say what it costs BEFORE the customer commits.
+     *
+     * Once the cook has confirmed the payment the full plan amount is owed, no
+     * matter how early this happens or how many days were skipped, because the
+     * cook blocked out the whole window. That is not something a customer should
+     * discover after the fact, so the charge is in the dialog and the server's own
+     * sentence is what gets shown afterwards.
+     */
     private void confirmCancel(SubscriptionResponse.Subscription sub) {
+        // Same set the server treats as chargeable, so the warning and the charge
+        // can't disagree.
+        String status = sub.getStatus() == null ? "" : sub.getStatus();
+        boolean chargeable = "verified".equals(status) || "scheduled".equals(status)
+                || "active".equals(status) || "paused".equals(status);
+
+        String message = chargeable
+                ? "You'll still owe the full plan amount — the cook has already committed "
+                        + "these days, so cancelling part-way through doesn't reduce it, and "
+                        + "skipped days were never refundable either.\n\nThis cannot be undone."
+                : "The cook hasn't confirmed this yet, so nothing is owed. If you already "
+                        + "transferred money, cancelling flags it to be returned to you."
+                        + "\n\nThis cannot be undone.";
+
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Cancel Subscription")
-                .setMessage("Are you sure you want to cancel this subscription? This cannot be undone.")
+                .setMessage(message)
                 .setPositiveButton("Cancel Subscription", (dialog, which) -> {
                     String token = "Bearer " + sessionManager.getToken();
-                    apiService.cancelSubscription(token, sub.getId()).enqueue(new Callback<RegisterResponse>() {
+                    apiService.cancelSubscription(token, sub.getId()).enqueue(new Callback<SubscriptionActionResponse>() {
                         @Override
-                        public void onResponse(@NonNull Call<RegisterResponse> call, @NonNull Response<RegisterResponse> response) {
-                            Toast.makeText(CustomerSubscriptionsActivity.this, "Subscription cancelled", Toast.LENGTH_SHORT).show();
+                        public void onResponse(@NonNull Call<SubscriptionActionResponse> call, @NonNull Response<SubscriptionActionResponse> response) {
+                            SubscriptionActionResponse b = response.body();
+                            // The server's sentence states the amount owed or the
+                            // refund flagged; a 409 ("already cancelled") comes back
+                            // the same way and is equally worth reading.
+                            String note = b != null && b.getMessage() != null && !b.getMessage().trim().isEmpty()
+                                    ? b.getMessage()
+                                    : (response.isSuccessful() ? "Subscription cancelled" : "Could not cancel. Try again.");
+                            new MaterialAlertDialogBuilder(CustomerSubscriptionsActivity.this)
+                                    .setTitle(response.isSuccessful() ? "Cancelled" : "Not cancelled")
+                                    .setMessage(note)
+                                    .setPositiveButton("OK", null)
+                                    .show();
                             loadSubscriptions();
                         }
 
                         @Override
-                        public void onFailure(@NonNull Call<RegisterResponse> call, @NonNull Throwable t) {
+                        public void onFailure(@NonNull Call<SubscriptionActionResponse> call, @NonNull Throwable t) {
                             Toast.makeText(CustomerSubscriptionsActivity.this, "Network error. Try again.", Toast.LENGTH_SHORT).show();
                         }
                     });
@@ -388,16 +445,16 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
                 .show();
     }
 
+    /**
+     * Every "what's happening / pay / re-upload" route lands on the one status
+     * screen, which re-fetches the subscription itself.
+     *
+     * It takes only the id on purpose. The old screen was handed a plan name,
+     * price, QR and payment status through Intent extras, which went stale the
+     * moment the cook acted — and left the screen unable to show anything at all
+     * for a row whose plan had been deleted.
+     */
     private void openSubscriptionPayment(SubscriptionResponse.Subscription sub) {
-        if (sub.getPlan() == null) return;
-        Intent intent = new Intent(this, SubscriptionPaymentActivity.class);
-        intent.putExtra(SubscriptionPaymentActivity.EXTRA_SUBSCRIPTION_ID, sub.getId());
-        intent.putExtra(SubscriptionPaymentActivity.EXTRA_PLAN_NAME, sub.getPlan().getName());
-        intent.putExtra(SubscriptionPaymentActivity.EXTRA_PLAN_PRICE, sub.getPlan().getPricePerDelivery());
-        intent.putExtra(SubscriptionPaymentActivity.EXTRA_PLAN_DURATION, sub.getPlan().getDuration());
-        intent.putExtra(SubscriptionPaymentActivity.EXTRA_COOK_ESEWA_QR_URL, sub.getCookEsewaQrUrl());
-        intent.putExtra(SubscriptionPaymentActivity.EXTRA_PAYMENT_STATUS, sub.getPaymentStatus());
-        intent.putExtra(SubscriptionPaymentActivity.EXTRA_VERIFICATION_NOTES, sub.getVerificationNotes());
-        startActivity(intent);
+        startActivity(SubscriptionStatusActivity.intentFor(this, sub.getId()));
     }
 }
