@@ -22,6 +22,68 @@ const normalizeMessage = (row) => {
 };
 
 /**
+ * Structured card message types. These are written ONLY by the subscription
+ * controllers via utils/subscriptionEvents.js — never by POST /messages, which
+ * still validates against its own `allowedTypes`. That is deliberate: if a
+ * client could post a `subscription_update` card, a customer could forge an
+ * "accepted" bubble in their own thread.
+ */
+const CARD_MESSAGE_TYPES = ["subscription_request", "subscription_update", "custom_meal_request"];
+
+/**
+ * Attach CURRENT status to card messages.
+ *
+ * `metadata` is a snapshot taken when the card was posted, so an old card in the
+ * scrollback would otherwise still say "requested" and still offer the cook an
+ * Accept button for a request answered days ago. Two batched queries (only when
+ * cards are actually present) give every card its live row state, and the app
+ * renders buttons off `live_status`, not off the snapshot.
+ */
+const attachLiveCardState = async (messages) => {
+    const cards = messages.filter(m => CARD_MESSAGE_TYPES.includes(m.message_type) && m.reference_id);
+    if (cards.length === 0) return messages;
+
+    const subIds = [...new Set(cards.filter(c => c.reference_type === "subscription").map(c => c.reference_id))];
+    const cmrIds = [...new Set(cards.filter(c => c.reference_type === "custom_meal_request").map(c => c.reference_id))];
+
+    const subState = new Map();
+    if (subIds.length > 0) {
+        const [rows] = await db.promise().query(
+            `SELECT s.id, s.status, s.payment_status,
+                    DATE_FORMAT(s.start_date, '%Y-%m-%d') AS start_date,
+                    DATE_FORMAT(s.end_date, '%Y-%m-%d')   AS end_date,
+                    p.name AS plan_name
+             FROM subscriptions s JOIN subscription_plans p ON p.id = s.plan_id
+             WHERE s.id IN (?)`,
+            [subIds]
+        );
+        for (const r of rows) subState.set(r.id, r);
+    }
+
+    const cmrState = new Map();
+    if (cmrIds.length > 0) {
+        const [rows] = await db.promise().query(
+            `SELECT r.id, r.status, DATE_FORMAT(r.delivery_date, '%Y-%m-%d') AS delivery_date,
+                    r.response_note, m.name AS meal_name
+             FROM custom_meal_requests r LEFT JOIN meals m ON m.id = r.meal_id
+             WHERE r.id IN (?)`,
+            [cmrIds]
+        );
+        for (const r of rows) cmrState.set(r.id, r);
+    }
+
+    return messages.map(m => {
+        if (!CARD_MESSAGE_TYPES.includes(m.message_type) || !m.reference_id) return m;
+        const live = m.reference_type === "subscription"
+            ? subState.get(m.reference_id)
+            : cmrState.get(m.reference_id);
+        // A deleted subscription/request leaves the card as a plain bubble with
+        // no buttons rather than a card pointing at nothing.
+        return { ...m, live_status: live ? live.status : null, live: live || null };
+    });
+};
+
+/**
  * Best-effort Cloudinary cleanup for chat image/video URLs.
  */
 const deleteChatMediaFromCloudinary = async (mediaUrl, messageType) => {
@@ -241,9 +303,11 @@ export const getMessages = async (req, res) => {
         // Return in chronological order
         rows.reverse();
 
+        const messages = await attachLiveCardState(rows.map(normalizeMessage));
+
         return res.status(200).json({
             success: true,
-            messages: rows.map(normalizeMessage),
+            messages,
             has_more: rows.length === limit
         });
     } catch (error) {

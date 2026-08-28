@@ -40,7 +40,7 @@ export const MAX_CLOSURE_DAYS = 30;
  *
  * A BULK operation: it closes the date for EVERY one of this cook's running
  * subscriptions, in a single transaction. Either all of the affected subscribers
- * get a cook_unavailable day and their cycle extended, or none do — a partial
+ * get a cook_unavailable day, or none do — a partial
  * fan-out would leave some customers expecting food from a shut kitchen and
  * others correctly told it's closed, with nothing to distinguish them.
  *
@@ -176,9 +176,9 @@ export const setCookDailyUnavailability = async (req, res) => {
                     creditDeducted: false,
                     // Only a day that was actually going to be delivered. A day
                     // already settled as customer_skipped / cook_unavailable /
-                    // delivered / missed is left exactly as it is: the closure
-                    // below extends the cycle by a day as compensation, and a day
-                    // that was already compensated must not be paid for twice.
+                    // delivered / missed is left exactly as it is: rewriting the
+                    // reason on a day that is already settled would only muddy
+                    // the audit trail.
                     onlyFrom: [DAY_STATUS.SCHEDULED]
                 });
 
@@ -207,7 +207,7 @@ export const setCookDailyUnavailability = async (req, res) => {
                             event: "closure_skipped",
                             actor: "cook",
                             detail: `Kitchen closure for ${target} not applied — day was already "${outcome.previousStatus}", `
-                                + `which already means no meal and no credit. Cycle NOT extended a second time.`,
+                                + `which already means no meal that day.`,
                             executor: connection
                         });
                     }
@@ -216,21 +216,21 @@ export const setCookDailyUnavailability = async (req, res) => {
                     continue;
                 }
 
-                // The day costs the customer nothing, so their cycle runs a day
-                // longer and they still receive every meal they paid for.
-                if (sub.end_date) {
-                    await connection.query(
-                        `UPDATE subscriptions SET end_date = DATE_ADD(end_date, INTERVAL 1 DAY) WHERE id = ?`,
-                        [sub.id]
-                    );
-                }
+                // ── Calendar-day model: end_date does NOT move ────────────────
+                // A subscription is a window of N calendar days fixed at
+                // verification, not a pool of N meal credits. A closed kitchen
+                // day means no meal that day; it does not push the end date out.
+                // Extending here made the end date the customer agreed to drift
+                // every time the cook closed a day, and let two independent
+                // actors (cook closures, customer skips) both stretch the window.
 
                 await logDayEvent({
                     subscriptionId: sub.id,
                     event: "cook_unavailable",
                     actor: "cook",
                     detail: `Cook closed ${target}${trimmedReason ? ` — "${trimmedReason}"` : ""}. `
-                        + `Previous day status: ${outcome.previousStatus || "none"}. No credit charged; cycle extended a day.`,
+                        + `Previous day status: ${outcome.previousStatus || "none"}. `
+                        + `No meal that day; the ${sub.end_date || "subscription"} end date is unchanged.`,
                     executor: connection
                 });
 
@@ -464,6 +464,41 @@ export const getTodayDeliveries = async (req, res) => {
             order_id: row.order_id
         }));
 
+        // ── Custom meal swaps for this date ───────────────────────────────────
+        // The cook's daily list has to answer "what am I actually cooking today",
+        // and an accepted swap changes that answer. A still-pending swap is
+        // included too, flagged separately: it is work the cook has to decide on
+        // before the cutoff, and hiding it here is how a request gets missed.
+        // Attached onto the matching delivery row rather than listed apart, so
+        // one customer is one line on the screen.
+        const [swapRows] = await db.promise().query(
+            `SELECT r.id, r.subscription_id, r.status, r.note, r.meal_id,
+                    m.name AS meal_name, m.image_url AS meal_image
+             FROM custom_meal_requests r
+             LEFT JOIN meals m ON m.id = r.meal_id
+             WHERE r.cook_id = ? AND r.delivery_date = ?
+               AND r.status IN ('pending', 'accepted')`,
+            [cookId, target]
+        );
+        const swapBySub = new Map(swapRows.map(r => [r.subscription_id, r]));
+
+        deliveries.forEach(d => {
+            const swap = swapBySub.get(d.subscription_id);
+            d.custom_meal = swap
+                ? {
+                    request_id: swap.id,
+                    status: swap.status,
+                    meal_id: swap.meal_id,
+                    meal_name: swap.meal_name,
+                    meal_image: swap.meal_image,
+                    note: swap.note,
+                    // Drives the "Cook this instead" vs "Decide before cutoff"
+                    // treatment on the card without the app re-deriving it.
+                    is_confirmed: swap.status === "accepted"
+                }
+                : null;
+        });
+
         const cookingCount = deliveries.filter(
             d => d.status === DAY_STATUS.SCHEDULED || d.status === DAY_STATUS.DELIVERED
         ).length;
@@ -486,7 +521,9 @@ export const getTodayDeliveries = async (req, res) => {
                 customer_skipped: deliveries.filter(d => d.status === DAY_STATUS.CUSTOMER_SKIPPED).length,
                 cook_unavailable: deliveries.filter(d => d.status === DAY_STATUS.COOK_UNAVAILABLE).length,
                 delivered: deliveries.filter(d => d.status === DAY_STATUS.DELIVERED).length,
-                missed: deliveries.filter(d => d.status === DAY_STATUS.MISSED).length
+                missed: deliveries.filter(d => d.status === DAY_STATUS.MISSED).length,
+                custom_meals_confirmed: deliveries.filter(d => d.custom_meal?.is_confirmed).length,
+                custom_meals_pending: deliveries.filter(d => d.custom_meal && !d.custom_meal.is_confirmed).length
             },
             // The date the cook can still act on, and how long they have. The
             // bulk close button targets THIS date, not `date` above — today is

@@ -26,6 +26,7 @@ import referralRoutes from "./routes/referralRoutes.js";
 import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 import subscriptionPlanRoutes from "./routes/subscriptionPlanRoutes.js";
 import comboRoutes from "./routes/comboRoutes.js";
+import customMealRoutes from "./routes/customMealRoutes.js";
 import { startSubscriptionJob } from "./jobs/subscriptionOrderJob.js";
 import { startEsewaBookingCleanupJob } from "./jobs/esewaBookingCleanupJob.js";
 import { startCommissionSettlementJob } from "./jobs/commissionSettlementJob.js";
@@ -314,6 +315,7 @@ app.use("/api/referrals", referralRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/subscription-plans", subscriptionPlanRoutes);
 app.use("/api/combos", comboRoutes);
+app.use("/api/custom-meals", customMealRoutes);
 
 app.use((_req, res) => {
     res.status(404).json({ message: "Route not found." });

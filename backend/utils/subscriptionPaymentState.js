@@ -256,10 +256,11 @@ async function orderFirstDay(sub, date) {
                 reason: "Kitchen closed on the day this subscription started",
                 creditDeducted: false
             });
+            // Calendar-day model: only next_delivery_date advances. end_date was
+            // fixed when the subscription was verified and never moves — an
+            // undelivered day is a lost day, not a deferred one.
             await connection.query(
-                `UPDATE subscriptions
-                 SET end_date = DATE_ADD(end_date, INTERVAL 1 DAY), next_delivery_date = ?
-                 WHERE id = ? AND end_date IS NOT NULL`,
+                `UPDATE subscriptions SET next_delivery_date = ? WHERE id = ?`,
                 [addDays(date, 1), sub.id]
             );
             await connection.commit();
@@ -267,7 +268,7 @@ async function orderFirstDay(sub, date) {
                 subscriptionId: sub.id,
                 event: "cook_unavailable",
                 actor: "system",
-                detail: `${date} not delivered — cook had marked the date unavailable. No credit charged; cycle extended a day.`
+                detail: `${date} not delivered — cook had marked the date unavailable. No charge; the subscription end date is unchanged.`
             });
             return;
         }
@@ -297,9 +298,7 @@ async function orderFirstDay(sub, date) {
                 creditDeducted: false
             });
             await connection.query(
-                `UPDATE subscriptions
-                 SET end_date = DATE_ADD(end_date, INTERVAL 1 DAY), next_delivery_date = ?
-                 WHERE id = ? AND end_date IS NOT NULL`,
+                `UPDATE subscriptions SET next_delivery_date = ? WHERE id = ?`,
                 [addDays(date, 1), sub.id]
             );
             await connection.commit();
@@ -307,7 +306,7 @@ async function orderFirstDay(sub, date) {
                 subscriptionId: sub.id,
                 event: "day_unavailable",
                 actor: "system",
-                detail: `${date} not delivered — unavailable meal(s): ${names}. No credit charged; cycle extended a day.`
+                detail: `${date} not delivered — unavailable meal(s): ${names}. No charge; the subscription end date is unchanged.`
             });
             return;
         }
