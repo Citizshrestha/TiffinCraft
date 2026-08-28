@@ -330,8 +330,11 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
         Double total = sub.getTotalAmount();
         if (total != null) {
             tvTotalAmount.setText("Rs. " + fmt(total));
-            tvAmountBreakdown.setText("Rs. " + fmt(sub.getAmount()) + " per day × "
-                    + sub.getDurationDays() + " days");
+            // One payment for the whole plan, and one meal a day. The old line
+            // multiplied the price by the day count, which showed a 7-day plan as
+            // seven times its real cost.
+            tvAmountBreakdown.setText("One-time payment  ·  " + sub.getDurationDays()
+                    + " days, 1 meal a day");
             tvAmountBreakdown.setVisibility(View.VISIBLE);
         } else {
             tvTotalAmount.setText("Price not set");

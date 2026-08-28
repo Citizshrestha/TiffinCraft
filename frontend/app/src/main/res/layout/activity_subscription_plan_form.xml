@@ -286,7 +286,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="Pick meals and set how many go into each delivery."
+                    android:text="Pick the dishes that make up one day's meal, and how many of each."
                     android:textColor="#999999"
                     android:textSize="12sp" />
             </LinearLayout>
