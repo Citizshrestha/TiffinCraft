@@ -63,7 +63,8 @@ public class TodayOrderAdapter extends RecyclerView.Adapter<TodayOrderAdapter.Or
 
         String itemsSummary = order.getItemsSummary();
         if (itemsSummary != null && !itemsSummary.isEmpty()) {
-            holder.tvMealSummary.setText(itemsSummary);
+            // Two names, then "+N more" — this row is one line high.
+            holder.tvMealSummary.setText(order.getItemsSummaryPreview(2));
         } else {
             String meal = order.getMealName() != null ? order.getMealName() : "Meal";
             holder.tvMealSummary.setText(meal + " x " + Math.max(order.getQuantity(), 1));

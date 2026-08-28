@@ -67,9 +67,9 @@ public class VerifyPaymentProofActivity extends AppCompatActivity {
     private SwipeRefreshLayout swipeRefresh;
     private View progressLoading;
     private TextView tvHeaderCustomer, tvExpectedAmount, tvAmountBreakdown, tvPlanLine,
-            tvWindow, tvSubmittedAt, tvRetryWarning, tvNoProof, tvEventsTitle;
+            tvWindow, tvSubmittedAt, tvRetryWarning, tvNoProof;
     private ImageView imgProof;
-    private LinearLayout layoutEvents, layoutActions;
+    private LinearLayout layoutActions;
     private MaterialButton btnVerifyProof, btnRejectProof;
 
     private SubscriptionDetailResponse.Subscription current;
@@ -100,9 +100,7 @@ public class VerifyPaymentProofActivity extends AppCompatActivity {
         tvSubmittedAt = findViewById(R.id.tvSubmittedAt);
         tvRetryWarning = findViewById(R.id.tvRetryWarning);
         tvNoProof = findViewById(R.id.tvNoProof);
-        tvEventsTitle = findViewById(R.id.tvEventsTitle);
         imgProof = findViewById(R.id.imgProof);
-        layoutEvents = findViewById(R.id.layoutEvents);
         layoutActions = findViewById(R.id.layoutActions);
         btnVerifyProof = findViewById(R.id.btnVerifyProof);
         btnRejectProof = findViewById(R.id.btnRejectProof);
@@ -181,7 +179,6 @@ public class VerifyPaymentProofActivity extends AppCompatActivity {
 
         renderRetryWarning(sub);
         renderProof(sub);
-        renderEvents(body);
 
         // Only offered when the server says this subscription is actually at the
         // verifying stage. On any other stage the buttons would be a lie.
@@ -221,38 +218,6 @@ public class VerifyPaymentProofActivity extends AppCompatActivity {
             viewer.putExtra(MediaViewerActivity.EXTRA_IS_VIDEO, false);
             startActivity(viewer);
         });
-    }
-
-    /** The audit trail — the other half of a dispute. */
-    private void renderEvents(SubscriptionDetailResponse body) {
-        layoutEvents.removeAllViews();
-        boolean any = body.getEvents() != null && !body.getEvents().isEmpty();
-        tvEventsTitle.setVisibility(any ? View.VISIBLE : View.GONE);
-        layoutEvents.setVisibility(any ? View.VISIBLE : View.GONE);
-        if (!any) return;
-
-        LayoutInflater inflater = LayoutInflater.from(this);
-        for (SubscriptionDetailResponse.Event event : body.getEvents()) {
-            View row = inflater.inflate(R.layout.item_subscription_event, layoutEvents, false);
-            TextView title = row.findViewById(R.id.tvEventTitle);
-            TextView detail = row.findViewById(R.id.tvEventDetail);
-            TextView time = row.findViewById(R.id.tvEventTime);
-
-            String label = event.getEvent() == null ? "—" : event.getEvent().replace('_', ' ');
-            if (event.getAmount() != null) {
-                label += "  ·  Rs. " + SubscriptionRequestsActivity.fmt(event.getAmount());
-            }
-            title.setText(label);
-
-            // Shown verbatim: the server writes the actor into `detail` for
-            // dispute resolution, so reformatting it here would lose that.
-            boolean hasDetail = event.getDetail() != null && !event.getDetail().trim().isEmpty();
-            detail.setText(hasDetail ? event.getDetail() : "");
-            detail.setVisibility(hasDetail ? View.VISIBLE : View.GONE);
-
-            time.setText(DeliveryDateUtils.formatShortDate(event.getCreatedAt()));
-            layoutEvents.addView(row);
-        }
     }
 
     /**

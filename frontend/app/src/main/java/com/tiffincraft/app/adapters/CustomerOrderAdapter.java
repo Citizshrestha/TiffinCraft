@@ -31,6 +31,9 @@ import java.util.TimeZone;
  */
 public class CustomerOrderAdapter extends RecyclerView.Adapter<CustomerOrderAdapter.OrderViewHolder> {
 
+    /** Meal names shown on the card; the rest collapse into "+N more". */
+    private static final int CARD_ITEM_PREVIEW = 2;
+
     public interface OnOrderClickListener {
         void onOrderClick(Order order);
     }
@@ -136,9 +139,16 @@ public class CustomerOrderAdapter extends RecyclerView.Adapter<CustomerOrderAdap
             setupImageCarousel(order);
 
             layoutItemChips.removeAllViews();
+            // Two chips, then a count. A five-item order used to lay out five
+            // chips and wrap the row; the details screen has the full list.
             if (order.getItemsSummary() != null && !order.getItemsSummary().isEmpty()) {
-                for (String chipText : order.getItemsSummary().split(",\\s*")) {
-                    layoutItemChips.addView(buildChip(chipText));
+                String[] parts = order.getItemsSummary().split(",\\s*");
+                int shown = Math.min(CARD_ITEM_PREVIEW, parts.length);
+                for (int i = 0; i < shown; i++) {
+                    layoutItemChips.addView(buildChip(parts[i]));
+                }
+                if (parts.length > shown) {
+                    layoutItemChips.addView(buildChip("+" + (parts.length - shown) + " more"));
                 }
             }
 
@@ -159,7 +169,7 @@ public class CustomerOrderAdapter extends RecyclerView.Adapter<CustomerOrderAdap
                     : order.getCookName();
             tvCustomerName.setText(cookLabel != null ? cookLabel : "Unknown Cook");
 
-            tvOrderSummary.setText(order.getItemsSummary() != null ? order.getItemsSummary() : "");
+            tvOrderSummary.setText(order.getItemsSummaryPreview(CARD_ITEM_PREVIEW));
 
             if (order.getSpecialInstructions() != null && !order.getSpecialInstructions().isEmpty()) {
                 layoutSpecialInstructions.setVisibility(View.VISIBLE);
@@ -324,6 +334,16 @@ public class CustomerOrderAdapter extends RecyclerView.Adapter<CustomerOrderAdap
             chip.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(textColor));
         }
 
+        /**
+         * "Today, 3:12 PM" · "Yesterday, 9:40 AM" · "27 Aug 2026, 3:12 PM".
+         *
+         * The time matters as much as the date on an order card — two orders on the
+         * same day were indistinguishable, and "27 Aug 2026" told the customer
+         * nothing about an order they placed twenty minutes ago. ISO inputs carry a
+         * 'Z', so they are parsed as UTC and rendered in the device's zone; a naive
+         * "yyyy-MM-dd HH:mm:ss" is taken as local, which is what the server means
+         * when it sends one.
+         */
         private String formatDate(String rawDate) {
             if (rawDate == null || rawDate.isEmpty()) return "";
             Date date = null;
@@ -344,7 +364,18 @@ public class CustomerOrderAdapter extends RecyclerView.Adapter<CustomerOrderAdap
                 } catch (ParseException ignored) { }
             }
             if (date == null) return rawDate;
-            return new SimpleDateFormat("d MMM, yyyy", Locale.US).format(date);
+
+            String time = new SimpleDateFormat("h:mm a", Locale.US).format(date);
+            String day = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(date);
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            SimpleDateFormat dayKey = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+            String today = dayKey.format(cal.getTime());
+            cal.add(java.util.Calendar.DAY_OF_YEAR, -1);
+            String yesterday = dayKey.format(cal.getTime());
+
+            if (day.equals(today)) return "Today, " + time;
+            if (day.equals(yesterday)) return "Yesterday, " + time;
+            return new SimpleDateFormat("d MMM yyyy, h:mm a", Locale.US).format(date);
         }
     }
 }

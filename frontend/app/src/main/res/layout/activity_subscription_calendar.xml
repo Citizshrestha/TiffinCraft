@@ -9,13 +9,17 @@
     android:background="#F8F9FA"
     android:orientation="vertical">
 
-    <!-- ============ MODERN TOP BAR WITH SHADOW ============ -->
+    <!-- ============ TOP BAR ============
+         Flat, not elevated. A MaterialCardView whose background matches
+         colorSurface gets the theme's elevation overlay painted over it, which
+         is what tinted this header green instead of leaving it white. A 1dp
+         divider below gives the same separation the shadow was there for. -->
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:cardBackgroundColor="@color/white"
         app:cardCornerRadius="0dp"
-        app:cardElevation="2dp">
+        app:cardElevation="0dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -68,6 +72,11 @@
             </LinearLayout>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/stroke_soft" />
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipeRefresh"

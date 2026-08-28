@@ -28,6 +28,9 @@ import java.util.Locale;
 
 public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHolder> {
 
+    /** Meal names shown on the card; the rest collapse into "+N more". */
+    private static final int CARD_ITEM_PREVIEW = 2;
+
     public interface OnOrderActionListener {
         void onActionClick(Order order, String nextStatus);
         void onVerifyPaymentClick(Order order);
@@ -91,10 +94,11 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
                 customerName != null && !customerName.isEmpty() ? customerName : "Customer"
         );
 
-        // Order summary
+        // Order summary — two names, then "+N more". The cook opens the order to
+        // see everything they have to cook; the card is for recognising it.
         String itemsSummary = order.getItemsSummary();
         if (itemsSummary != null && !itemsSummary.isEmpty()) {
-            holder.tvOrderSummary.setText(itemsSummary);
+            holder.tvOrderSummary.setText(order.getItemsSummaryPreview(CARD_ITEM_PREVIEW));
         } else {
             String mealName = order.getMealName();
             int qty = order.getQuantity();
@@ -268,8 +272,13 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
 
         String itemsSummary = order.getItemsSummary();
         if (itemsSummary != null && !itemsSummary.isEmpty()) {
-            for (String chipText : itemsSummary.split(",\\s*")) {
-                addItemChip(holder.layoutItemChips, chipText);
+            String[] parts = itemsSummary.split(",\\s*");
+            int shown = Math.min(CARD_ITEM_PREVIEW, parts.length);
+            for (int i = 0; i < shown; i++) {
+                addItemChip(holder.layoutItemChips, parts[i]);
+            }
+            if (parts.length > shown) {
+                addItemChip(holder.layoutItemChips, "+" + (parts.length - shown) + " more");
             }
         } else {
             String mealName = order.getMealName();

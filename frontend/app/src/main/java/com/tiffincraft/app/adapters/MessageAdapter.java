@@ -48,6 +48,8 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     private static final int SELECTED_HIGHLIGHT = 0x1A00897B; // translucent teal
+    /** Same tint as bg_bubble_sent, so a card reads as one of your own messages. */
+    private static final int SENT_CARD_TINT = 0xFFE8F5E9;
 
     private final Context context;
     private final List<ChatMessage> messages;
@@ -310,7 +312,17 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         } else {
             label = "SUBSCRIPTION";
         }
-        vh.tvLabel.setText(label);
+
+        // Sided like a text bubble. Centred cards left the customer's request and
+        // the cook's answer looking identical, so a thread of them read as one
+        // anonymous log rather than a conversation.
+        boolean mine = msg.isSentByMe();
+        vh.card.setCardBackgroundColor(mine ? SENT_CARD_TINT : Color.WHITE);
+        int wide = dp(48), narrow = dp(12);
+        vh.root.setPaddingRelative(mine ? wide : narrow, vh.root.getPaddingTop(),
+                mine ? narrow : wide, vh.root.getPaddingBottom());
+
+        vh.tvLabel.setText(mine ? "YOU · " + label : label);
         vh.tvBody.setText(msg.getText() != null ? msg.getText() : "");
         vh.tvTimestamp.setText(msg.getTimestamp());
 
@@ -377,15 +389,22 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         return messages == null ? 0 : messages.size();
     }
 
+    private int dp(int value) {
+        return Math.round(value * context.getResources().getDisplayMetrics().density);
+    }
+
     // ---- ViewHolders ----
 
     static class CardViewHolder extends RecyclerView.ViewHolder {
         TextView tvLabel, tvBody, tvStatus, tvTimestamp;
-        View layoutActions;
+        View layoutActions, root;
+        com.google.android.material.card.MaterialCardView card;
         com.google.android.material.button.MaterialButton btnAccept, btnDecline;
 
         CardViewHolder(@NonNull View itemView) {
             super(itemView);
+            root = itemView.findViewById(R.id.layoutCardRoot);
+            card = itemView.findViewById(R.id.cardMessage);
             tvLabel = itemView.findViewById(R.id.tvCardLabel);
             tvBody = itemView.findViewById(R.id.tvCardBody);
             tvStatus = itemView.findViewById(R.id.tvCardStatus);

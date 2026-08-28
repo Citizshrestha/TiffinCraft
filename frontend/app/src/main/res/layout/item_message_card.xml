@@ -2,9 +2,10 @@
 <!--
   One layout for all three structured cards, on both sides of the thread.
 
-  Centred rather than left/right aligned on purpose: a subscription request is
-  about the pair, not a remark by one of them, and centring means the same view
-  holder serves the customer who sent it and the cook who has to answer it.
+  Aligned and tinted like a normal text bubble — sent cards sit right with the
+  green tint, received cards sit left in white — because a card IS a message
+  from one of the two people. Centring them made the thread unreadable: the
+  customer's request and the cook's answer looked identical.
 
   `tvCardBody` is the server's sentence, shown verbatim. The action row exists
   only while the referenced row is still open, and the status line only once it
@@ -12,15 +13,17 @@
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/layoutCardRoot"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingStart="24dp"
-    android:paddingEnd="24dp"
-    android:paddingTop="6dp"
-    android:paddingBottom="6dp">
+    android:paddingStart="12dp"
+    android:paddingEnd="48dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
 
     <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardMessage"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:cardBackgroundColor="@color/white"
@@ -35,6 +38,8 @@
             android:orientation="vertical"
             android:padding="14dp">
 
+            <!-- Who and what, in one line: "You · MEAL CHANGE REQUEST". The name
+                 is what the centred version was missing. -->
             <TextView
                 android:id="@+id/tvCardLabel"
                 android:layout_width="wrap_content"

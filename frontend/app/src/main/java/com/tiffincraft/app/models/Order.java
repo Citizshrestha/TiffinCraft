@@ -172,6 +172,29 @@ public class Order {
     public String getKitchenName() { return kitchenName; }
     public int getItemsCount() { return itemsCount; }
     public String getItemsSummary() { return itemsSummary; }
+
+    /**
+     * The first {@code max} items, with "+N more" standing in for the rest.
+     *
+     * A five-item order wrapped to three lines on a card and pushed the status and
+     * the buttons off screen. The full list is on the order's details screen, which
+     * is where someone who wants to read all of it is going anyway.
+     *
+     * Splits the server's own comma-joined summary rather than re-deriving from
+     * getItems(), because list endpoints don't send the items array at all.
+     */
+    public String getItemsSummaryPreview(int max) {
+        if (itemsSummary == null || itemsSummary.trim().isEmpty()) return "";
+        String[] parts = itemsSummary.split(",\\s*");
+        if (parts.length <= max) return itemsSummary;
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < max; i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(parts[i]);
+        }
+        return sb + "  +" + (parts.length - max) + " more";
+    }
     public String getSpecialInstructions() { return specialInstructions; }
     public String getPaymentMethod() { return paymentMethod; }
     public String getPaymentStatus() { return paymentStatus; }

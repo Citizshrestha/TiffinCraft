@@ -225,23 +225,12 @@
                         android:textSize="13sp"
                         android:visibility="gone" />
 
-                    <!-- Lifecycle trail — the other half of a dispute -->
-                    <TextView
-                        android:id="@+id/tvEventsTitle"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="20dp"
-                        android:text="History"
-                        android:textColor="@color/text_ink"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-
-                    <LinearLayout
-                        android:id="@+id/layoutEvents"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:orientation="vertical" />
+                    <!--
+                      No event history here. It is still recorded server-side for
+                      disputes, but this screen exists for one decision — does the
+                      screenshot match the amount — and a full lifecycle trail sat
+                      between the cook and the two buttons at the bottom.
+                    -->
                 </LinearLayout>
             </androidx.core.widget.NestedScrollView>
 
