@@ -448,9 +448,10 @@ public interface ApiService {
     /**
      * Customer skips one day. Body is {date: 'YYYY-MM-DD', reason?}.
      *
-     * Free, but the subscription does NOT get any longer: it is a window of N
-     * calendar days fixed at verification, so a skipped day is simply a day with
-     * no meal and no charge. Rejected with a specific message (not a generic
+     * Free, and it makes the subscription one day LONGER: the day is skipped
+     * before it arrives, so that meal moves to the end and end_date shifts out by
+     * one. The response carries the new end_date and an `extended` flag. Rejected
+     * with a specific message (not a generic
      * failure) once that date's cutoff has passed.
      */
     @POST("subscriptions/{id}/skip-day")

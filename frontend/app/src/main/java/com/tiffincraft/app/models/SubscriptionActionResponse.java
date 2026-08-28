@@ -109,10 +109,15 @@ public class SubscriptionActionResponse {
     public Double getRefundDue() { return refundDue; }
     public Verified getSubscription() { return subscription; }
 
-    /** Total for the whole plan — per-day price × calendar days. */
+    /**
+     * What the customer pays, once, for the whole plan.
+     *
+     * `amount` is already that total — the plan's single up-front price — so this
+     * returns it unchanged. It is NOT a per-day rate: one meal goes out per day
+     * and the price does not scale with the number of days.
+     */
     public Double getTotalAmount() {
-        if (amount == null || durationDays <= 0) return null;
-        return amount * durationDays;
+        return amount;
     }
 
     /**

@@ -152,14 +152,14 @@ public class VerifyPaymentProofActivity extends AppCompatActivity {
 
         tvHeaderCustomer.setText(sub.getCustomerName() != null ? sub.getCustomerName() : "Customer");
 
-        // The number the cook is checking the screenshot against. Showing the
-        // per-day rate underneath it is what makes the total checkable rather
-        // than just asserted.
+        // The number the cook is checking the screenshot against. It is the plan's
+        // one-time price — one meal a day, one payment — so the line underneath
+        // says what it buys instead of a per-day multiplication that never existed.
         Double total = sub.getTotalAmount();
         if (total != null) {
             tvExpectedAmount.setText("Rs. " + SubscriptionRequestsActivity.fmt(total));
-            tvAmountBreakdown.setText("Rs. " + SubscriptionRequestsActivity.fmt(sub.getAmount())
-                    + " per day × " + sub.getDurationDays() + " days");
+            tvAmountBreakdown.setText("One-time payment for the whole plan · "
+                    + sub.getDurationDays() + " days, 1 meal a day");
             tvAmountBreakdown.setVisibility(View.VISIBLE);
         } else {
             tvExpectedAmount.setText("Amount not set on this plan");

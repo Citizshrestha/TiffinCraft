@@ -238,14 +238,14 @@
                                 android:textColor="@color/text_ink"
                                 android:textSize="13.5sp" />
 
-                            <!-- The rule people get wrong: a skipped day does not
-                                 buy a day at the end. -->
+                            <!-- The rule people get wrong: skipping in advance is
+                                 free AND buys a day at the end. -->
                             <TextView
                                 android:id="@+id/tvWindowNote"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="A skipped day isn't charged, but it doesn't extend the end date."
+                                android:text="Skip a day in advance and it isn't charged — the end date moves out by one."
                                 android:textColor="@color/text_subtitle"
                                 android:textSize="12sp" />
 

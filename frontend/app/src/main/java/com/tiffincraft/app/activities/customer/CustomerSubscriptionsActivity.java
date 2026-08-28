@@ -123,6 +123,11 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
             TextView tvStatusChip = card.findViewById(R.id.tvStatusChip);
             TextView tvDetail = card.findViewById(R.id.tvSubscriptionDetail);
             TextView tvPrice = card.findViewById(R.id.tvPlanPrice);
+            TextView tvPriceCaption = card.findViewById(R.id.tvPriceCaption);
+            View layoutProgress = card.findViewById(R.id.layoutProgress);
+            com.google.android.material.progressindicator.LinearProgressIndicator progressDays =
+                    card.findViewById(R.id.progressDays);
+            TextView tvProgressLabel = card.findViewById(R.id.tvProgressLabel);
             MaterialButton btnManage = card.findViewById(R.id.btnManage);
 
             String planName = sub.getPlanName() != null ? sub.getPlanName() : "Subscription";
@@ -133,11 +138,19 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
             tvPlanName.setText(planName);
             tvKitchenName.setText((kitchen != null ? "From " + kitchen + " · " : "") + durationLabel);
 
+            // One payment for the whole plan, not a daily rate. The column behind
+            // it is still called price_per_delivery, which is what made this card
+            // say "/ delivery" and imply seven times the real cost.
             if (sub.getPlan() != null) {
-                tvPrice.setText(CurrencyUtils.formatRupees(sub.getPlan().getPricePerDelivery()) + " / delivery");
+                tvPrice.setText(CurrencyUtils.formatRupees(sub.getPlan().getPricePerDelivery()));
+                tvPriceCaption.setText("one-time · " + durationLabel.toLowerCase() + ", 1 meal a day");
+                tvPriceCaption.setVisibility(View.VISIBLE);
             } else {
                 tvPrice.setText("—");
+                tvPriceCaption.setVisibility(View.GONE);
             }
+
+            applyProgress(sub, layoutProgress, progressDays, tvProgressLabel);
 
             applyStatus(sub, tvStatusChip, tvDetail, btnManage);
 
@@ -152,6 +165,42 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
 
             layoutSubscriptions.addView(card);
         }
+    }
+
+    /**
+     * "Day 3 of 9 · 2 Sep – Sep 10, 2026", with a bar.
+     *
+     * The length is measured from the actual start/end dates rather than the plan's
+     * nominal 7/14/30, because the window GROWS: every day skipped in advance pushes
+     * the end date out by one, and a bar capped at the plan length would sit full
+     * while deliveries were still running.
+     *
+     * Hidden entirely until the cook has fixed the window — before that there is no
+     * end date and any bar would be inventing one.
+     */
+    private void applyProgress(SubscriptionResponse.Subscription sub, View container,
+                               com.google.android.material.progressindicator.LinearProgressIndicator bar,
+                               TextView label) {
+        String start = sub.getStartDate();
+        String end = sub.getEndDate();
+        Long span = start != null && end != null ? DeliveryDateUtils.daysBetween(start, end) : null;
+        if (span == null || span < 0) {
+            container.setVisibility(View.GONE);
+            return;
+        }
+
+        int totalDays = (int) (span + 1);
+        Long elapsed = DeliveryDateUtils.daysBetween(start, DeliveryDateUtils.deviceToday());
+        // Clamped both ways: a scheduled subscription hasn't started (day 0) and a
+        // completed one can't be on day 12 of 9.
+        int dayNumber = elapsed == null ? 0 : (int) Math.max(0, Math.min(totalDays, elapsed + 1));
+
+        container.setVisibility(View.VISIBLE);
+        bar.setMax(totalDays);
+        bar.setProgress(dayNumber);
+        label.setText((dayNumber == 0 ? "Starts " + DeliveryDateUtils.formatShortDate(start)
+                : "Day " + dayNumber + " of " + totalDays)
+                + "  ·  ends " + DeliveryDateUtils.formatLongDate(end));
     }
 
     private void applyStatus(SubscriptionResponse.Subscription sub, TextView chip, TextView detail, MaterialButton btnManage) {

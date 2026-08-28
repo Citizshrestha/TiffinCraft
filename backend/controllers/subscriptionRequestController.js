@@ -840,6 +840,12 @@ export const getSubscriptionDetail = async (req, res) => {
 
         const durationDays = getDurationDays(sub.duration);
         const today = getNptToday();
+        // The window can have GROWN: every day skipped in advance pushes end_date
+        // out by one. Report the real length, otherwise the screen shows "7 days"
+        // over a window that now spans nine and the progress bar tops out early.
+        const windowDays = sub.start_date && sub.end_date
+            ? Math.max(durationDays, daysBetween(sub.start_date, sub.end_date) + 1)
+            : durationDays;
 
         // The cook's eSewa QR, in the same field name and shape the order detail
         // and legacy subscription endpoints already expose, so all three manual-pay
@@ -858,8 +864,9 @@ export const getSubscriptionDetail = async (req, res) => {
             subscription: {
                 ...subFields,
                 amount: sub.amount === null ? null : Number(sub.amount),
-                duration_days: durationDays,
-                days_elapsed: sub.start_date ? Math.max(0, Math.min(durationDays, daysBetween(sub.start_date, today) + 1)) : 0,
+                duration_days: windowDays,
+                plan_days: durationDays,
+                days_elapsed: sub.start_date ? Math.max(0, Math.min(windowDays, daysBetween(sub.start_date, today) + 1)) : 0,
                 cook_esewa_qr_url: cookEsewaQrUrl,
                 ...stageFor(sub)
             },

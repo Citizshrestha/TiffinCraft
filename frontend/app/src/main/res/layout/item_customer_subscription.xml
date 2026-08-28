@@ -69,9 +69,51 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:lineSpacingExtra="2dp"
             android:textColor="@color/text_subtitle"
             android:textSize="12.5sp"
             tools:text="Next delivery: 12 Aug 2026" />
+
+        <!--
+          Progress, shown only while there is a window to be part-way through.
+          A subscription is a run of days, and "Day 3 of 7" is the one fact the
+          list was missing: without it the card said "Active" and left the
+          customer to work out how much of what they paid for is left.
+        -->
+        <LinearLayout
+            android:id="@+id/layoutProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="vertical"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <com.google.android.material.progressindicator.LinearProgressIndicator
+                android:id="@+id/progressDays"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:trackColor="@color/stroke_soft"
+                app:trackCornerRadius="3dp"
+                app:trackThickness="5dp"
+                app:indicatorColor="@color/green_primary_dark"
+                tools:progress="40" />
+
+            <TextView
+                android:id="@+id/tvProgressLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textColor="@color/text_subtitle"
+                android:textSize="11.5sp"
+                tools:text="Day 3 of 7  ·  2 Sep – Sep 8, 2026" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="14dp"
+            android:background="@color/stroke_soft" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -80,25 +122,44 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/tvPlanPrice"
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textColor="@color/green_primary_dark"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                tools:text="₹450 / delivery" />
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvPlanPrice"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/green_primary_dark"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    tools:text="₹1,400" />
+
+                <!-- One payment, one meal a day. Spelled out because "₹1,400"
+                     next to "7 days" invites reading it as a daily rate. -->
+                <TextView
+                    android:id="@+id/tvPriceCaption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text_subtitle"
+                    android:textSize="11sp"
+                    tools:text="one-time · 7 days, 1 meal a day" />
+            </LinearLayout>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnManage"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="38dp"
+                android:layout_height="40dp"
+                android:minWidth="0dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
                 android:text="Manage"
                 android:textAllCaps="false"
                 android:textColor="@color/green_primary_dark"
-                android:textSize="12.5sp"
+                android:textSize="13sp"
                 app:cornerRadius="10dp"
                 app:strokeColor="@color/green_primary" />
         </LinearLayout>

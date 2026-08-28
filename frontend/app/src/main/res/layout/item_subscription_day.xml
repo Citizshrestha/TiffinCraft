@@ -5,17 +5,18 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="12dp"
+    android:layout_marginBottom="10dp"
     app:cardBackgroundColor="@color/white"
     app:cardCornerRadius="16dp"
-    app:cardElevation="2dp"
-    app:strokeWidth="0dp">
+    app:cardElevation="1dp"
+    app:strokeColor="@color/stroke_soft"
+    app:strokeWidth="1dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="18dp">
+        android:padding="14dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -26,11 +27,10 @@
             <!-- Modern accent indicator -->
             <View
                 android:id="@+id/viewDayAccent"
-                android:layout_width="5dp"
-                android:layout_height="48dp"
-                android:layout_marginEnd="16dp"
-                android:background="@drawable/bg_pill_green"
-                android:elevation="1dp" />
+                android:layout_width="4dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="14dp"
+                android:background="@drawable/bg_pill_green" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -163,18 +163,24 @@
                 android:visibility="gone" />
         </LinearLayout>
 
-        <!-- Locked note with icon -->
+        <!--
+          State note. Every non-actionable day lands here — cutoff passed, already
+          skipped, delivered, kitchen closed — instead of a full-width disabled
+          button, which took the same vertical space as a real action and made a
+          settled day look like something the customer had failed to use.
+        -->
         <LinearLayout
             android:id="@+id/layoutDayLocked"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginStart="21dp"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="10dp"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:visibility="gone">
 
             <TextView
+                android:id="@+id/tvDayNoteIcon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="6dp"
@@ -187,7 +193,8 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:fontFamily="sans-serif"
-                android:textColor="#F59E0B"
+                android:lineSpacingExtra="1dp"
+                android:textColor="@color/text_subtitle"
                 android:textSize="12sp" />
         </LinearLayout>
 

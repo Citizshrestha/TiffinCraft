@@ -257,10 +257,7 @@ public class SubscriptionRequestsActivity extends AppCompatActivity {
 
         Double total = item.getTotalAmount();
         if (total != null) {
-            tvAmount.setText("Rs. " + fmt(total) + " total");
-            tvAmount.setVisibility(View.VISIBLE);
-        } else if (item.getAmount() != null) {
-            tvAmount.setText("Rs. " + fmt(item.getAmount()) + " per day");
+            tvAmount.setText("Rs. " + fmt(total) + " total · one-time");
             tvAmount.setVisibility(View.VISIBLE);
         } else {
             tvAmount.setVisibility(View.GONE);

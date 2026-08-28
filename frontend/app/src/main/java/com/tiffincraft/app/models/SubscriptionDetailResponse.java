@@ -206,10 +206,14 @@ public class SubscriptionDetailResponse {
         public String getHeadline() { return headline; }
         public String getDetail() { return detail; }
 
-        /** Total for the whole plan — per-day price × calendar days. */
+        /**
+         * What the customer pays, once, for the whole plan.
+         *
+         * `amount` is already that total, not a per-day rate — one meal goes out
+         * per day and the price does not scale with the number of days.
+         */
         public Double getTotalAmount() {
-            if (amount == null || durationDays <= 0) return null;
-            return amount * durationDays;
+            return amount;
         }
 
         /** The four customer-facing stages the status screen switches on. */

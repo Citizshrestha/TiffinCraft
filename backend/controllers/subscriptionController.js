@@ -1056,6 +1056,7 @@ export const skipDay = async (req, res) => {
         }
 
         const connection = await db.promise().getConnection();
+        let extendedTo = sub.end_date;
         try {
             await connection.beginTransaction();
 
@@ -1118,14 +1119,28 @@ export const skipDay = async (req, res) => {
                 });
             }
 
-            // ── Calendar-day model: end_date does NOT move ────────────────────
-            // A subscription is a window of N calendar days, not a pool of N
-            // meal credits. Skipping a day means no meal that day and no charge
-            // that day; it does not buy an extra day at the end. The previous
-            // build extended end_date here, which let a customer stretch a
-            // 7-day plan indefinitely by skipping — and made the end date the
-            // cook saw drift away from the one the customer agreed to.
+            // ── A skip in advance moves the meal to the end ────────────────────
+            // The rule: a day skipped BEFORE that day arrives is a meal the cook
+            // never cooked and the customer never got, so the window grows by one
+            // day and they still receive what they paid for. A day that simply
+            // passed undelivered (cook closed, or the cutoff went by) does not
+            // extend anything — and this endpoint can't produce that case, because
+            // isDateLocked() above already rejected every locked date. So every
+            // skip that reaches here is an advance skip.
+            //
+            // ponytail: no cap on total extensions. A customer who skips every day
+            // stretches the window indefinitely, one day at a time. Add a ceiling
+            // (e.g. extensions <= duration_days) if that turns out to be abused.
+            let newEndDate = sub.end_date;
+            if (sub.end_date) {
+                newEndDate = addDays(sub.end_date, 1);
+                await connection.query(
+                    `UPDATE subscriptions SET end_date = ? WHERE id = ?`,
+                    [newEndDate, sub.id]
+                );
+            }
             await connection.commit();
+            extendedTo = newEndDate;
         } catch (err) {
             await connection.rollback();
             throw err;
@@ -1137,7 +1152,10 @@ export const skipDay = async (req, res) => {
             subscriptionId: sub.id,
             event: "day_skipped",
             actor: "customer",
-            detail: `Customer skipped ${target}${reason ? ` — "${String(reason).slice(0, 200)}"` : ""}. No meal, no charge; the ${sub.end_date || "subscription"} end date is unchanged.`
+            detail: `Customer skipped ${target}${reason ? ` — "${String(reason).slice(0, 200)}"` : ""}. No meal, no charge.`
+                + (extendedTo && extendedTo !== sub.end_date
+                    ? ` End date extended ${sub.end_date} → ${extendedTo}.`
+                    : " End date unchanged (none set yet).")
         });
 
         const [[customer]] = await db.promise().query("SELECT full_name FROM users WHERE id = ?", [customerId]);
@@ -1145,11 +1163,12 @@ export const skipDay = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: sub.end_date
-                ? `${target} skipped — the cook has been told not to prepare it. Your subscription still ends on ${sub.end_date}.`
+            message: extendedTo && extendedTo !== sub.end_date
+                ? `${target} skipped — the cook won't prepare it, and your subscription now runs one day longer, to ${extendedTo}.`
                 : `${target} skipped — the cook has been told not to prepare it.`,
             day: { date: target, status: DAY_STATUS.CUSTOMER_SKIPPED, credit_deducted: false },
-            end_date: sub.end_date || null
+            end_date: extendedTo || null,
+            extended: !!(extendedTo && extendedTo !== sub.end_date)
         });
     } catch (error) {
         console.error("skipDay error:", error);
@@ -1164,8 +1183,9 @@ export const skipDay = async (req, res) => {
  * THE POLICY, as specified: once the cook has confirmed the payment the customer
  * owes the FULL plan amount, however early they cancel and however many days
  * they skipped. Before that confirmation nothing is owed. There is no proration
- * either way — the cook committed their kitchen to the whole window, and skipping
- * days never shortened or extended it.
+ * either way — the cook committed their kitchen to the whole window. (Skipping a
+ * day in advance moves that meal to the end of the window rather than refunding
+ * it, which is why a skip never reduces what is owed.)
  *
  * ASSUMPTION, because the rule as given has two readings for the gap between
  * "cook confirmed" and "first delivery": a verified/scheduled subscription is
@@ -1219,9 +1239,12 @@ export const cancelSubscription = async (req, res) => {
         }
 
         const confirmed = ["verified", "scheduled", "active", "paused"].includes(sub.status);
-        const durationDays = getDurationDays(sub.duration);
-        const perDay = sub.price_per_delivery === null ? null : Number(sub.price_per_delivery);
-        const fullAmount = perDay === null ? null : Number((perDay * durationDays).toFixed(2));
+        // price_per_delivery is the plan's ONE-TIME price for the whole window, not
+        // a daily rate — the column name is legacy. Multiplying it by the day count
+        // billed a 7-day plan seven times over.
+        const fullAmount = sub.price_per_delivery === null
+            ? null
+            : Number(Number(sub.price_per_delivery).toFixed(2));
 
         // Paid, but the cook never confirmed it. Nothing is owed, so whatever was
         // transferred is owed back — the one case that needs a human.

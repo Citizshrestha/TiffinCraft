@@ -191,10 +191,14 @@ public class SubscriptionRequestsResponse {
         public String getHeadline() { return headline; }
         public String getDetail() { return detail; }
 
-        /** Total for the whole plan — per-day price × calendar days. */
+        /**
+         * What the customer pays, once, for the whole plan.
+         *
+         * `amount` is already that total, not a per-day rate — so the figure the
+         * cook checks the screenshot against is this number, unmultiplied.
+         */
         public Double getTotalAmount() {
-            if (amount == null || durationDays <= 0) return null;
-            return amount * durationDays;
+            return amount;
         }
 
         /** A resubmission after a rejection — worth flagging to the cook. */

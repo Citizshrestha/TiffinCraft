@@ -212,8 +212,9 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         }
 
         // The window, not a meal count, is what the customer needs here:
-        // meals_remaining is bookkeeping now and a skipped day never buys an extra
-        // one at the end, so leading with "N meals left" would mislead.
+        // meals_remaining is bookkeeping only, and the window itself moves — an
+        // advance skip pushes end_date out by a day — so the live dates are the
+        // honest thing to lead with.
         if (info.getEndDate() != null) {
             String range = DeliveryDateUtils.formatShortDate(info.getStartDate())
                     + " – " + DeliveryDateUtils.formatLongDate(info.getEndDate());
@@ -322,47 +323,63 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
     /**
      * Decides the row's button purely from the server's `canSkip`/`isLocked`.
      *
+     * A day with nothing to do gets NO button — just a one-line note. A disabled
+     * full-width button saying "You already skipped this day" occupied a real
+     * action's worth of space to tell the customer they had nothing to press, and
+     * the chip on the same row already says the day's state.
+     *
      * A cook viewing this screen gets no button at all — closing a date is a
      * bulk action on the cook's own Today's Deliveries screen, because it hits
      * every subscriber, not just this one.
      */
     private void applyDayAction(SubscriptionCalendarResponse.Day day, MaterialButton btn, LinearLayout layoutLocked, TextView lockedNote) {
         layoutLocked.setVisibility(View.GONE);
+        btn.setOnClickListener(null);
 
         if (!isCustomerView) {
             btn.setVisibility(View.GONE);
             return;
         }
-        btn.setVisibility(View.VISIBLE);
 
         if (day.canSkip()) {
+            btn.setVisibility(View.VISIBLE);
             btn.setEnabled(true);
             btn.setText("Skip this day");
             btn.setOnClickListener(v -> confirmSkip(day));
             return;
         }
 
-        btn.setEnabled(false);
-        btn.setOnClickListener(null);
+        btn.setVisibility(View.GONE);
 
+        String icon;
+        String note;
         if (day.isLocked()) {
-            // Greyed out but present, with the server's own explanation beneath.
-            btn.setText("Cutoff passed");
-            if (day.getLockedMessage() != null) {
-                lockedNote.setText(day.getLockedMessage());
-                layoutLocked.setVisibility(View.VISIBLE);
-            }
+            icon = "🔒";
+            // The server's own sentence when it sent one — it knows the cutoff hour.
+            note = day.getLockedMessage() != null
+                    ? day.getLockedMessage()
+                    : "The cutoff for this day has passed, so it can't be changed.";
         } else if (day.isCustomerSkipped()) {
-            btn.setText("You already skipped this day");
+            icon = "⏭";
+            note = "You skipped this day, so your subscription runs one day longer.";
         } else if (day.isCookUnavailable()) {
-            btn.setText("Kitchen closed — nothing to skip");
+            icon = "🚫";
+            note = "The kitchen is closed on this day — nothing to skip.";
         } else if (day.isDelivered()) {
-            btn.setText("Already delivered");
+            icon = "✅";
+            note = "Delivered.";
         } else if (day.isMissed()) {
-            btn.setText("Marked missed");
+            icon = "⚠️";
+            note = "Marked missed.";
         } else {
-            btn.setText("Can't be changed");
+            icon = "🔒";
+            note = "This day can't be changed.";
         }
+
+        TextView noteIcon = layoutLocked.findViewById(R.id.tvDayNoteIcon);
+        if (noteIcon != null) noteIcon.setText(icon);
+        lockedNote.setText(note);
+        layoutLocked.setVisibility(View.VISIBLE);
     }
 
     /**
@@ -512,8 +529,8 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Skip " + pretty + "?")
                 .setMessage("No meal will be delivered that day and you won't be charged for it.\n\n"
-                        + "Your subscription still ends on its original date — skipping a day "
-                        + "doesn't add one at the end.\n\n"
+                        + "Because you're skipping it in advance, your subscription runs one day "
+                        + "longer — that meal moves to the end of the window.\n\n"
                         + "This can't be undone once the cutoff passes.")
                 .setPositiveButton("Skip this day", (d, w) -> skipDay(day))
                 .setNegativeButton("Keep it", null)
