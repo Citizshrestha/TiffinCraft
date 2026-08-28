@@ -1,41 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Subscribe confirmation sheet.
-
-  Part of the payment-first correction: tapping Subscribe no longer creates
-  anything. This sheet is the explicit confirmation step — it has to show
-  exactly what the customer is about to be charged for (plan, cook, meal
-  count, duration, amount) before any request leaves the device, and it must
-  say plainly that payment happens now, via eSewa.
+  Subscribe confirmation sheet - Modern Professional Design
+  
+  Enhanced with:
+  - Better visual hierarchy with clear sections
+  - Modern card design with shadows and rounded corners
+  - Improved color scheme and typography
+  - Visual icons and better spacing
+  - Professional gradient accents
+  - Enhanced information presentation
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/bg_dialog_rounded">
+    android:background="@drawable/bg_dialog_rounded"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="22dp">
+        android:paddingStart="20dp"
+        android:paddingTop="24dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="24dp">
 
-        <!-- ============ HEADER ============ -->
+        <!-- ============ HEADER WITH IMPROVED VISUAL ============ -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
+            <!-- Enhanced Icon Container with Gradient Effect -->
             <FrameLayout
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
                 android:background="@drawable/circle_bg_green_light">
 
                 <ImageView
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
                     android:layout_gravity="center"
                     android:contentDescription="Subscription"
                     android:src="@drawable/ic_subscription"
@@ -45,255 +52,410 @@
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
+                android:layout_marginStart="16dp"
                 android:layout_weight="1"
                 android:orientation="vertical">
 
+                <!-- Improved Typography with Better Label -->
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Confirm subscription"
-                    android:textColor="@color/sub_text_secondary"
-                    android:textSize="12sp" />
+                    android:text="SUBSCRIPTION PLAN"
+                    android:textColor="@color/sub_primary"
+                    android:textSize="10.5sp"
+                    android:letterSpacing="0.08"
+                    android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/tvDialogPlanName"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
                     android:textColor="@color/sub_text_primary"
-                    android:textSize="17sp"
+                    android:textSize="19sp"
                     android:textStyle="bold"
-                    tools:text="Weekly Lunch Combo"
-                    tools:ignore="MissingDefaultResource" />
+                    android:ellipsize="end"
+                    android:maxLines="2"
+                    tools:text="Weekly Lunch Combo" />
 
-                <TextView
-                    android:id="@+id/tvDialogCookName"
-                    android:layout_width="match_parent"
+                <LinearLayout
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="1dp"
-                    android:textColor="@color/sub_text_secondary"
-                    android:textSize="12.5sp"
-                    tools:text="from Anu's Kitchen" />
+                    android:layout_marginTop="4dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="14dp"
+                        android:layout_height="14dp"
+                        android:contentDescription="Cook"
+                        android:src="@drawable/ic_chef_hat"
+                        app:tint="@color/sub_text_secondary" />
+
+                    <TextView
+                        android:id="@+id/tvDialogCookName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:textColor="@color/sub_text_secondary"
+                        android:textSize="13sp"
+                        tools:text="Anu's Kitchen" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
 
-        <!-- ============ SUMMARY ============ -->
-        <LinearLayout
+        <!-- ============ WHAT'S INCLUDED SECTION ============ -->
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/bg_sub_confirm_summary"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:layout_marginTop="20dp"
+            app:cardBackgroundColor="@color/sub_card_bg"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/sub_card_border"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:baselineAligned="false"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:orientation="vertical"
+                android:padding="18dp">
 
+                <!-- Section Header -->
                 <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="In each day's meal"
-                    android:textColor="@color/sub_text_secondary"
-                    android:textSize="13sp" />
-
-                <TextView
-                    android:id="@+id/tvDialogMealCount"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:text="What's Included"
                     android:textColor="@color/sub_text_primary"
-                    android:textSize="13.5sp"
-                    android:textStyle="bold"
-                    tools:text="3 meals" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/tvDialogItems"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
-                android:textColor="@color/sub_text_secondary"
-                android:textSize="12sp"
-                tools:text="1x Pasta, 2x Grilled Hot Dog" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="12dp"
-                android:background="@color/sub_divider" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:baselineAligned="false"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Billing cycle"
-                    android:textColor="@color/sub_text_secondary"
-                    android:textSize="13sp" />
-
-                <TextView
-                    android:id="@+id/tvDialogDuration"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/pill_sub_duration"
-                    android:paddingStart="11dp"
-                    android:paddingTop="5dp"
-                    android:paddingEnd="11dp"
-                    android:paddingBottom="5dp"
-                    android:textColor="@color/sub_primary"
-                    android:textSize="11.5sp"
-                    android:textStyle="bold"
-                    tools:text="1 Week" />
-            </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="12dp"
-                android:background="@color/sub_divider" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:baselineAligned="false"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="You pay now"
-                    android:textColor="@color/sub_text_primary"
-                    android:textSize="13.5sp"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:id="@+id/tvDialogOriginalPrice"
-                    android:layout_width="wrap_content"
+                <!-- Meals Info with Icon -->
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="8dp"
-                    android:textColor="@color/sub_text_strike"
-                    android:textSize="13sp"
-                    android:visibility="gone"
-                    tools:text="₹1,550"
-                    tools:visibility="visible" />
+                    android:layout_marginTop="14dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
+                    <FrameLayout
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="@drawable/circle_bg_green_light">
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Meals"
+                            android:src="@drawable/ic_meal"
+                            app:tint="@color/sub_primary" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvDialogMealCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/sub_text_primary"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            tools:text="3 items per day" />
+
+                        <TextView
+                            android:id="@+id/tvDialogItems"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textColor="@color/sub_text_secondary"
+                            android:textSize="12.5sp"
+                            android:lineSpacingExtra="2dp"
+                            tools:text="Pasta, 2× Grilled Hot Dog, Chicken Biryani" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Duration Info with Icon -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <FrameLayout
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="@drawable/circle_bg_green_light">
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Duration"
+                            android:src="@drawable/ic_calendar"
+                            app:tint="@color/sub_primary" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Duration"
+                            android:textColor="@color/sub_text_secondary"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/tvDialogDuration"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textColor="@color/sub_text_primary"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            tools:text="1 Week (7 days)" />
+                    </LinearLayout>
+                </LinearLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- ============ PRICING SECTION WITH VISUAL EMPHASIS ============ -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="@color/sub_primary_light"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/sub_primary"
+            app:strokeWidth="1.5dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <!-- Pricing Header -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:contentDescription="Payment"
+                        android:src="@drawable/ic_rupee"
+                        app:tint="@color/sub_primary" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:text="Total Payment"
+                        android:textColor="@color/sub_text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <!-- Original Price with Strikethrough -->
+                    <TextView
+                        android:id="@+id/tvDialogOriginalPrice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:textColor="@color/sub_text_strike"
+                        android:textSize="14sp"
+                        android:visibility="gone"
+                        tools:text="₹1,550"
+                        tools:visibility="visible" />
+                </LinearLayout>
+
+                <!-- Main Price Display -->
                 <TextView
                     android:id="@+id/tvDialogPrice"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/sub_text_primary"
-                    android:textSize="22sp"
+                    android:layout_marginTop="4dp"
+                    android:textColor="@color/sub_primary"
+                    android:textSize="32sp"
                     android:textStyle="bold"
                     tools:text="₹1,200" />
+
+                <!-- Savings Badge -->
+                <TextView
+                    android:id="@+id/tvDialogSavings"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/pill_savings_amber"
+                    android:paddingStart="10dp"
+                    android:paddingTop="5dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="5dp"
+                    android:textColor="@color/sub_accent_amber"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    tools:text="🎉 Save ₹350"
+                    tools:visibility="visible" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="One-time payment • Valid for entire duration"
+                    android:textColor="@color/sub_text_secondary"
+                    android:textSize="11.5sp" />
+
             </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-            <TextView
-                android:id="@+id/tvDialogSavings"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/pill_savings_amber"
-                android:paddingStart="8dp"
-                android:paddingTop="4dp"
-                android:paddingEnd="8dp"
-                android:paddingBottom="4dp"
-                android:textColor="@color/sub_accent_amber"
-                android:textSize="11.5sp"
-                android:textStyle="bold"
-                android:visibility="gone"
-                tools:text="SAVE ₹350"
-                tools:visibility="visible" />
-        </LinearLayout>
-
-        <!-- ============ ADDRESS ============ -->
+        <!-- ============ DELIVERY ADDRESS SECTION ============ -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="20dp"
             android:text="Delivery Address"
             android:textColor="@color/sub_text_primary"
-            android:textSize="13sp"
+            android:textSize="14sp"
             android:textStyle="bold" />
 
-        <com.google.android.material.textfield.TextInputLayout
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            app:boxBackgroundMode="outline"
-            app:boxCornerRadiusBottomEnd="12dp"
-            app:boxCornerRadiusBottomStart="12dp"
-            app:boxCornerRadiusTopEnd="12dp"
-            app:boxCornerRadiusTopStart="12dp"
-            app:boxStrokeColor="@color/sub_primary"
-            app:hintEnabled="false">
+            android:layout_marginTop="10dp"
+            app:cardBackgroundColor="@color/white"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/sub_card_border"
+            app:strokeWidth="1dp">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etDialogAddress"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="top|start"
-                android:hint="Where should we deliver?"
-                android:inputType="textMultiLine"
-                android:minLines="2"
-                android:padding="14dp"
-                android:textColor="@color/sub_text_primary"
-                android:textSize="14sp" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:orientation="horizontal"
+                android:padding="4dp">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="You'll pay securely through eSewa on the next screen. Your subscription starts only after the payment is confirmed — nothing is charged or activated until then."
-            android:textColor="@color/sub_text_secondary"
-            android:textSize="11.5sp" />
+                <FrameLayout
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_gravity="top"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginTop="8dp">
 
-        <!-- ============ ACTIONS ============ -->
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="Location"
+                        android:src="@drawable/ic_location_pin"
+                        app:tint="@color/sub_primary" />
+                </FrameLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    app:boxBackgroundMode="none"
+                    app:hintEnabled="false">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etDialogAddress"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@android:color/transparent"
+                        android:gravity="top|start"
+                        android:hint="Enter your delivery address"
+                        android:inputType="textMultiLine"
+                        android:minLines="2"
+                        android:padding="12dp"
+                        android:textColor="@color/sub_text_primary"
+                        android:textColorHint="@color/sub_text_secondary"
+                        android:textSize="14sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- ============ PAYMENT INFO BANNER ============ -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_info_banner"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="14dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="Info"
+                android:src="@drawable/ic_info_circle"
+                app:tint="@color/sub_info_icon" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:lineSpacingExtra="2dp"
+                android:text="Secure payment via eSewa. Your subscription activates only after the cook confirms your payment."
+                android:textColor="@color/sub_info_text"
+                android:textSize="11.5sp" />
+        </LinearLayout>
+
+        <!-- ============ ACTION BUTTONS WITH BETTER SPACING ============ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
             android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDialogCancel"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
+                android:layout_height="52dp"
                 android:layout_weight="1"
                 android:text="Cancel"
                 android:textAllCaps="false"
                 android:textColor="@color/sub_text_secondary"
-                app:cornerRadius="12dp"
-                app:strokeColor="@color/sub_card_border" />
+                android:textSize="15sp"
+                app:cornerRadius="14dp"
+                app:strokeColor="@color/sub_card_border"
+                app:strokeWidth="1.5dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDialogConfirm"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
+                android:layout_height="52dp"
                 android:layout_marginStart="12dp"
-                android:layout_weight="1.4"
+                android:layout_weight="1.6"
                 android:backgroundTint="@color/sub_primary"
                 android:text="Pay"
                 android:textAllCaps="false"
                 android:textColor="@color/white"
+                android:textSize="15sp"
                 android:textStyle="bold"
-                app:cornerRadius="12dp" />
+                app:cornerRadius="14dp"
+                app:icon="@drawable/ic_arrow_forward"
+                app:iconGravity="end"
+                app:iconTint="@color/white" />
         </LinearLayout>
 
     </LinearLayout>

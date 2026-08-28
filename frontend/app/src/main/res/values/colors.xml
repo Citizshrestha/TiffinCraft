@@ -28,6 +28,7 @@
          destroys the only signal that says "this one".
          ============================================================ -->
     <color name="sub_primary">#1B8C4E</color>
+    <color name="sub_primary_light">#E8F5F0</color>
     <color name="sub_bg_warm">#FDFBF7</color>
     <color name="sub_card_bg">#FFFFFF</color>
     <color name="sub_card_border">#EDE8DF</color>
@@ -46,6 +47,11 @@
     <!-- Recurring/duration chip: stays light green because it's informational,
          not persuasive — it must not compete with the amber value cues. -->
     <color name="sub_chip_green_bg">#E8F5E9</color>
+    <!-- Info banner colors -->
+    <color name="sub_info_bg">#F0F9FF</color>
+    <color name="sub_info_border">#BFDBFE</color>
+    <color name="sub_info_text">#1E40AF</color>
+    <color name="sub_info_icon">#3B82F6</color>
 
     <!-- Payment status chip text colors (paired with status_chip_pending/preparing/delivered backgrounds) -->
     <color name="status_pending_text">#757575</color>
