@@ -459,9 +459,9 @@ public class CustomerProfileActivity extends AppCompatActivity {
         // what the server will report back.
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Cancel Subscription")
-                .setMessage("You'll still owe the full plan amount — the cook has already committed "
-                        + "these days, so cancelling part-way through doesn't reduce it."
-                        + "\n\nThis cannot be undone.")
+                .setMessage("Please note that cancelling this subscription will not result in a refund. "
+                        + "The cook has already committed to preparing meals for the scheduled days. "
+                        + "Your payment will remain with the cook.\n\nThis action cannot be undone.")
                 .setPositiveButton("Cancel Subscription", (dialog, which) -> cancelSubscription())
                 .setNegativeButton("Keep it", null)
                 .show();

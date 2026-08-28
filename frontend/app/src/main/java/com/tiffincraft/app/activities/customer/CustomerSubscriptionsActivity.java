@@ -454,9 +454,9 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
                 || "active".equals(status) || "paused".equals(status);
 
         String message = chargeable
-                ? "You'll still owe the full plan amount — the cook has already committed "
-                        + "these days, so cancelling part-way through doesn't reduce it, and "
-                        + "skipped days were never refundable either.\n\nThis cannot be undone."
+                ? "Please note that cancelling this subscription will not result in a refund. "
+                        + "The cook has already committed to preparing meals for the scheduled days. "
+                        + "Your payment will remain with the cook.\n\nThis action cannot be undone."
                 : "The cook hasn't confirmed this yet, so nothing is owed. If you already "
                         + "transferred money, cancelling flags it to be returned to you."
                         + "\n\nThis cannot be undone.";
