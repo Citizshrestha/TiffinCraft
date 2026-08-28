@@ -104,7 +104,7 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
                 result -> {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         Uri picked = result.getData().getData();
-                        if (picked != null) uploadProof(picked);
+                        if (picked != null) confirmPickedImage(picked);
                     }
                 });
 
@@ -474,30 +474,43 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
     }
 
     private void confirmRemoveProof() {
+        // The cross doesn't delete anything — it starts a replacement. The proof is
+        // already with the cook, and clearing it server-side would leave the
+        // subscription in pending_verification with nothing to verify. Picking a
+        // new screenshot overwrites the old one in a single step.
         if (current == null) return;
 
         new MaterialAlertDialogBuilder(this)
-                .setTitle("Remove payment screenshot?")
-                .setMessage("This will remove your current payment screenshot. You can upload a new one if you accidentally uploaded the wrong image.")
-                .setPositiveButton("Remove", (d, w) -> removeProof())
-                .setNegativeButton("Cancel", null)
+                .setTitle("Upload a different screenshot?")
+                .setMessage("The cook hasn't verified this one yet, so you can still replace it. "
+                        + "The new screenshot takes the place of the old one.")
+                .setPositiveButton("Choose new screenshot", (d, w) -> openImagePicker())
+                .setNegativeButton("Keep this one", null)
                 .show();
     }
 
-    private void removeProof() {
-        if (current == null) return;
+    /**
+     * Last look before it goes to the cook. The picker used to hand straight off to
+     * uploadProof, so a mis-tap in the gallery was already submitted by the time the
+     * customer saw which image they had chosen.
+     */
+    private void confirmPickedImage(Uri picked) {
+        float density = getResources().getDisplayMetrics().density;
+        ImageView preview = new ImageView(this);
+        preview.setAdjustViewBounds(true);
+        preview.setMaxHeight(Math.round(320 * density));
+        int pad = Math.round(16 * density);
+        preview.setPadding(pad, pad, pad, 0);
+        Glide.with(this).load(picked).into(preview);
 
-        progressLoading.setVisibility(View.VISIBLE);
-        btnRemoveProof.setEnabled(false);
-
-        // We'll call the same endpoint but without any image to clear it
-        // For now, we'll just hide the proof locally and let the user re-upload
-        layoutSubmittedProof.setVisibility(View.GONE);
-        progressLoading.setVisibility(View.GONE);
-        btnRemoveProof.setEnabled(true);
-        btnUploadProof.setText("Upload payment screenshot");
-
-        Toast.makeText(this, "Screenshot removed. You can now upload a new one.", Toast.LENGTH_SHORT).show();
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Send this screenshot?")
+                .setView(preview)
+                .setMessage("The cook will check the amount, date and name on it.")
+                .setPositiveButton("Send to cook", (d, w) -> uploadProof(picked))
+                .setNegativeButton("Pick another", (d, w) -> openImagePicker())
+                .setNeutralButton("Cancel", null)
+                .show();
     }
 
     private void openImagePicker() {

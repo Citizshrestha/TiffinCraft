@@ -399,10 +399,13 @@ export const submitPaymentProof = async (req, res) => {
         if (sub.customer_id !== customerId) {
             return res.status(403).json({ success: false, message: "This subscription does not belong to you." });
         }
-        // Only from 'accepted' (or a rejected proof, which lands back there).
+        // Only from 'accepted' (or a rejected proof, which lands back there), plus
+        // 'pending_verification' so a customer who uploaded the wrong image can
+        // replace it while the cook still hasn't acted on it. Without that, the
+        // first upload was final and the only remedy was the cook rejecting it.
         // 'requested' is explicitly refused: paying before the cook agrees is
         // exactly the situation this whole reordering exists to prevent.
-        if (sub.status !== "accepted") {
+        if (sub.status !== "accepted" && sub.status !== "pending_verification") {
             const hint = sub.status === "requested"
                 ? "The cook hasn't accepted this request yet — don't pay until they do."
                 : `This subscription is ${describeStatus(sub.status)}.`;
@@ -449,7 +452,7 @@ export const submitPaymentProof = async (req, res) => {
                  payment_status = 'submitted', status = 'pending_verification',
                  payment_submitted_at = NOW(), payment_rejection_reason = NULL,
                  payment_proof_attempts = payment_proof_attempts + 1
-             WHERE id = ? AND customer_id = ? AND status = 'accepted'`,
+             WHERE id = ? AND customer_id = ? AND status IN ('accepted','pending_verification')`,
             [uploaded.secure_url, hash, id, customerId]
         );
         if (upd.affectedRows === 0) {
@@ -473,7 +476,9 @@ export const submitPaymentProof = async (req, res) => {
             customerId, cookId: sub.cook_id,
             senderId: customerId, recipientId: sub.cook_id, senderName: customerName,
             cardType: CARD_TYPES.SUBSCRIPTION_UPDATE,
-            cardText: `Uploaded payment proof for ${sub.plan_name}. Please verify it.`,
+            cardText: sub.status === "pending_verification"
+                ? `Replaced the payment proof for ${sub.plan_name}. Please verify the new screenshot.`
+                : `Uploaded payment proof for ${sub.plan_name}. Please verify it.`,
             metadata: subscriptionCardMeta({
                 subscriptionId: Number(id), planName: sub.plan_name, duration: sub.duration,
                 durationDays: getDurationDays(sub.duration), amount,

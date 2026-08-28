@@ -399,14 +399,21 @@ public class SubscriptionRequestsActivity extends AppCompatActivity {
                 : "The request is closed and " + who + " is told. Nothing is left pending, "
                     + "and they can request again with a different start date.";
 
-        new MaterialAlertDialogBuilder(this)
-                .setTitle(accept ? "Accept this subscription?" : "Decline this request?")
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this);
+        builder.setTitle(accept ? "Accept this subscription?" : "Decline this request?")
                 .setMessage(message)
                 .setView(wrapper)
                 .setPositiveButton(accept ? "Accept" : "Decline", (d, w) ->
                         sendDecision(item, accept, input.getText().toString().trim()))
-                .setNegativeButton("Back", null)
-                .show();
+                .setNegativeButton("Back", null);
+
+        androidx.appcompat.app.AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // Set white background
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.white);
+        }
     }
 
     private void sendDecision(SubscriptionRequestsResponse.Item item, boolean accept, String note) {

@@ -89,7 +89,7 @@
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:contentDescription="Cook"
-                        android:src="@drawable/ic_chef_hat"
+                        android:src="@drawable/ic_chef"
                         app:tint="@color/sub_text_secondary" />
 
                     <TextView
@@ -363,7 +363,7 @@
                         android:layout_height="20dp"
                         android:layout_gravity="center"
                         android:contentDescription="Location"
-                        android:src="@drawable/ic_location_pin"
+                        android:src="@drawable/ic_location"
                         app:tint="@color/sub_primary" />
                 </FrameLayout>
 

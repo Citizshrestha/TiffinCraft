@@ -229,8 +229,13 @@ public class SubscriptionDetailResponse {
             return "rejected".equals(stage) || "completed".equals(stage) || "cancelled".equals(stage);
         }
 
-        /** The customer can upload (or re-upload after a rejection) right now. */
-        public boolean canUploadProof() { return isAwaitingPayment(); }
+        /**
+         * The customer can upload, re-upload after a rejection, or replace a proof
+         * the cook hasn't checked yet. The last case matters: uploading the wrong
+         * screenshot used to be final, because this returned false the moment the
+         * status moved to pending_verification and the upload card disappeared.
+         */
+        public boolean canUploadProof() { return isAwaitingPayment() || isVerifying(); }
 
         /** A resubmission after a rejection — worth flagging to the cook. */
         public boolean isRetriedProof() { return paymentProofAttempts > 1; }
