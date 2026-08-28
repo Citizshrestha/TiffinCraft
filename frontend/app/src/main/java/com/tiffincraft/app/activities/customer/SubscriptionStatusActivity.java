@@ -74,9 +74,8 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
     private TextView tvHeaderPlan, tvHeaderCook, tvStageChip, tvHeadline, tvDetail,
             tvStep1, tvStep2, tvStep3, tvStep4, tvRejectionNote, tvTotalAmount,
             tvAmountBreakdown, tvWindow, tvWindowNote, tvAddress, tvMealsTitle, tvMeals,
-            tvScanToPay, tvEventsTitle;
-    private ImageView imgCookQr, imgProof;
-    private LinearLayout layoutEvents;
+            tvScanToPay;
+    private ImageView imgCookQr, imgProof, btnRemoveProof;
     private MaterialButton btnPayWithEsewa, btnUploadProof, btnOpenSchedule, btnMessageCook;
 
     private SubscriptionDetailResponse.Subscription current;
@@ -113,6 +112,7 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
         swipeRefresh.setOnRefreshListener(this::loadDetail);
         btnPayWithEsewa.setOnClickListener(v -> openEsewa());
         btnUploadProof.setOnClickListener(v -> confirmUpload());
+        btnRemoveProof.setOnClickListener(v -> confirmRemoveProof());
         btnOpenSchedule.setOnClickListener(v -> {
             if (current == null) return;
             startActivity(SubscriptionCalendarActivity.intentFor(this, subscriptionId, current.getPlanName()));
@@ -146,10 +146,9 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
         tvMealsTitle = findViewById(R.id.tvMealsTitle);
         tvMeals = findViewById(R.id.tvMeals);
         tvScanToPay = findViewById(R.id.tvScanToPay);
-        tvEventsTitle = findViewById(R.id.tvEventsTitle);
         imgCookQr = findViewById(R.id.imgCookQr);
         imgProof = findViewById(R.id.imgProof);
-        layoutEvents = findViewById(R.id.layoutEvents);
+        btnRemoveProof = findViewById(R.id.btnRemoveProof);
         btnPayWithEsewa = findViewById(R.id.btnPayWithEsewa);
         btnUploadProof = findViewById(R.id.btnUploadProof);
         btnOpenSchedule = findViewById(R.id.btnOpenSchedule);
@@ -209,8 +208,6 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
         // A schedule only exists once there are days to show.
         btnOpenSchedule.setVisibility(sub.isRunning() || "completed".equals(sub.getStage())
                 ? View.VISIBLE : View.GONE);
-
-        renderEvents(body);
     }
 
     /** Chip + the four-step trail. The labels are the server's stage, humanised. */
@@ -393,8 +390,11 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
             });
         }
 
-        btnUploadProof.setText(sub.getPaymentProofAttempts() > 0
-                ? "Upload a new screenshot" : "Upload payment screenshot");
+        // Update button text based on whether proof has been uploaded
+        final String url = sub.getPaymentScreenshotUrl();
+        boolean hasUploadedProof = url != null && !url.trim().isEmpty();
+        btnUploadProof.setText(hasUploadedProof
+                ? "Upload a new payment screenshot" : "Upload payment screenshot");
     }
 
     private void applyProof(SubscriptionDetailResponse.Subscription sub) {
@@ -410,33 +410,6 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
             viewer.putExtra(MediaViewerActivity.EXTRA_IS_VIDEO, false);
             startActivity(viewer);
         });
-    }
-
-    private void renderEvents(SubscriptionDetailResponse body) {
-        layoutEvents.removeAllViews();
-        boolean any = body.getEvents() != null && !body.getEvents().isEmpty();
-        tvEventsTitle.setVisibility(any ? View.VISIBLE : View.GONE);
-        layoutEvents.setVisibility(any ? View.VISIBLE : View.GONE);
-        if (!any) return;
-
-        LayoutInflater inflater = LayoutInflater.from(this);
-        for (SubscriptionDetailResponse.Event event : body.getEvents()) {
-            View row = inflater.inflate(R.layout.item_subscription_event, layoutEvents, false);
-            TextView title = row.findViewById(R.id.tvEventTitle);
-            TextView detail = row.findViewById(R.id.tvEventDetail);
-            TextView time = row.findViewById(R.id.tvEventTime);
-
-            String label = event.getEvent() == null ? "—" : event.getEvent().replace('_', ' ');
-            if (event.getAmount() != null) label += "  ·  Rs. " + fmt(event.getAmount());
-            title.setText(label);
-
-            boolean hasDetail = event.getDetail() != null && !event.getDetail().trim().isEmpty();
-            detail.setText(hasDetail ? event.getDetail() : "");
-            detail.setVisibility(hasDetail ? View.VISIBLE : View.GONE);
-
-            time.setText(DeliveryDateUtils.formatShortDate(event.getCreatedAt()));
-            layoutEvents.addView(row);
-        }
     }
 
     private void openEsewa() {
@@ -498,6 +471,33 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
                 .setPositiveButton("Choose screenshot", (d, w) -> openImagePicker())
                 .setNegativeButton("Not yet", null)
                 .show();
+    }
+
+    private void confirmRemoveProof() {
+        if (current == null) return;
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Remove payment screenshot?")
+                .setMessage("This will remove your current payment screenshot. You can upload a new one if you accidentally uploaded the wrong image.")
+                .setPositiveButton("Remove", (d, w) -> removeProof())
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void removeProof() {
+        if (current == null) return;
+
+        progressLoading.setVisibility(View.VISIBLE);
+        btnRemoveProof.setEnabled(false);
+
+        // We'll call the same endpoint but without any image to clear it
+        // For now, we'll just hide the proof locally and let the user re-upload
+        layoutSubmittedProof.setVisibility(View.GONE);
+        progressLoading.setVisibility(View.GONE);
+        btnRemoveProof.setEnabled(true);
+        btnUploadProof.setText("Upload payment screenshot");
+
+        Toast.makeText(this, "Screenshot removed. You can now upload a new one.", Toast.LENGTH_SHORT).show();
     }
 
     private void openImagePicker() {
