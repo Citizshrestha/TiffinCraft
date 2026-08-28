@@ -23,6 +23,13 @@ public class ChatMessage {
     public static final int TYPE_VIDEO_RECEIVED = 7;
     public static final int TYPE_DELETED_SENT     = 8;
     public static final int TYPE_DELETED_RECEIVED = 9;
+    /**
+     * One view type for all three structured cards, both sides. The card body is
+     * the server's sentence and the only thing that varies is whether there are
+     * buttons, so three layouts (or six, sent and received) would be three copies
+     * of the same bubble.
+     */
+    public static final int TYPE_CARD             = 10;
 
     // Call states
     public static final String CALL_ENDED    = "Call Ended";
@@ -41,6 +48,9 @@ public class ChatMessage {
     private boolean isEdited;
     private boolean isDeleted;
     private String  deletedOriginalType; // "text" / "image" / "video" — drives the placeholder label
+    private String  cardType;      // subscription_request / subscription_update / custom_meal_request
+    private Integer cardReferenceId;
+    private String  cardLiveStatus;
 
     // ---- Constructors ----
 
@@ -99,6 +109,15 @@ public class ChatMessage {
         }
 
         switch (type) {
+            case ChatApiMessage.TYPE_SUBSCRIPTION_REQUEST:
+            case ChatApiMessage.TYPE_SUBSCRIPTION_UPDATE:
+            case ChatApiMessage.TYPE_CUSTOM_MEAL_REQUEST:
+                m = new ChatMessage(TYPE_CARD, api.getContent(), time);
+                m.isSentByMe = sentByMe;
+                m.cardType = type;
+                m.cardReferenceId = api.getReferenceId();
+                m.cardLiveStatus = api.getLiveStatus();
+                break;
             case ChatApiMessage.TYPE_IMAGE:
                 m = ChatMessage.media(
                         sentByMe ? TYPE_IMAGE_SENT : TYPE_IMAGE_RECEIVED,
@@ -236,4 +255,49 @@ public class ChatMessage {
     public String getCreatedAtRaw() { return createdAtRaw; }
     public boolean isEdited()       { return isEdited; }
     public boolean isDeleted()      { return isDeleted; }
+
+    public String getCardType()          { return cardType; }
+    public Integer getCardReferenceId()  { return cardReferenceId; }
+    public String getCardLiveStatus()    { return cardLiveStatus; }
+
+    /**
+     * Whether THIS card still has a decision on it, for the person looking at it.
+     *
+     * Two conditions, both required. `!isSentByMe` because only the recipient
+     * decides — a customer must never see Accept on their own request. And the
+     * status is the server's live one, so a card scrolled back to after the fact
+     * offers nothing: the endpoints guard on the same state and would 409 anyway,
+     * which is a worse way to find out.
+     */
+    public boolean isCardActionable() {
+        if (viewType != TYPE_CARD || isSentByMe || cardReferenceId == null) return false;
+        if (ChatApiMessage.TYPE_SUBSCRIPTION_REQUEST.equals(cardType)) {
+            return "requested".equals(cardLiveStatus);
+        }
+        if (ChatApiMessage.TYPE_CUSTOM_MEAL_REQUEST.equals(cardType)) {
+            return "pending".equals(cardLiveStatus);
+        }
+        return false; // subscription_update is an announcement, never a decision
+    }
+
+    /** Short "what happened to this" line, or null while it's still open. */
+    public String getCardStatusLine() {
+        if (viewType != TYPE_CARD) return null;
+        if (cardReferenceId == null) return "No longer available";
+        if (isCardActionable()) return null;
+        if (cardLiveStatus == null) return "No longer available";
+        switch (cardLiveStatus) {
+            case "requested": return "Waiting for the cook";
+            case "pending":   return "Waiting for the cook";
+            case "accepted":  return "Accepted";
+            case "declined":  return "Declined";
+            case "rejected":  return "Declined";
+            case "cancelled": return "Cancelled";
+            case "expired":   return "Expired — the day's cutoff passed";
+            default:          return cardLiveStatus.replace('_', ' ');
+        }
+    }
+
+    /** Cards are announcements or decisions, never editable or deletable. */
+    public boolean isCard() { return viewType == TYPE_CARD; }
 }

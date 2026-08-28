@@ -190,6 +190,24 @@ public class SubscriptionCalendarResponse {
         @SerializedName("locked_message")
         private String lockedMessage;
 
+        /**
+         * The meal swap already asked for on this day, or null. Present so the
+         * calendar can show a request the customer already sent instead of
+         * offering the button again and hitting the UNIQUE (subscription, date)
+         * key on the server.
+         */
+        @SerializedName("custom_meal")
+        private CustomMeal customMeal;
+
+        /**
+         * Server-decided: true only when a swap request would actually be
+         * accepted (day still scheduled, before cutoff, nothing asked for yet).
+         * Same conditions the create endpoint enforces, so the UI never shows a
+         * button the server will refuse.
+         */
+        @SerializedName("can_request_custom")
+        private boolean canRequestCustom;
+
         public String getDate() { return date; }
         public String getStatus() { return status; }
         public String getLabel() { return label; }
@@ -201,6 +219,8 @@ public class SubscriptionCalendarResponse {
         public boolean isLocked() { return isLocked; }
         public boolean canSkip() { return canSkip; }
         public String getLockedMessage() { return lockedMessage; }
+        public CustomMeal getCustomMeal() { return customMeal; }
+        public boolean canRequestCustom() { return canRequestCustom; }
 
         public boolean isScheduled() { return "scheduled".equals(status); }
         public boolean isCustomerSkipped() { return "customer_skipped".equals(status); }

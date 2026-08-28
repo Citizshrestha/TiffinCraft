@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  One row of a subscription's audit trail.
+
+  The `detail` string already names the actor (customer, cook or system), because
+  the server writes it that way for dispute resolution — so this row shows it
+  verbatim rather than reformatting it.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingTop="7dp"
+    android:paddingBottom="7dp">
+
+    <View
+        android:layout_width="3dp"
+        android:layout_height="match_parent"
+        android:layout_marginEnd="12dp"
+        android:background="@color/stroke_soft" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvEventTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_ink"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvEventDetail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:lineSpacingExtra="1dp"
+            android:textColor="@color/text_subtitle"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/tvEventTime"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="@color/text_subtitle"
+            android:textSize="11sp" />
+    </LinearLayout>
+</LinearLayout>

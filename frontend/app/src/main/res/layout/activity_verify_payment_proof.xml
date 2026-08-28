@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  Verify or reject one payment screenshot.
+
+  A full screen rather than a dialog on purpose: the cook has to be able to read
+  an amount, a date and a name off the image, and a thumbnail in a list is how a
+  wrong screenshot gets approved. The image is tappable to open the existing
+  full-screen MediaViewerActivity for pinch-zoom.
+
+  The screen states plainly that this check is by eye. Nothing here proves the
+  money arrived — the only mechanical guarantee is that the same image file can
+  never be submitted for two subscriptions.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_app"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="14dp">
+
+        <ImageView
+            android:id="@+id/btnBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="Back"
+            android:focusable="true"
+            android:padding="10dp"
+            android:src="@drawable/ic_back"
+            app:tint="@color/text_ink" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Payment Proof"
+                android:textColor="@color/text_ink"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvHeaderCustomer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_subtitle"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefresh"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <androidx.core.widget.NestedScrollView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingBottom="24dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- What you're being asked to confirm -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/stroke_soft"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
+                            <TextView
+                                android:id="@+id/tvExpectedAmount"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/green_primary_dark"
+                                android:textSize="20sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvAmountBreakdown"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:textColor="@color/text_subtitle"
+                                android:textSize="12.5sp" />
+
+                            <TextView
+                                android:id="@+id/tvPlanLine"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="10dp"
+                                android:textColor="@color/text_ink"
+                                android:textSize="13.5sp" />
+
+                            <TextView
+                                android:id="@+id/tvWindow"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="3dp"
+                                android:textColor="@color/text_subtitle"
+                                android:textSize="12.5sp" />
+
+                            <TextView
+                                android:id="@+id/tvSubmittedAt"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="3dp"
+                                android:textColor="@color/text_subtitle"
+                                android:textSize="12.5sp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- The honest caveat, on the screen where the decision happens -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        app:cardBackgroundColor="#FFFBEB"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="#FDE68A"
+                        app:strokeWidth="1dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:lineSpacingExtra="2dp"
+                            android:padding="14dp"
+                            android:text="You're checking this by eye. Confirm the amount, the date and the sender name against your own account before verifying — a screenshot on its own doesn't prove the money arrived. The same image can't be reused for another subscription, but nothing else is checked automatically."
+                            android:textColor="#92400E"
+                            android:textSize="12.5sp" />
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- A resubmission after a rejection -->
+                    <TextView
+                        android:id="@+id/tvRetryWarning"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:background="#FEF2F2"
+                        android:padding="13dp"
+                        android:textColor="@color/sub_error"
+                        android:textSize="12.5sp"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="The screenshot"
+                        android:textColor="@color/text_ink"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Tap to open it full screen and zoom in."
+                        android:textColor="@color/text_subtitle"
+                        android:textSize="12sp" />
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        app:cardBackgroundColor="#111827"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="0dp">
+
+                        <ImageView
+                            android:id="@+id/imgProof"
+                            android:layout_width="match_parent"
+                            android:layout_height="420dp"
+                            android:adjustViewBounds="true"
+                            android:background="?attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:contentDescription="Payment screenshot"
+                            android:focusable="true"
+                            android:scaleType="fitCenter" />
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <TextView
+                        android:id="@+id/tvNoProof"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="24dp"
+                        android:gravity="center"
+                        android:text="No screenshot has been uploaded yet."
+                        android:textColor="@color/text_subtitle"
+                        android:textSize="13sp"
+                        android:visibility="gone" />
+
+                    <!-- Lifecycle trail — the other half of a dispute -->
+                    <TextView
+                        android:id="@+id/tvEventsTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="20dp"
+                        android:text="History"
+                        android:textColor="@color/text_ink"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:id="@+id/layoutEvents"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="vertical" />
+                </LinearLayout>
+            </androidx.core.widget.NestedScrollView>
+
+            <ProgressBar
+                android:id="@+id/progressLoading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center" />
+        </FrameLayout>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+    <!-- Pinned so the decision is always reachable without scrolling back -->
+    <LinearLayout
+        android:id="@+id/layoutActions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/white"
+        android:elevation="8dp"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:visibility="gone">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnRejectProof"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="50dp"
+            android:layout_weight="1"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="Reject proof"
+            android:textAllCaps="false"
+            android:textColor="@color/sub_error"
+            android:textSize="14.5sp"
+            app:cornerRadius="12dp"
+            app:strokeColor="@color/sub_error"
+            app:strokeWidth="1.5dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnVerifyProof"
+            android:layout_width="0dp"
+            android:layout_height="50dp"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:backgroundTint="@color/green_primary_dark"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="Verify payment"
+            android:textAllCaps="false"
+            android:textColor="@color/white"
+            android:textSize="14.5sp"
+            app:cornerRadius="12dp" />
+    </LinearLayout>
+</LinearLayout>

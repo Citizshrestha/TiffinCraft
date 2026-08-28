@@ -1,0 +1,469 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  The customer's single subscription screen, from request to finished.
+
+  One screen for all four stages rather than four screens, because the customer's
+  question is always the same one — "what's happening with this?" — and the answer
+  only changes wording. The wording itself is the server's: `headline` and `detail`
+  come from stageFor() and are shown verbatim, so this screen can never disagree
+  with what the cook is being shown about the same subscription.
+
+  The pay block is the only stage-specific machinery, and it is visible only when
+  the server says the subscription is actually awaiting payment.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_app"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="14dp">
+
+        <ImageView
+            android:id="@+id/btnBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="Back"
+            android:focusable="true"
+            android:padding="10dp"
+            android:src="@drawable/ic_back"
+            app:tint="@color/text_ink" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvHeaderPlan"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Subscription"
+                android:textColor="@color/text_ink"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvHeaderCook"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_subtitle"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefresh"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <androidx.core.widget.NestedScrollView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingBottom="28dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- STAGE. Server-authored text; the chip and the four dots
+                         are the only things decided on the client. -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/stroke_soft"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
+                            <TextView
+                                android:id="@+id/tvStageChip"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="@drawable/status_chip_pending"
+                                android:paddingStart="12dp"
+                                android:paddingTop="6dp"
+                                android:paddingEnd="12dp"
+                                android:paddingBottom="6dp"
+                                android:textColor="@color/status_pending_text"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvHeadline"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="10dp"
+                                android:textColor="@color/text_ink"
+                                android:textSize="17sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvDetail"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:lineSpacingExtra="2dp"
+                                android:textColor="@color/text_subtitle"
+                                android:textSize="13.5sp" />
+
+                            <!-- Requested → Accepted → Paid → Running. Filled in
+                                 code from the server's stage, never guessed. -->
+                            <LinearLayout
+                                android:id="@+id/layoutSteps"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="14dp"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:id="@+id/tvStep1"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:gravity="center"
+                                    android:text="Requested"
+                                    android:textSize="10.5sp" />
+
+                                <TextView
+                                    android:id="@+id/tvStep2"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:gravity="center"
+                                    android:text="Accepted"
+                                    android:textSize="10.5sp" />
+
+                                <TextView
+                                    android:id="@+id/tvStep3"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:gravity="center"
+                                    android:text="Paid"
+                                    android:textSize="10.5sp" />
+
+                                <TextView
+                                    android:id="@+id/tvStep4"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:gravity="center"
+                                    android:text="Running"
+                                    android:textSize="10.5sp" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Why the cook said no, or why the screenshot was rejected.
+                         Whichever applies; both are the customer's next action. -->
+                    <TextView
+                        android:id="@+id/tvRejectionNote"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:background="#FEF2F2"
+                        android:lineSpacingExtra="2dp"
+                        android:padding="14dp"
+                        android:textColor="@color/sub_error"
+                        android:textSize="13sp"
+                        android:visibility="gone" />
+
+                    <!-- PLAN + WINDOW + MONEY -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/stroke_soft"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
+                            <TextView
+                                android:id="@+id/tvTotalAmount"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/green_primary_dark"
+                                android:textSize="20sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvAmountBreakdown"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:textColor="@color/text_subtitle"
+                                android:textSize="12.5sp" />
+
+                            <TextView
+                                android:id="@+id/tvWindow"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="10dp"
+                                android:textColor="@color/text_ink"
+                                android:textSize="13.5sp" />
+
+                            <!-- The rule people get wrong: a skipped day does not
+                                 buy a day at the end. -->
+                            <TextView
+                                android:id="@+id/tvWindowNote"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="A skipped day isn't charged, but it doesn't extend the end date."
+                                android:textColor="@color/text_subtitle"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/tvAddress"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:textColor="@color/text_subtitle"
+                                android:textSize="12.5sp" />
+
+                            <TextView
+                                android:id="@+id/tvMealsTitle"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:text="Each day you get"
+                                android:textColor="@color/text_ink"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvMeals"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:lineSpacingExtra="2dp"
+                                android:textColor="@color/text_subtitle"
+                                android:textSize="12.5sp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- PAY. Only ever visible when the server says this
+                         subscription is awaiting payment. -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardPay"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:visibility="gone"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/stroke_soft"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Pay the cook"
+                                android:textColor="@color/text_ink"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:lineSpacingExtra="2dp"
+                                android:text="Send the full amount, then upload the screenshot. The cook checks it by hand and confirms — nothing starts until they do."
+                                android:textColor="@color/text_subtitle"
+                                android:textSize="12.5sp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnPayWithEsewa"
+                                android:layout_width="match_parent"
+                                android:layout_height="48dp"
+                                android:layout_marginTop="12dp"
+                                android:backgroundTint="@color/green_primary_dark"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                android:text="Open eSewa"
+                                android:textAllCaps="false"
+                                android:textColor="@color/white"
+                                android:textSize="14sp"
+                                app:cornerRadius="12dp" />
+
+                            <TextView
+                                android:id="@+id/tvScanToPay"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:text="Or scan the cook's QR — tap to save it"
+                                android:textColor="@color/text_subtitle"
+                                android:textSize="12sp" />
+
+                            <ImageView
+                                android:id="@+id/imgCookQr"
+                                android:layout_width="match_parent"
+                                android:layout_height="220dp"
+                                android:layout_marginTop="8dp"
+                                android:adjustViewBounds="true"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:contentDescription="Cook's eSewa QR"
+                                android:focusable="true"
+                                android:scaleType="fitCenter" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnUploadProof"
+                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                                android:layout_width="match_parent"
+                                android:layout_height="48dp"
+                                android:layout_marginTop="12dp"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                android:text="Upload payment screenshot"
+                                android:textAllCaps="false"
+                                android:textColor="@color/green_primary_dark"
+                                android:textSize="14sp"
+                                app:cornerRadius="12dp"
+                                app:strokeColor="@color/green_primary_dark"
+                                app:strokeWidth="1.5dp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- The screenshot already sent, so the customer can see what
+                         the cook is looking at while they wait. -->
+                    <LinearLayout
+                        android:id="@+id/layoutSubmittedProof"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="What you sent"
+                            android:textColor="@color/text_ink"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            app:cardBackgroundColor="#111827"
+                            app:cardCornerRadius="16dp"
+                            app:cardElevation="0dp">
+
+                            <ImageView
+                                android:id="@+id/imgProof"
+                                android:layout_width="match_parent"
+                                android:layout_height="260dp"
+                                android:adjustViewBounds="true"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:contentDescription="Your payment screenshot"
+                                android:focusable="true"
+                                android:scaleType="fitCenter" />
+                        </com.google.android.material.card.MaterialCardView>
+                    </LinearLayout>
+
+                    <!-- Actions that only make sense once there is a schedule. -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnOpenSchedule"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="16dp"
+                        android:backgroundTint="@color/green_primary_dark"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:text="Day-by-day schedule"
+                        android:textAllCaps="false"
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        android:visibility="gone"
+                        app:cornerRadius="12dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnMessageCook"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="8dp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:text="Message the cook"
+                        android:textAllCaps="false"
+                        android:textColor="@color/green_primary_dark"
+                        android:textSize="14sp"
+                        app:cornerRadius="12dp"
+                        app:strokeColor="@color/stroke_soft"
+                        app:strokeWidth="1.5dp" />
+
+                    <!-- HISTORY — the same audit trail the cook sees. -->
+                    <TextView
+                        android:id="@+id/tvEventsTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="20dp"
+                        android:text="History"
+                        android:textColor="@color/text_ink"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:id="@+id/layoutEvents"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="vertical" />
+                </LinearLayout>
+            </androidx.core.widget.NestedScrollView>
+
+            <ProgressBar
+                android:id="@+id/progressLoading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center" />
+        </FrameLayout>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+</LinearLayout>

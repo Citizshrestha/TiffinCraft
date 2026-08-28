@@ -30,7 +30,9 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.adapters.MessageAdapter;
 import com.tiffincraft.app.api.ApiService;
@@ -40,6 +42,7 @@ import com.tiffincraft.app.models.ChatConversation;
 import com.tiffincraft.app.models.ChatConversationsResponse;
 import com.tiffincraft.app.models.ChatMessage;
 import com.tiffincraft.app.models.ChatMessagesResponse;
+import com.tiffincraft.app.models.SubscriptionActionResponse;
 import com.tiffincraft.app.models.DeleteChatMessagesRequest;
 import com.tiffincraft.app.models.EditChatMessageRequest;
 import com.tiffincraft.app.models.RegisterResponse;
@@ -299,6 +302,7 @@ public class ChatActivity extends AppCompatActivity {
             ? R.drawable.avatar_cook : R.drawable.avatar_customer;
         adapter = new MessageAdapter(this, messages, contactAvatar, avatarPlaceholder);
         adapter.setOnMessageActionListener(this::onSelectionChanged);
+        adapter.setOnCardDecisionListener(this::onCardDecision);
         LinearLayoutManager lm = new LinearLayoutManager(this);
         lm.setStackFromEnd(true);
         rvMessages.setLayoutManager(lm);
@@ -436,6 +440,73 @@ public class ChatActivity extends AppCompatActivity {
 
     // ==================== Data loading ====================
  
+    /**
+     * Accept/Decline tapped on a structured card, in the thread itself — the cook
+     * never has to leave the conversation to answer.
+     *
+     * Both branches confirm first, because both are commitments the customer is
+     * told about immediately. Neither patches the row locally: the thread is
+     * reloaded so the card's buttons go away because the server's `live_status`
+     * moved, which is also what makes a second tap on a stale card harmless.
+     */
+    private void onCardDecision(ChatMessage message, boolean accept) {
+        Integer referenceId = message.getCardReferenceId();
+        if (referenceId == null) return;
+
+        boolean isSubscription = ChatApiMessage.TYPE_SUBSCRIPTION_REQUEST.equals(message.getCardType());
+        String title = isSubscription
+                ? (accept ? "Accept this subscription?" : "Decline this request?")
+                : (accept ? "Cook this instead?" : "Decline the change?");
+        String body = isSubscription
+                ? (accept
+                    ? "They'll be asked to pay and upload a screenshot next. Nothing starts until you've checked it."
+                    : "The request is closed and they're told. Nothing is left pending, and they can ask again.")
+                : (accept
+                    ? "This replaces their plan meal for that one day."
+                    : "They get the usual plan meal that day. They're charged the same either way.");
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(title)
+                .setMessage(body)
+                .setPositiveButton(accept ? "Accept" : "Decline",
+                        (d, w) -> sendCardDecision(referenceId, isSubscription, accept))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void sendCardDecision(int referenceId, boolean isSubscription, boolean accept) {
+        String token = "Bearer " + sessionManager.getToken();
+        JsonObject payload = new JsonObject();
+        // Two endpoints, two vocabularies: a subscription request is rejected, a
+        // meal swap is declined. Sending the wrong verb is a 400.
+        payload.addProperty("action", accept ? "accept" : (isSubscription ? "reject" : "decline"));
+
+        Call<SubscriptionActionResponse> call = isSubscription
+                ? apiService.respondToSubscriptionRequest(token, referenceId, payload)
+                : apiService.respondToCustomMealRequest(token, referenceId, payload);
+
+        call.enqueue(new Callback<SubscriptionActionResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<SubscriptionActionResponse> call,
+                                   @NonNull Response<SubscriptionActionResponse> response) {
+                SubscriptionActionResponse b = response.body();
+                boolean ok = response.isSuccessful() && b != null && b.isSuccess();
+                Toast.makeText(ChatActivity.this,
+                        b != null && b.getMessage() != null ? b.getMessage()
+                                : (ok ? "Done." : "Couldn't send that."),
+                        Toast.LENGTH_LONG).show();
+                // Reload either way: a 409 means someone already decided it, and
+                // the fresh thread is what shows that.
+                loadMessages();
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<SubscriptionActionResponse> call, @NonNull Throwable t) {
+                Toast.makeText(ChatActivity.this, "Network error. Try again.", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
     private void loadMessages() {
         String token = "Bearer " + sessionManager.getToken();
         Log.d(TAG, "Loading messages for conversation " + conversationId);

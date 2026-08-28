@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.activities.common.MediaViewerActivity;
+import com.tiffincraft.app.models.ChatApiMessage;
 import com.tiffincraft.app.models.ChatMessage;
 import com.tiffincraft.app.utils.ImageUrlHelper;
 
@@ -34,6 +35,18 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         void onSelectionChanged(int selectedCount, boolean canEditSelection);
     }
 
+    /**
+     * A tap on Accept/Decline inside a structured card.
+     *
+     * The adapter deliberately does no API call and no optimistic re-render: the
+     * decision endpoints are guarded on the row's current state, so the activity
+     * reloads the thread from the server and the card's buttons disappear because
+     * `live_status` moved on — not because a client guessed that it would.
+     */
+    public interface OnCardDecisionListener {
+        void onCardDecision(ChatMessage message, boolean accept);
+    }
+
     private static final int SELECTED_HIGHLIGHT = 0x1A00897B; // translucent teal
 
     private final Context context;
@@ -41,6 +54,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     private String contactAvatar;
     private final int contactAvatarPlaceholder;
     private OnMessageActionListener actionListener;
+    private OnCardDecisionListener cardDecisionListener;
 
     private boolean selectionMode = false;
     private final Set<Integer> selectedServerIds = new LinkedHashSet<>();
@@ -64,6 +78,10 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
     public void setOnMessageActionListener(OnMessageActionListener listener) {
         this.actionListener = listener;
+    }
+
+    public void setOnCardDecisionListener(OnCardDecisionListener listener) {
+        this.cardDecisionListener = listener;
     }
 
     // ==================== Selection mode ====================
@@ -167,6 +185,8 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 return new DeletedViewHolder(inflater.inflate(R.layout.item_message_deleted_sent, parent, false));
             case ChatMessage.TYPE_DELETED_RECEIVED:
                 return new DeletedViewHolder(inflater.inflate(R.layout.item_message_deleted_received, parent, false));
+            case ChatMessage.TYPE_CARD:
+                return new CardViewHolder(inflater.inflate(R.layout.item_message_card, parent, false));
             case ChatMessage.TYPE_DATE_SEPARATOR:
             default:
                 return new DateViewHolder(inflater.inflate(R.layout.item_message_date_separator, parent, false));
@@ -266,9 +286,59 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             vh.itemView.setOnClickListener(null);
             vh.itemView.setBackgroundColor(Color.TRANSPARENT);
 
+        } else if (holder instanceof CardViewHolder) {
+            bindCard((CardViewHolder) holder, msg);
+
         } else if (holder instanceof DateViewHolder) {
             ((DateViewHolder) holder).tvDate.setText(msg.getText());
         }
+    }
+
+    /**
+     * A structured card: the server's sentence, plus a decision only if there is
+     * still one to make.
+     *
+     * Actions and the status line are mutually exclusive, which is the whole point
+     * — a card that already has an outcome must not also offer to change it.
+     */
+    private void bindCard(CardViewHolder vh, ChatMessage msg) {
+        String label;
+        if (ChatApiMessage.TYPE_CUSTOM_MEAL_REQUEST.equals(msg.getCardType())) {
+            label = "MEAL CHANGE REQUEST";
+        } else if (ChatApiMessage.TYPE_SUBSCRIPTION_REQUEST.equals(msg.getCardType())) {
+            label = "SUBSCRIPTION REQUEST";
+        } else {
+            label = "SUBSCRIPTION";
+        }
+        vh.tvLabel.setText(label);
+        vh.tvBody.setText(msg.getText() != null ? msg.getText() : "");
+        vh.tvTimestamp.setText(msg.getTimestamp());
+
+        boolean actionable = msg.isCardActionable();
+        vh.layoutActions.setVisibility(actionable ? View.VISIBLE : View.GONE);
+
+        String status = msg.getCardStatusLine();
+        vh.tvStatus.setText(status != null ? status : "");
+        vh.tvStatus.setVisibility(!actionable && status != null ? View.VISIBLE : View.GONE);
+
+        if (actionable) {
+            vh.btnAccept.setOnClickListener(v -> {
+                if (cardDecisionListener != null) cardDecisionListener.onCardDecision(msg, true);
+            });
+            vh.btnDecline.setOnClickListener(v -> {
+                if (cardDecisionListener != null) cardDecisionListener.onCardDecision(msg, false);
+            });
+        } else {
+            // Recycled holders keep their listeners, and a stale one here would fire
+            // a decision on the wrong subscription.
+            vh.btnAccept.setOnClickListener(null);
+            vh.btnDecline.setOnClickListener(null);
+        }
+
+        vh.itemView.setOnLongClickListener(null);
+        vh.itemView.setLongClickable(false);
+        vh.itemView.setOnClickListener(null);
+        vh.itemView.setBackgroundColor(Color.TRANSPARENT);
     }
 
     /**
@@ -308,6 +378,23 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     // ---- ViewHolders ----
+
+    static class CardViewHolder extends RecyclerView.ViewHolder {
+        TextView tvLabel, tvBody, tvStatus, tvTimestamp;
+        View layoutActions;
+        com.google.android.material.button.MaterialButton btnAccept, btnDecline;
+
+        CardViewHolder(@NonNull View itemView) {
+            super(itemView);
+            tvLabel = itemView.findViewById(R.id.tvCardLabel);
+            tvBody = itemView.findViewById(R.id.tvCardBody);
+            tvStatus = itemView.findViewById(R.id.tvCardStatus);
+            tvTimestamp = itemView.findViewById(R.id.tvCardTimestamp);
+            layoutActions = itemView.findViewById(R.id.layoutCardActions);
+            btnAccept = itemView.findViewById(R.id.btnCardAccept);
+            btnDecline = itemView.findViewById(R.id.btnCardDecline);
+        }
+    }
 
     static class TextViewHolder extends RecyclerView.ViewHolder {
         TextView tvText, tvTimestamp;

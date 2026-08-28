@@ -108,6 +108,61 @@
                 android:textSize="13sp" />
         </LinearLayout>
 
+        <!-- The meal swap already asked for on this day, if any -->
+        <LinearLayout
+            android:id="@+id/layoutDayCustomMeal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="21dp"
+            android:layout_marginTop="12dp"
+            android:background="#F0FDF4"
+            android:orientation="horizontal"
+            android:padding="12dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:text="🍽️"
+                android:textSize="14sp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvDayCustomMeal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:textColor="#166534"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/tvDayCustomMealStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:fontFamily="sans-serif"
+                    android:textColor="#6B7280"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvDayCustomMealCancel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:fontFamily="sans-serif-medium"
+                android:text="Withdraw"
+                android:textColor="@color/sub_error"
+                android:textSize="12sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
         <!-- Locked note with icon -->
         <LinearLayout
             android:id="@+id/layoutDayLocked"
@@ -155,6 +210,25 @@
             app:cornerRadius="12dp"
             app:strokeColor="@color/green_primary_dark"
             app:strokeWidth="1.5dp" />
+
+        <!-- Ask for a different meal on this day. Shown only when the server says
+             a request would actually be accepted. -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnDayCustomMeal"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="42dp"
+            android:layout_marginStart="21dp"
+            android:layout_marginTop="6dp"
+            android:fontFamily="sans-serif-medium"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="Request a different meal"
+            android:textAllCaps="false"
+            android:textColor="@color/green_primary_dark"
+            android:textSize="13sp"
+            android:visibility="gone"
+            app:cornerRadius="12dp" />
     </LinearLayout>
 
 </com.google.android.material.card.MaterialCardView>

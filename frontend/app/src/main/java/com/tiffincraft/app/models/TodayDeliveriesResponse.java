@@ -74,12 +74,22 @@ public class TodayDeliveriesResponse {
         @SerializedName("missed")
         private int missed;
 
+        /** Agreed swaps — meals that differ from the plan default today. */
+        @SerializedName("custom_meals_confirmed")
+        private int customMealsConfirmed;
+
+        /** Swaps still waiting on the cook's Accept/Decline. */
+        @SerializedName("custom_meals_pending")
+        private int customMealsPending;
+
         public int getTotal() { return total; }
         public int getCooking() { return cooking; }
         public int getCustomerSkipped() { return customerSkipped; }
         public int getCookUnavailable() { return cookUnavailable; }
         public int getDelivered() { return delivered; }
         public int getMissed() { return missed; }
+        public int getCustomMealsConfirmed() { return customMealsConfirmed; }
+        public int getCustomMealsPending() { return customMealsPending; }
     }
 
     /** The only date the cook can still open or close, plus how long they have. */
@@ -162,6 +172,15 @@ public class TodayDeliveriesResponse {
         @SerializedName("order_id")
         private Integer orderId;
 
+        /**
+         * A swap this customer asked for on this date, or null. An accepted one
+         * changes what the cook actually cooks; a pending one is a decision the
+         * cook still owes before the cutoff, which is why it is attached to the
+         * customer's own row instead of listed on a separate screen.
+         */
+        @SerializedName("custom_meal")
+        private CustomMeal customMeal;
+
         public int getSubscriptionId() { return subscriptionId; }
         public int getCustomerId() { return customerId; }
         public String getCustomerName() { return customerName; }
@@ -176,6 +195,7 @@ public class TodayDeliveriesResponse {
         public String getReason() { return reason; }
         public boolean isCreditDeducted() { return creditDeducted; }
         public Integer getOrderId() { return orderId; }
+        public CustomMeal getCustomMeal() { return customMeal; }
 
         public boolean isScheduled() { return "scheduled".equals(status); }
         public boolean isCustomerSkipped() { return "customer_skipped".equals(status); }

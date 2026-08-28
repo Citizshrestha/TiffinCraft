@@ -11,6 +11,22 @@ public class ChatApiMessage {
     public static final String TYPE_CALL_DECLINED = "call_declined";
     public static final String TYPE_CALL_MISSED = "call_missed";
 
+    /**
+     * The three structured cards. They are ordinary chat_messages rows — the
+     * customer's request lands in the thread the two already use, rather than in
+     * a separate notification stream — and `content` always holds a readable
+     * sentence, so an unknown card still renders as a plain bubble.
+     */
+    public static final String TYPE_SUBSCRIPTION_REQUEST = "subscription_request";
+    public static final String TYPE_SUBSCRIPTION_UPDATE = "subscription_update";
+    public static final String TYPE_CUSTOM_MEAL_REQUEST = "custom_meal_request";
+
+    public static boolean isCardType(String type) {
+        return TYPE_SUBSCRIPTION_REQUEST.equals(type)
+                || TYPE_SUBSCRIPTION_UPDATE.equals(type)
+                || TYPE_CUSTOM_MEAL_REQUEST.equals(type);
+    }
+
     @SerializedName("id")
     private int id;
 
@@ -28,6 +44,23 @@ public class ChatApiMessage {
 
     @SerializedName("call_duration_seconds")
     private Integer callDurationSeconds;
+
+    /** The subscription or custom_meal_request this card points at. */
+    @SerializedName("reference_id")
+    private Integer referenceId;
+
+    /** "subscription" or "custom_meal_request". */
+    @SerializedName("reference_type")
+    private String referenceType;
+
+    /**
+     * The referenced row's CURRENT status, re-read server-side on every fetch —
+     * not the snapshot taken when the card was posted. An old card in the scroll
+     * history therefore can't still offer Accept on something already accepted.
+     * Null when the referenced row is gone, which renders the card buttonless.
+     */
+    @SerializedName("live_status")
+    private String liveStatus;
 
     /**
      * Accept both MySQL-style 0/1 and JSON true/false.
@@ -55,6 +88,9 @@ public class ChatApiMessage {
     public String getMessageType() { return messageType; }
     public String getContent() { return content; }
     public Integer getCallDurationSeconds() { return callDurationSeconds; }
+    public Integer getReferenceId() { return referenceId; }
+    public String getReferenceType() { return referenceType; }
+    public String getLiveStatus() { return liveStatus; }
 
     public boolean isRead() {
         if (isReadRaw == null) return false;

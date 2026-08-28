@@ -387,8 +387,16 @@ public interface ApiService {
     @PUT("subscriptions/{id}/resume")
     Call<RegisterResponse> resumeSubscription(@Header("Authorization") String token, @Path("id") int subscriptionId);
 
+    /**
+     * Cancel a subscription — and find out what it costs.
+     *
+     * Returns SubscriptionActionResponse, not a bare acknowledgement, because the
+     * reply carries the money decision: `amount_owed` (the full plan amount once
+     * the cook had confirmed the payment, 0 before that) and `refund_due`. The
+     * customer has to be told that from the response, not from an audit log.
+     */
     @DELETE("subscriptions/{id}")
-    Call<RegisterResponse> cancelSubscription(@Header("Authorization") String token, @Path("id") int subscriptionId);
+    Call<com.tiffincraft.app.models.SubscriptionActionResponse> cancelSubscription(@Header("Authorization") String token, @Path("id") int subscriptionId);
 
     // ==================== Subscription Plans (cook-authored) ====================
 
@@ -440,9 +448,10 @@ public interface ApiService {
     /**
      * Customer skips one day. Body is {date: 'YYYY-MM-DD', reason?}.
      *
-     * Free: no meal credit is spent and the cycle slides a day later, so the
-     * customer still gets every meal they paid for. Rejected with a specific
-     * message (not a generic failure) once that date's cutoff has passed.
+     * Free, but the subscription does NOT get any longer: it is a window of N
+     * calendar days fixed at verification, so a skipped day is simply a day with
+     * no meal and no charge. Rejected with a specific message (not a generic
+     * failure) once that date's cutoff has passed.
      */
     @POST("subscriptions/{id}/skip-day")
     Call<com.tiffincraft.app.models.DayActionResponse> skipSubscriptionDay(
@@ -457,10 +466,10 @@ public interface ApiService {
     /**
      * Cook closes the kitchen for a whole date. Body is {date, reason?}.
      *
-     * BULK — every one of this cook's active subscribers loses that day (and is
-     * refunded it), in a single transaction. Days already delivered, or already
-     * skipped by the customer, are left untouched and reported back separately
-     * so nothing is compensated twice.
+     * BULK — every one of this cook's active subscribers loses that day, in a
+     * single transaction. Nobody is charged for it and nobody's end date moves.
+     * Days already delivered, or already skipped by the customer, are left
+     * untouched and reported back separately.
      */
     @POST("cook/daily-availability")
     Call<com.tiffincraft.app.models.DayActionResponse> setCookDailyUnavailability(
@@ -470,6 +479,123 @@ public interface ApiService {
     @DELETE("cook/daily-availability/{date}")
     Call<com.tiffincraft.app.models.DayActionResponse> clearCookDailyUnavailability(
             @Header("Authorization") String token, @Path("date") String date);
+
+    // ==================== Request → accept → pay → active flow ====================
+    //
+    // The cook's accept/reject gate happens BEFORE any money is asked for, which
+    // is what separates these from the older pay-first routes above
+    // (createSubscription / initiateSubscriptionPayment). Every action here fires
+    // the in-app notification, the FCM push, and the chat message from one
+    // backend call, so the three can never disagree.
+
+    /**
+     * Customer subscribes. Body is {plan_id, delivery_address, start_date, note?}.
+     *
+     * Creates the row in 'requested' — NOT active, and no payment asked for yet.
+     * `start_date` must be 'YYYY-MM-DD'; the server validates it against Nepal
+     * Time, so a device with a wrong clock gets a 400 rather than a bad window.
+     */
+    @POST("subscriptions/request")
+    Call<com.tiffincraft.app.models.SubscriptionActionResponse> createSubscriptionRequest(
+            @Header("Authorization") String token, @Body com.google.gson.JsonObject requestBody);
+
+    /**
+     * The cook's Subscription Requests inbox.
+     *
+     * `filter` is one of pending | requested | awaiting_payment |
+     * awaiting_proof_check | all; pass null for the server default ('pending',
+     * which mixes new requests and payment proofs because both are decisions
+     * blocked on the cook). `counts` in the response always describes the whole
+     * inbox, not the filtered slice.
+     */
+    @GET("subscriptions/cook/requests")
+    Call<com.tiffincraft.app.models.SubscriptionRequestsResponse> getCookSubscriptionRequests(
+            @Header("Authorization") String token, @Query("filter") String filter);
+
+    /**
+     * Cook accepts or rejects a request. Body is {action: 'accept'|'reject', note?}.
+     *
+     * Guarded server-side on the row still being in 'requested', so two taps (or
+     * two devices) can't both decide it — the second gets a 409.
+     */
+    @PUT("subscriptions/{id}/respond")
+    Call<com.tiffincraft.app.models.SubscriptionActionResponse> respondToSubscriptionRequest(
+            @Header("Authorization") String token, @Path("id") int subscriptionId,
+            @Body com.google.gson.JsonObject requestBody);
+
+    /**
+     * Customer uploads the payment screenshot. Multipart, part name "proof".
+     *
+     * Multipart rather than a URL because the server hashes the bytes it actually
+     * received (SHA-256) and rejects an image already used for another
+     * subscription. Only allowed once the cook has accepted, and again after a
+     * rejected attempt.
+     */
+    @Multipart
+    @POST("subscriptions/{id}/payment-proof")
+    Call<com.tiffincraft.app.models.SubscriptionActionResponse> submitPaymentProof(
+            @Header("Authorization") String token, @Path("id") int subscriptionId,
+            @Part MultipartBody.Part proof);
+
+    /**
+     * Cook verifies or rejects the screenshot. Body is
+     * {action: 'verify'|'reject', reason?}.
+     *
+     * MANUAL, TRUST-BASED: the cook is judging an image by eye and nothing here
+     * proves money moved. Rejecting keeps the image on the record for a later
+     * dispute and puts the subscription back into a re-uploadable state; it does
+     * not delete anything.
+     */
+    @PUT("subscriptions/{id}/verify-proof")
+    Call<com.tiffincraft.app.models.SubscriptionActionResponse> verifySubscriptionProof(
+            @Header("Authorization") String token, @Path("id") int subscriptionId,
+            @Body com.google.gson.JsonObject requestBody);
+
+    /**
+     * One subscription in full: stage/headline/detail, the plan's meals, and the
+     * audit trail. Served to the owning customer AND the owning cook; `viewer`
+     * says which you are. Anyone else gets 403.
+     */
+    @GET("subscriptions/{id}/detail")
+    Call<com.tiffincraft.app.models.SubscriptionDetailResponse> getSubscriptionDetail(
+            @Header("Authorization") String token, @Path("id") int subscriptionId);
+
+    // ==================== Per-day custom meal swaps ====================
+
+    /**
+     * Customer asks for a different meal on one day. Body is
+     * {delivery_date, meal_id?, note?} — at least one of meal_id or note.
+     *
+     * A structured row tied to the subscription and the date, not a text message:
+     * the cook answers it with respondToCustomMealRequest and the cook's daily
+     * list shows the swap. Refused with a specific reason for a day that is
+     * already skipped, delivered, past its cutoff, or already has a request.
+     */
+    @POST("subscriptions/{id}/custom-meal")
+    Call<com.tiffincraft.app.models.SubscriptionActionResponse> createCustomMealRequest(
+            @Header("Authorization") String token, @Path("id") int subscriptionId,
+            @Body com.google.gson.JsonObject requestBody);
+
+    /** Every swap ever asked for on one subscription, newest delivery day first. */
+    @GET("subscriptions/{id}/custom-meals")
+    Call<com.tiffincraft.app.models.CustomMealsResponse> getCustomMealRequests(
+            @Header("Authorization") String token, @Path("id") int subscriptionId);
+
+    /**
+     * Cook answers one swap. Body is {action: 'accept'|'decline', note?}.
+     *
+     * Addressed by REQUEST id, not subscription id, because the cook taps this
+     * from a chat card that only carries the request id.
+     */
+    @PUT("custom-meals/{requestId}/respond")
+    Call<com.tiffincraft.app.models.SubscriptionActionResponse> respondToCustomMealRequest(
+            @Header("Authorization") String token, @Path("requestId") int requestId,
+            @Body com.google.gson.JsonObject requestBody);
+
+    /** Customer withdraws their own swap. Only possible while it is still pending. */
+    @DELETE("custom-meals/{requestId}")
+    Call<RegisterResponse> cancelCustomMealRequest(
+            @Header("Authorization") String token, @Path("requestId") int requestId);
 
     // ==================== Combo Deals (cook-authored, one-time bundle) ====================
 
