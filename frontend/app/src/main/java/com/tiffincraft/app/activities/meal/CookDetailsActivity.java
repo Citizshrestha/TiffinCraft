@@ -607,16 +607,11 @@ public class CookDetailsActivity extends AppCompatActivity {
 
             tvPrice.setText(formatRupees(plan.getPricePerDelivery()));
 
-            // Per-meal price is what actually makes two plans comparable — a
-            // ₹1,400 plan and a ₹900 plan say nothing until you know how many
-            // meals each one buys.
-            int mealCount = countMeals(plan);
-            if (mealCount > 1) {
-                tvPerMeal.setText(String.format(Locale.getDefault(), "%s/meal · %d meals per cycle",
-                        formatRupees(plan.getPricePerDelivery() / mealCount), mealCount));
-            } else {
-                tvPerMeal.setText("Per delivery cycle");
-            }
+            // One payment for the whole plan, one meal delivered a day. Dividing
+            // the price by the number of dishes in a day's meal read as a per-day
+            // rate and made the plan look like it cost several times as much.
+            tvPerMeal.setText("one-time · " + plan.getDurationLabel().toLowerCase()
+                    + ", 1 meal a day");
 
             if (plan.getSavings() > 0) {
                 tvOriginalPrice.setText(formatRupees(plan.getIndividualTotal()));
@@ -687,7 +682,7 @@ public class CookDetailsActivity extends AppCompatActivity {
         return best;
     }
 
-    /** Total meals in one delivery cycle (quantities summed, not distinct dishes). */
+    /** Dishes in one day's meal (quantities summed, not distinct dishes). */
     private int countMeals(SubscriptionPlanResponse.Plan plan) {
         if (plan.getItems() == null) return 0;
         int total = 0;
@@ -747,7 +742,7 @@ public class CookDetailsActivity extends AppCompatActivity {
         tvCookName.setText(cookLabel != null && !cookLabel.isEmpty() ? "from " + cookLabel : "");
 
         int mealCount = countMeals(plan);
-        tvMealCount.setText(mealCount == 1 ? "1 meal" : mealCount + " meals");
+        tvMealCount.setText(mealCount == 1 ? "1 dish" : mealCount + " dishes");
 
         StringBuilder itemsSummary = new StringBuilder();
         if (plan.getItems() != null) {
