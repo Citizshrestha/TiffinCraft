@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A step not reached yet on the commission progress strip: hollow, so the
+     strip reads as "how far along am I" at a glance rather than as three
+     identical badges. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="#33FFFFFF" />
+    <stroke android:width="1.5dp" android:color="#88FFFFFF" />
+</shape>

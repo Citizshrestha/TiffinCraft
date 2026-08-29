@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rounded skeleton block for ShimmerFrameLayout placeholders. The existing
+     shimmer_meal_card.xml uses flat #E0E0E0 rectangles; on the commission screen
+     the blocks stand in for 18dp-radius cards, so square corners would make the
+     skeleton the wrong shape for what replaces it. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#E4E7E1" />
+    <corners android:radius="18dp" />
+</shape>

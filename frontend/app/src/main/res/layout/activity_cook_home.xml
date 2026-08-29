@@ -133,8 +133,8 @@
             </LinearLayout>
 
             <!-- ============ COMMISSION BANNER ============ -->
-            <!-- Temporarily hidden - will be re-added later -->
-            <!--
+            <!-- CookHomeActivity attaches this with hideWhenNothingDue=true, so it
+                 is invisible unless the cook actually owes commission. -->
             <include
                 android:id="@+id/commissionBanner"
                 layout="@layout/view_commission_banner"
@@ -143,7 +143,6 @@
                 android:layout_marginStart="20dp"
                 android:layout_marginEnd="20dp"
                 android:layout_marginBottom="16dp" />
-            -->
 
             <!-- ============ STATS GRID (2x2) ============ -->
             <LinearLayout

@@ -94,11 +94,12 @@ public class CommissionHistoryActivity extends AppCompatActivity {
         binding.layoutEmptyState.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
         binding.rvSettlements.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
 
-        double totalVerified = 0;
-        for (CommissionSettlement s : items) {
-            if (s.isVerified()) totalVerified += s.getAmountDue();
-        }
-        binding.tvTotalPaidAllTime.setText(CurrencyUtils.formatRupees(totalVerified));
+        // amount_paid, not amount_due-of-verified: an admin can record a partial
+        // payment against a still-pending settlement, and that money was really
+        // paid. Summing due-of-verified would hide it until the month closes.
+        double totalPaid = 0;
+        for (CommissionSettlement s : items) totalPaid += s.getAmountPaid();
+        binding.tvTotalPaidAllTime.setText(CurrencyUtils.formatRupees(totalPaid));
         binding.tvSettlementCount.setText(String.valueOf(items.size()));
     }
 }

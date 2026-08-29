@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cook-side "Commission Due" screen.
+
+  The whole screen is organised around one question a cook has when they open it:
+  "is the ball in my court or the platform's?" Hence the 3-step progress strip in
+  the hero card (Pay → Upload proof → Verified) — before it existed, a cook who
+  had already submitted proof saw a big amount and an Upload button and had no
+  visual signal that they were now waiting on an admin, not on themselves.
+
+  Style notes (house style, nothing new introduced): MaterialCardView with
+  cardCornerRadius=18dp / cardElevation=0dp / strokeWidth=1dp, inline dp/sp (there
+  is no dimens.xml in this project), and the existing commission_* colour pairs.
+  The status banners are cards with a 40dp circular icon frame, matching
+  view_commission_banner.xml — they used to be flat LinearLayouts backed by
+  status_chip_sold_out, which is a *chip* drawable stretched to banner width.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -53,7 +69,44 @@
             android:textStyle="bold" />
     </LinearLayout>
 
+    <!-- ============ LOADING SKELETON ============ -->
+    <!-- Shimmer rather than a centred ProgressBar: on a money screen a bare
+         spinner over an empty page reads as "broken", and Shimmer 0.5.0 is
+         already a dependency used by shimmer_meal_card.xml. -->
+    <com.facebook.shimmer.ShimmerFrameLayout
+        android:id="@+id/shimmerLoading"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="150dp"
+                android:background="@drawable/shimmer_placeholder_bg" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/shimmer_placeholder_bg" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/shimmer_placeholder_bg" />
+        </LinearLayout>
+    </com.facebook.shimmer.ShimmerFrameLayout>
+
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollContent"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
@@ -66,7 +119,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- ============ AMOUNT DUE CARD ============ -->
+            <!-- ============ HERO: AMOUNT DUE + PROGRESS ============ -->
             <LinearLayout
                 android:id="@+id/layoutAmountDueCard"
                 android:layout_width="match_parent"
@@ -138,86 +191,459 @@
                     android:textColor="#DCEDC8"
                     android:textSize="12.5sp"
                     android:visibility="gone" />
+
+                <!-- 3-step progress strip.
+                     Dot backgrounds and label alpha are set in
+                     CommissionSettlementActivity#renderProgress, not here: the
+                     same three views mean done / current / not-yet depending on
+                     settlement status, and baking one state into the layout is how
+                     a strip ends up permanently stuck on step 1. -->
+                <LinearLayout
+                    android:id="@+id/layoutProgressStrip"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:orientation="vertical">
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#33FFFFFF" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:id="@+id/dotStep1"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:background="@drawable/circle_step_hero_pending"
+                            android:contentDescription="Step 1, pay"
+                            android:padding="5dp"
+                            android:src="@drawable/ic_check"
+                            app:tint="@color/green_primary_dark" />
+
+                        <View
+                            android:id="@+id/lineStep1"
+                            android:layout_width="0dp"
+                            android:layout_height="2dp"
+                            android:layout_marginStart="6dp"
+                            android:layout_marginEnd="6dp"
+                            android:layout_weight="1"
+                            android:background="#55FFFFFF" />
+
+                        <ImageView
+                            android:id="@+id/dotStep2"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:background="@drawable/circle_step_hero_pending"
+                            android:contentDescription="Step 2, upload proof"
+                            android:padding="5dp"
+                            android:src="@drawable/ic_check"
+                            app:tint="@color/green_primary_dark" />
+
+                        <View
+                            android:id="@+id/lineStep2"
+                            android:layout_width="0dp"
+                            android:layout_height="2dp"
+                            android:layout_marginStart="6dp"
+                            android:layout_marginEnd="6dp"
+                            android:layout_weight="1"
+                            android:background="#55FFFFFF" />
+
+                        <ImageView
+                            android:id="@+id/dotStep3"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:background="@drawable/circle_step_hero_pending"
+                            android:contentDescription="Step 3, verified"
+                            android:padding="5dp"
+                            android:src="@drawable/ic_check"
+                            app:tint="@color/green_primary_dark" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="7dp"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvStep1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Pay"
+                            android:textColor="#FFFFFF"
+                            android:textSize="11.5sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvStep2"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center_horizontal"
+                            android:text="Upload proof"
+                            android:textColor="#FFFFFF"
+                            android:textSize="11.5sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvStep3"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="end"
+                            android:text="Verified"
+                            android:textColor="#FFFFFF"
+                            android:textSize="11.5sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
             </LinearLayout>
 
-            <!-- ============ OVERDUE WARNING BANNER ============ -->
+            <!-- ============ OVERDUE WARNING ============ -->
             <!-- Confirmed policy: warning only. Nothing is blocked or suspended
-                 on non-payment; this is purely informational pressure. -->
-            <LinearLayout
+                 on non-payment; this is purely informational pressure. Uses the
+                 commission_overdue_* pair that already exists for exactly this
+                 state instead of stretching the sold-out chip drawable. -->
+            <com.google.android.material.card.MaterialCardView
                 android:id="@+id/layoutOverdueBanner"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="20dp"
                 android:layout_marginTop="16dp"
                 android:layout_marginEnd="20dp"
-                android:background="@drawable/status_chip_sold_out"
-                android:orientation="vertical"
-                android:padding="14dp"
-                android:visibility="gone">
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/commission_overdue_bg"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/commission_overdue_stroke"
+                app:strokeWidth="1dp">
 
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="⚠ Payment overdue"
-                    android:textColor="#A32D2D"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="16dp">
 
-                <TextView
-                    android:id="@+id/tvOverdueBanner"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text=""
-                    android:textColor="#A32D2D"
-                    android:textSize="12.5sp" />
-            </LinearLayout>
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/circle_commission_icon">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Overdue"
+                            android:src="@drawable/ic_error"
+                            app:tint="#A32D2D" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Payment overdue"
+                            android:textColor="#A32D2D"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvOverdueBanner"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text=""
+                            android:textColor="#A32D2D"
+                            android:textSize="12.5sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- ============ ACCRUING THIS MONTH (not a bill) ============ -->
             <!-- Settlement rows only exist once a month closes, so mid-month a
-                 cook would otherwise see nothing at all about what they're
-                 building up. Deliberately styled unlike the amount-due card so
-                 it can't be mistaken for something payable. -->
-            <LinearLayout
+                 cook would otherwise see nothing at all about what they are
+                 building up. Deliberately the amber "due" palette, not the green
+                 hero, so it cannot be mistaken for something payable today. -->
+            <com.google.android.material.card.MaterialCardView
                 android:id="@+id/layoutAccruing"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="20dp"
                 android:layout_marginTop="16dp"
                 android:layout_marginEnd="20dp"
-                android:background="@drawable/status_chip_pending"
-                android:orientation="vertical"
-                android:padding="14dp"
-                android:visibility="gone">
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/commission_due_bg"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/commission_due_stroke"
+                app:strokeWidth="1dp">
 
-                <TextView
-                    android:id="@+id/tvAccruingLabel"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Accruing this month"
-                    android:textColor="@color/status_pending_text"
-                    android:textSize="12.5sp"
-                    android:textStyle="bold" />
+                    android:baselineAligned="false"
+                    android:orientation="horizontal"
+                    android:padding="16dp">
 
-                <TextView
-                    android:id="@+id/tvAccruingAmount"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="₹0"
-                    android:textColor="@color/status_pending_text"
-                    android:textSize="22sp"
-                    android:textStyle="bold" />
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/circle_commission_icon">
 
-                <TextView
-                    android:id="@+id/tvAccruingNote"
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Accruing"
+                            android:src="@drawable/ic_wallet"
+                            app:tint="@color/commission_due_accent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvAccruingLabel"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Accruing this month"
+                            android:textColor="@color/commission_due_accent"
+                            android:textSize="12.5sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvAccruingAmount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="₹0"
+                            android:textColor="@color/commission_due_accent"
+                            android:textSize="22sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvAccruingNote"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Not yet due — billed once this month closes."
+                            android:textColor="@color/commission_due_accent"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- ============ REJECTED / ADMIN NOTES ============ -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/layoutAdminNotes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginEnd="20dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/commission_overdue_bg"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/commission_overdue_stroke"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Not yet due — billed once this month closes."
-                    android:textColor="@color/status_pending_text"
-                    android:textSize="12sp" />
-            </LinearLayout>
+                    android:baselineAligned="false"
+                    android:orientation="horizontal"
+                    android:padding="16dp">
+
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/circle_commission_icon">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Not verified"
+                            android:src="@drawable/ic_error"
+                            app:tint="#A32D2D" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Payment not verified"
+                            android:textColor="#A32D2D"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvAdminNotes"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text=""
+                            android:textColor="#A32D2D"
+                            android:textSize="12.5sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- ============ VERIFIED CONFIRMATION ============ -->
+            <!-- A Toast was the only confirmation a cook got that money they had
+                 already sent was accepted, and a Toast is gone in 3 seconds and
+                 never comes back on the next open. This card persists. -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/layoutVerifiedCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginEnd="20dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/stroke_soft"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="16dp">
+
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/circle_bg_green_light">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Verified"
+                            android:src="@drawable/ic_check"
+                            app:tint="@color/green_primary_dark" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvVerifiedTitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Payment verified"
+                            android:textColor="@color/text_ink"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvVerifiedDetail"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text=""
+                            android:textColor="@color/text_subtitle"
+                            android:textSize="12.5sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- ============ LOAD FAILURE — INLINE RETRY ============ -->
+            <!-- Every load failure used to end in a Toast, which leaves the cook
+                 looking at an empty screen with no idea whether they owe nothing
+                 or the request simply failed. showQrUnavailable() already got
+                 this right for the QR; this is the same honesty for the bill. -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/layoutLoadError"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginEnd="20dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/stroke_soft"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <ImageView
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:contentDescription="Could not load"
+                        android:src="@drawable/ic_error"
+                        app:tint="@color/text_subtitle" />
+
+                    <TextView
+                        android:id="@+id/tvLoadErrorText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:gravity="center"
+                        android:text="Couldn't load your commission status."
+                        android:textColor="@color/text_ink"
+                        android:textSize="13.5sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnRetryLoad"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:letterSpacing="0"
+                        android:text="Try again"
+                        android:textAllCaps="false"
+                        android:textColor="@color/green_primary_dark"
+                        app:cornerRadius="12dp"
+                        app:icon="@drawable/ic_refresh"
+                        app:iconTint="@color/green_primary_dark"
+                        app:strokeColor="@color/stroke_soft" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- ============ EMPTY STATE (nothing due) ============ -->
             <LinearLayout
@@ -237,7 +663,7 @@
                     android:alpha="0.5"
                     android:contentDescription="Nothing due"
                     android:src="@drawable/ic_wallet"
-                    android:tint="@color/green_primary_dark" />
+                    app:tint="@color/green_primary_dark" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -257,37 +683,6 @@
                     android:text="Commission dues are generated on the 1st of each month for the month that just closed."
                     android:textColor="@color/text_subtitle"
                     android:textSize="13sp" />
-            </LinearLayout>
-
-            <!-- ============ REJECTED / ADMIN NOTES BANNER ============ -->
-            <LinearLayout
-                android:id="@+id/layoutAdminNotes"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginTop="16dp"
-                android:layout_marginEnd="20dp"
-                android:background="@drawable/status_chip_sold_out"
-                android:orientation="vertical"
-                android:padding="14dp"
-                android:visibility="gone">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Payment not verified"
-                    android:textColor="#A32D2D"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvAdminNotes"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text=""
-                    android:textColor="#A32D2D"
-                    android:textSize="12.5sp" />
             </LinearLayout>
 
             <!-- ============ PAY / UPLOAD SECTION ============ -->
@@ -326,34 +721,88 @@
                     android:layout_marginTop="16dp"
                     android:layout_marginEnd="20dp"
                     android:backgroundTint="#60BB46"
+                    android:letterSpacing="0"
                     android:text="Pay with eSewa"
+                    android:textAllCaps="false"
                     android:textColor="#FFFFFF"
                     app:cornerRadius="12dp"
                     app:icon="@drawable/ic_wallet"
                     app:iconTint="#FFFFFF" />
 
-                <TextView
-                    android:id="@+id/tvScanToPay"
+                <!-- QR inside a card, not a bare ImageView on the page background:
+                     a QR needs a clean white quiet zone to scan reliably, and the
+                     card supplies it. Tap zooms (a 220dp QR is hard to scan from
+                     another phone's screen); saving is its own explicit button
+                     rather than a hidden tap gesture. -->
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:gravity="center"
-                    android:text="Or scan the platform's QR (tap to save)"
-                    android:textColor="@color/text_subtitle"
-                    android:textSize="12.5sp" />
+                    android:layout_marginStart="20dp"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginEnd="20dp"
+                    app:cardBackgroundColor="@color/white"
+                    app:cardCornerRadius="18dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/stroke_soft"
+                    app:strokeWidth="1dp">
 
-                <ImageView
-                    android:id="@+id/ivAdminQr"
-                    android:layout_width="220dp"
-                    android:layout_height="220dp"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="10dp"
-                    android:background="@drawable/edit_text_bg"
-                    android:clickable="true"
-                    android:contentDescription="Platform payment QR"
-                    android:focusable="true"
-                    android:padding="8dp"
-                    android:scaleType="fitCenter" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:id="@+id/tvScanToPay"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:text="Or scan the platform's QR"
+                            android:textColor="@color/text_subtitle"
+                            android:textSize="12.5sp" />
+
+                        <ImageView
+                            android:id="@+id/ivAdminQr"
+                            android:layout_width="220dp"
+                            android:layout_height="220dp"
+                            android:layout_marginTop="12dp"
+                            android:background="@color/white"
+                            android:clickable="true"
+                            android:contentDescription="Platform payment QR, tap to enlarge"
+                            android:focusable="true"
+                            android:scaleType="fitCenter" />
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/tvZoomQrHint"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:padding="6dp"
+                                android:text="Tap QR to enlarge"
+                                android:textColor="@color/text_subtitle"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/btnSaveQr"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:padding="6dp"
+                                android:text="Save QR"
+                                android:textColor="@color/green_primary_dark"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnUploadProof"
@@ -363,52 +812,70 @@
                     android:layout_marginTop="18dp"
                     android:layout_marginEnd="20dp"
                     android:backgroundTint="@color/green_primary_dark"
+                    android:letterSpacing="0"
                     android:text="Upload Payment Proof"
+                    android:textAllCaps="false"
                     android:textColor="#FFFFFF"
                     app:cornerRadius="12dp"
                     app:icon="@drawable/ic_camera"
                     app:iconTint="#FFFFFF" />
             </LinearLayout>
 
-            <!-- ============ SUBMITTED / VERIFIED SCREENSHOT PREVIEW ============ -->
-            <LinearLayout
+            <!-- ============ SUBMITTED / VERIFIED PROOF ============ -->
+            <com.google.android.material.card.MaterialCardView
                 android:id="@+id/layoutScreenshotPreview"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="20dp"
                 android:layout_marginTop="18dp"
                 android:layout_marginEnd="20dp"
-                android:orientation="vertical"
-                android:visibility="gone">
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/stroke_soft"
+                app:strokeWidth="1dp">
 
-                <TextView
-                    android:id="@+id/tvScreenshotStatusLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Awaiting verification"
-                    android:textColor="@color/text_ink"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <ImageView
-                    android:id="@+id/ivPaymentScreenshot"
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="240dp"
-                    android:layout_marginTop="10dp"
-                    android:background="@drawable/edit_text_bg"
-                    android:contentDescription="Payment proof"
-                    android:padding="8dp"
-                    android:scaleType="fitCenter" />
-            </LinearLayout>
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/tvScreenshotStatusLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Awaiting verification"
+                        android:textColor="@color/text_ink"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <!-- Tappable: a cook needs to be able to check that the proof
+                         they sent is actually legible, which a 240dp thumbnail
+                         cannot answer. -->
+                    <ImageView
+                        android:id="@+id/ivPaymentScreenshot"
+                        android:layout_width="match_parent"
+                        android:layout_height="240dp"
+                        android:layout_marginTop="10dp"
+                        android:clickable="true"
+                        android:contentDescription="Payment proof, tap to enlarge"
+                        android:focusable="true"
+                        android:scaleType="fitCenter" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center"
+                        android:text="Tap to enlarge"
+                        android:textColor="@color/text_subtitle"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
-
-    <ProgressBar
-        android:id="@+id/progressLoading"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:visibility="gone" />
 
 </LinearLayout>

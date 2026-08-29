@@ -198,6 +198,31 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
+        <!--
+          The sent → received handshake. One button, two meanings, decided by
+          whose screen this is: the cook sees "Mark as sent", the customer sees
+          "Mark as received" once the cook has sent it. Filled rather than
+          outlined because on the one day it appears it is the primary thing to do
+          on that row — skipping a day is the secondary action below it.
+        -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnDayHandshake"
+            android:layout_width="match_parent"
+            android:layout_height="46dp"
+            android:layout_marginStart="21dp"
+            android:layout_marginTop="14dp"
+            android:fontFamily="sans-serif-medium"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:letterSpacing="0.01"
+            android:text="Mark as sent"
+            android:textAllCaps="false"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            android:visibility="gone"
+            app:backgroundTint="@color/green_primary_dark"
+            app:cornerRadius="12dp" />
+
         <!-- Modern action button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnDayAction"

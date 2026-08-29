@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A completed step on the commission progress strip. Sits on the green
+     overview_card_bg gradient, so "done" is solid white and the tick inside is
+     tinted green — the inverse of the pending state below. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="#FFFFFF" />
+</shape>

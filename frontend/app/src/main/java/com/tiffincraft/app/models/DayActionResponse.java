@@ -3,12 +3,14 @@ package com.tiffincraft.app.models;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * Shared response for the four day-level write endpoints:
+ * Shared response for the day-level write endpoints:
  *   POST   /api/subscriptions/{id}/skip-day
+ *   POST   /api/subscriptions/{id}/mark-sent
+ *   POST   /api/subscriptions/{id}/mark-received
  *   POST   /api/cook/daily-availability
  *   DELETE /api/cook/daily-availability/{date}
  *
- * One model rather than three because all of them answer the same question —
+ * One model rather than five because all of them answer the same question —
  * "what happened to that date, and who did it affect" — and the fields each
  * omits simply arrive null/0.
  *
@@ -74,9 +76,20 @@ public class DayActionResponse {
     public int getSkippedAlreadySettled() { return skippedAlreadySettled; }
     public int getRestoredSubscriptions() { return restoredSubscriptions; }
 
-    /** True when the request succeeded but the day was already in that state. */
+    /**
+     * True when the request succeeded but the day was already in that state.
+     *
+     * The handshake codes belong here too: a double tap on a slow connection is
+     * the most likely way to reach "already_sent"/"already_received", and showing
+     * that as a failure would tell the user their action didn't work when it is
+     * exactly the state they were trying to reach.
+     */
     public boolean isNoOp() {
-        return "already_skipped".equals(code) || "cook_unavailable".equals(code);
+        return "already_skipped".equals(code)
+                || "cook_unavailable".equals(code)
+                || "already_sent".equals(code)
+                || "already_received".equals(code)
+                || "already_delivered".equals(code);
     }
 
     public static class Day {

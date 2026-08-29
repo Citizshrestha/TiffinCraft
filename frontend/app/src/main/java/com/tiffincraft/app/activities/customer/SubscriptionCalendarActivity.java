@@ -259,6 +259,7 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             LinearLayout layoutLocked = row.findViewById(R.id.layoutDayLocked);
             TextView tvLocked = row.findViewById(R.id.tvDayLockedNote);
             MaterialButton btnAction = row.findViewById(R.id.btnDayAction);
+            MaterialButton btnHandshake = row.findViewById(R.id.btnDayHandshake);
             View accent = row.findViewById(R.id.viewDayAccent);
 
             tvDate.setText(DeliveryDateUtils.formatDayHeading(day.getDate()));
@@ -278,7 +279,10 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
                 layoutReason.setVisibility(View.GONE);
             }
 
-            applyDayAction(day, btnAction, layoutLocked, tvLocked);
+            // Handshake first: whether it took the row's action slot decides
+            // whether applyDayAction has a note to add underneath.
+            boolean handshakeShown = applyDayHandshake(day, btnHandshake);
+            applyDayAction(day, btnAction, layoutLocked, tvLocked, handshakeShown);
             applyCustomMeal(day, row);
 
             layoutDays.addView(row);
@@ -297,6 +301,13 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             chipBg = R.drawable.status_chip_delivered;
             chipText = getColor(R.color.status_delivered_text);
             accentColor = getColor(R.color.status_delivered_text);
+        } else if (day.isSent()) {
+            // Blue, not green: the meal is in motion but the day isn't closed yet.
+            // Sharing the delivered colour would make a handed-over meal look
+            // confirmed on the cook's screen before the customer ever said so.
+            chipBg = R.drawable.status_chip_out_for_delivery;
+            chipText = getColor(R.color.blue);
+            accentColor = getColor(R.color.blue);
         } else if (day.isCustomerSkipped()) {
             chipBg = R.drawable.status_chip_pending;
             chipText = getColor(R.color.status_pending_text);
@@ -321,6 +332,37 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
     }
 
     /**
+     * The sent → received handshake button for one day. Returns true if it is
+     * showing, so the caller knows this row already has its primary action.
+     *
+     * One button serves both sides because it is one exchange seen from two ends:
+     * the cook marks the meal sent, the customer confirms it arrived. Which half
+     * appears is the server's decision, not ours — `canMarkSent` is only ever true
+     * for a cook and `canMarkReceived` only ever for a customer, and both mirror
+     * exactly what their endpoint will accept. Reading them instead of combining
+     * `isCustomerView` with a status guess is what keeps the two in step when the
+     * server's rules change.
+     */
+    private boolean applyDayHandshake(SubscriptionCalendarResponse.Day day, MaterialButton btn) {
+        btn.setOnClickListener(null);
+
+        if (day.canMarkSent()) {
+            btn.setText("Mark as sent");
+            btn.setOnClickListener(v -> confirmMarkSent(day));
+        } else if (day.canMarkReceived()) {
+            btn.setText("Mark as received");
+            btn.setOnClickListener(v -> confirmMarkReceived(day));
+        } else {
+            btn.setVisibility(View.GONE);
+            return false;
+        }
+
+        btn.setVisibility(View.VISIBLE);
+        btn.setEnabled(true);
+        return true;
+    }
+
+    /**
      * Decides the row's button purely from the server's `canSkip`/`isLocked`.
      *
      * A day with nothing to do gets NO button — just a one-line note. A disabled
@@ -328,15 +370,22 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
      * action's worth of space to tell the customer they had nothing to press, and
      * the chip on the same row already says the day's state.
      *
-     * A cook viewing this screen gets no button at all — closing a date is a
-     * bulk action on the cook's own Today's Deliveries screen, because it hits
-     * every subscriber, not just this one.
+     * Skipping stays customer-only: closing a date is a bulk action on the cook's
+     * own Today's Deliveries screen, because it hits every subscriber rather than
+     * just this one. The cook's per-day action is the handshake button above,
+     * which is why this no longer means the cook sees nothing at all.
+     *
+     * `handshakeShown` suppresses the note. A day whose meal is on its way already
+     * has a button on it, and adding "🔒 this day can't be changed" under a live
+     * "Mark as received" reads as a contradiction.
      */
-    private void applyDayAction(SubscriptionCalendarResponse.Day day, MaterialButton btn, LinearLayout layoutLocked, TextView lockedNote) {
+    private void applyDayAction(SubscriptionCalendarResponse.Day day, MaterialButton btn,
+                                LinearLayout layoutLocked, TextView lockedNote,
+                                boolean handshakeShown) {
         layoutLocked.setVisibility(View.GONE);
         btn.setOnClickListener(null);
 
-        if (!isCustomerView) {
+        if (!isCustomerView || handshakeShown) {
             btn.setVisibility(View.GONE);
             return;
         }
@@ -353,7 +402,13 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
 
         String icon;
         String note;
-        if (day.isLocked()) {
+        if (day.isSent()) {
+            // Ahead of the isLocked branch on purpose: today is always past its
+            // own cutoff, so the generic "too late to change this" would otherwise
+            // win and say nothing about the meal that is actually on its way.
+            icon = "🛵";
+            note = "Your cook has sent this meal. Confirm it once it reaches you.";
+        } else if (day.isLocked()) {
             icon = "🔒";
             // The server's own sentence when it sent one — it knows the cutoff hour.
             note = day.getLockedMessage() != null
@@ -561,6 +616,79 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
 
                 // Reload either way — a rejection means our view of that day was
                 // already stale, which is exactly when a refresh matters most.
+                loadCalendar();
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<DayActionResponse> call, @NonNull Throwable t) {
+                actionInFlight = false;
+                Toast.makeText(SubscriptionCalendarActivity.this, "Network error. Try again.", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    /**
+     * Cook's half of the handshake. Confirmed rather than fired on tap because it
+     * tells the customer their food is on the way and can't be taken back — and
+     * the button sits in a scrolling list where a mis-tap is easy.
+     */
+    private void confirmMarkSent(SubscriptionCalendarResponse.Day day) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Mark " + DeliveryDateUtils.formatLongDate(day.getDate()) + " as sent?")
+                .setMessage("The customer will be notified straight away that their meal is on its way, "
+                        + "and they'll be asked to confirm when it arrives.\n\nOnly do this once the meal has actually left.")
+                .setPositiveButton("Yes, it's sent", (d, w) -> postDayHandshake(day, true))
+                .setNegativeButton("Not yet", null)
+                .show();
+    }
+
+    /**
+     * Customer's half. This closes the day permanently — 'delivered' is terminal,
+     * which is exactly why the confirmation is the customer's to give and not the
+     * cook's — so it asks first and says so.
+     */
+    private void confirmMarkReceived(SubscriptionCalendarResponse.Day day) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Got " + DeliveryDateUtils.formatLongDate(day.getDate()) + "'s meal?")
+                .setMessage("Confirming closes this day as delivered and lets your cook know it arrived. "
+                        + "It can't be undone here, so only confirm if you actually received the meal.")
+                .setPositiveButton("Yes, I got it", (d, w) -> postDayHandshake(day, false))
+                .setNegativeButton("Not yet", null)
+                .show();
+    }
+
+    /**
+     * Posts one half of the handshake. `sent` picks which endpoint — the two are
+     * separate routes with separate role guards on the server, so a customer
+     * cannot declare their own meal sent.
+     *
+     * Same shape as skipDay: single in-flight guard, the server's message shown
+     * verbatim, and a reload whether it succeeded or not. A rejection means this
+     * screen's idea of the day was already stale, which is precisely when a
+     * refresh matters most.
+     */
+    private void postDayHandshake(SubscriptionCalendarResponse.Day day, boolean sent) {
+        if (actionInFlight) return;
+        actionInFlight = true;
+
+        String token = "Bearer " + sessionManager.getToken();
+        JsonObject body = new JsonObject();
+        body.addProperty("date", day.getDate());
+
+        Call<DayActionResponse> call = sent
+                ? apiService.markSubscriptionDaySent(token, subscriptionId, body)
+                : apiService.markSubscriptionDayReceived(token, subscriptionId, body);
+
+        call.enqueue(new Callback<DayActionResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<DayActionResponse> call, @NonNull Response<DayActionResponse> response) {
+                actionInFlight = false;
+                DayActionResponse b = response.body();
+                String message = b != null && b.getMessage() != null
+                        ? b.getMessage()
+                        : (sent ? "Couldn't mark that day as sent. Please try again."
+                                : "Couldn't confirm that day. Please try again.");
+                Toast.makeText(SubscriptionCalendarActivity.this, message, Toast.LENGTH_LONG).show();
                 loadCalendar();
             }
 

@@ -1,13 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical">
 
+    <!-- Year header, shown by the adapter only on the first row of each year.
+         Cheaper than a second view type for a list that is at most 12 rows a
+         year, and it keeps the RecyclerView single-type. -->
+    <TextView
+        android:id="@+id/tvYearHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_app"
+        android:paddingStart="16dp"
+        android:paddingTop="9dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="9dp"
+        android:textColor="@color/text_subtitle"
+        android:textSize="11.5sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        tools:text="2026" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:baselineAligned="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <!-- State edge: the one thing that makes verified / pending / rejected
+             scannable without reading a single word. Tinted in the adapter. -->
+        <View
+            android:id="@+id/viewStateEdge"
+            android:layout_width="4dp"
+            android:layout_height="match_parent"
+            android:minHeight="64dp" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
         android:background="?attr/selectableItemBackground"
         android:gravity="center_vertical"
         android:orientation="horizontal"
@@ -88,6 +123,7 @@
                 android:textSize="10sp"
                 android:textStyle="bold" />
         </LinearLayout>
+    </LinearLayout>
     </LinearLayout>
 
     <View

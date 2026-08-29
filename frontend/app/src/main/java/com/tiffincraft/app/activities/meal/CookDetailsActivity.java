@@ -816,9 +816,10 @@ public class CookDetailsActivity extends AppCompatActivity {
     }
 
     /**
-     * Tomorrow by default, and never earlier: today's kitchen cutoff has already
-     * passed by the time anyone is looking at this screen, so a same-day start
-     * would commit the cook to a meal they can no longer be told about.
+     * Tomorrow by default, but today is selectable. A same-day start commits the
+     * cook to a meal after today's kitchen cutoff, so it is not the default and
+     * the cook still has to accept the request — but blocking it outright made
+     * the whole subscription flow untestable inside one day.
      *
      * Bounds are the device's calendar, which is only a UI convenience — the
      * server re-validates the date against Nepal Time and rejects anything past
@@ -826,6 +827,7 @@ public class CookDetailsActivity extends AppCompatActivity {
      * through.
      */
     private void promptForStartDate(SubscriptionPlanResponse.Plan plan, String deliveryAddress) {
+        long todayMillis = com.tiffincraft.app.utils.DeliveryDateUtils.deviceMillisPlusDays(0);
         long tomorrowMillis = com.tiffincraft.app.utils.DeliveryDateUtils.deviceMillisPlusDays(1);
 
         java.util.Calendar initial = java.util.Calendar.getInstance();
@@ -842,7 +844,7 @@ public class CookDetailsActivity extends AppCompatActivity {
                 initial.get(java.util.Calendar.DAY_OF_MONTH));
 
         picker.setTitle("First delivery day");
-        picker.getDatePicker().setMinDate(tomorrowMillis);
+        picker.getDatePicker().setMinDate(todayMillis);
         picker.getDatePicker().setMaxDate(com.tiffincraft.app.utils.DeliveryDateUtils.deviceMillisPlusDays(30));
         picker.show();
     }

@@ -120,9 +120,16 @@ public class NotificationActivity extends AppCompatActivity {
             case "commission_due":
             case "commission_verified":
             case "commission_rejected":
-                // No specific ID needed — the screen fetches the cook's
-                // current/past-due settlement itself on open.
+            case "commission_submitted":
+            case "commission_rate_change":
+                // The screen fetches the cook's current/past-due settlement itself
+                // on open, so refId is passed only as a hint for the day a cook has
+                // more than one open settlement. A rate change lands here too: the
+                // new rate only matters in the context of what is owed.
                 intent = new Intent(this, com.tiffincraft.app.activities.cook.CommissionSettlementActivity.class);
+                if (refId != null) {
+                    intent.putExtra("settlement_id", (int) refId);
+                }
                 break;
             case "refund_feedback":
             case "refund_status":

@@ -74,13 +74,20 @@ public class CommissionSettlementActivity extends AppCompatActivity {
                 result -> {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         Uri imageUri = result.getData().getData();
-                        if (imageUri != null) uploadScreenshot(imageUri);
+                        if (imageUri != null) confirmThenUpload(imageUri);
                     }
                 });
 
         binding.btnBack.setOnClickListener(v -> finish());
         binding.btnPayWithEsewa.setOnClickListener(v -> openEsewaApp());
-        binding.ivAdminQr.setOnClickListener(v -> saveQrToGallery());
+        // Tap zooms, a separate button saves. Tap-to-save was an invisible
+        // gesture on the one thing a cook must be able to read: a 220dp QR is
+        // genuinely hard to scan off another phone's screen.
+        binding.ivAdminQr.setOnClickListener(v -> openZoom(adminEsewaQrUrl));
+        binding.btnSaveQr.setOnClickListener(v -> saveQrToGallery());
+        binding.ivPaymentScreenshot.setOnClickListener(v ->
+                openZoom(current == null ? null : current.getPaymentScreenshotUrl()));
+        binding.btnRetryLoad.setOnClickListener(v -> loadCurrentSettlement());
         binding.btnUploadProof.setOnClickListener(v -> openImagePicker());
         binding.tvViewHistory.setOnClickListener(v ->
                 startActivity(new Intent(this, CommissionHistoryActivity.class)));
@@ -180,16 +187,38 @@ public class CommissionSettlementActivity extends AppCompatActivity {
         binding.tvScanToPay.setText(reason);
     }
 
+    /**
+     * Initial-load skeleton. Only used for the first paint and for an explicit
+     * retry — onResume refreshes silently, because flashing a skeleton over a
+     * screen that already shows the right amount every time the cook comes back
+     * from the eSewa app reads as a glitch.
+     */
+    private void setLoading(boolean loading) {
+        boolean firstPaint = current == null && accruing == null;
+        binding.shimmerLoading.setVisibility(loading && firstPaint ? View.VISIBLE : View.GONE);
+        binding.scrollContent.setVisibility(loading && firstPaint ? View.GONE : View.VISIBLE);
+        if (loading && firstPaint) binding.shimmerLoading.startShimmer();
+        else binding.shimmerLoading.stopShimmer();
+    }
+
+    /** Inline retry instead of a Toast: a failed load otherwise looks like "you owe nothing". */
+    private void showLoadError(String message) {
+        binding.layoutLoadError.setVisibility(View.VISIBLE);
+        binding.tvLoadErrorText.setText(message);
+        binding.layoutEmptyState.setVisibility(View.GONE);
+    }
+
     private void loadCurrentSettlement() {
-        binding.progressLoading.setVisibility(View.VISIBLE);
+        setLoading(true);
+        binding.layoutLoadError.setVisibility(View.GONE);
         String token = "Bearer " + sessionManager.getToken();
         apiService.getCurrentCommissionSettlement(token).enqueue(new Callback<CommissionSettlementCurrentResponse>() {
             @Override
             public void onResponse(@NonNull Call<CommissionSettlementCurrentResponse> call,
                                     @NonNull Response<CommissionSettlementCurrentResponse> response) {
-                binding.progressLoading.setVisibility(View.GONE);
+                setLoading(false);
                 if (!response.isSuccessful() || response.body() == null || !response.body().isSuccess()) {
-                    Toast.makeText(CommissionSettlementActivity.this, "Failed to load commission status", Toast.LENGTH_SHORT).show();
+                    showLoadError("Couldn't load your commission status. Your dues are safe — this is only a display problem.");
                     return;
                 }
                 // Prefer an unresolved past-due settlement over the current (possibly
@@ -203,8 +232,8 @@ public class CommissionSettlementActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(@NonNull Call<CommissionSettlementCurrentResponse> call, @NonNull Throwable t) {
-                binding.progressLoading.setVisibility(View.GONE);
-                Toast.makeText(CommissionSettlementActivity.this, "Network error", Toast.LENGTH_SHORT).show();
+                setLoading(false);
+                showLoadError("No connection. Check your internet and try again.");
             }
         });
     }
@@ -239,8 +268,39 @@ public class CommissionSettlementActivity extends AppCompatActivity {
         binding.tvAccruingLabel.setText("Accruing in " + period + " · " + n + " delivered order" + (n == 1 ? "" : "s"));
     }
 
+    /**
+     * The 3-step strip: Pay -> Upload proof -> Verified.
+     *
+     * `step` is how many steps are COMPLETE, so 0 = nothing paid yet (the ball is
+     * in the cook's court), 2 = proof submitted and we are waiting on an admin,
+     * 3 = done. A rejected settlement deliberately falls back to 0, not 2: the
+     * proof was not accepted, so the cook is back at the start of the flow, and
+     * showing 2/3 there would tell them to keep waiting for nothing.
+     */
+    private void renderProgress(int step) {
+        android.widget.ImageView[] dots = { binding.dotStep1, binding.dotStep2, binding.dotStep3 };
+        android.widget.TextView[] labels = { binding.tvStep1, binding.tvStep2, binding.tvStep3 };
+        View[] lines = { binding.lineStep1, binding.lineStep2 };
+
+        for (int i = 0; i < dots.length; i++) {
+            boolean done = i < step;
+            dots[i].setBackgroundResource(done
+                    ? R.drawable.circle_step_hero_done : R.drawable.circle_step_hero_pending);
+            // The tick is the same drawable in both states; hiding it by alpha
+            // rather than visibility keeps every dot exactly 24dp, so the strip
+            // does not reflow as the settlement progresses.
+            dots[i].setAlpha(done ? 1f : 0.55f);
+            dots[i].setImageAlpha(done ? 255 : 0);
+            labels[i].setAlpha(done || i == step ? 1f : 0.6f);
+        }
+        for (int i = 0; i < lines.length; i++) {
+            lines[i].setAlpha(i < step ? 1f : 0.4f);
+        }
+    }
+
     private void render() {
         renderAccruing();
+        binding.layoutLoadError.setVisibility(View.GONE);
 
         if (current == null) {
             setSectionVisible(false, false, false);
@@ -254,6 +314,7 @@ public class CommissionSettlementActivity extends AppCompatActivity {
             // "nothing due" illustration just contradicts it.
             binding.layoutEmptyState.setVisibility(
                     binding.layoutAccruing.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+            binding.layoutVerifiedCard.setVisibility(View.GONE);
             return;
         }
         binding.layoutAmountDueCard.setVisibility(View.VISIBLE);
@@ -300,27 +361,44 @@ public class CommissionSettlementActivity extends AppCompatActivity {
             case "pending":
                 binding.tvStatusChip.setText(current.isPartiallyPaid() ? "Part paid" : "Pending");
                 setSectionVisible(true, false, false);
+                // A recorded part payment IS a payment, so step 1 is genuinely
+                // done even though proof for the remainder has not been sent.
+                renderProgress(current.isPartiallyPaid() ? 1 : 0);
+                binding.layoutVerifiedCard.setVisibility(View.GONE);
                 break;
             case "submitted":
                 binding.tvStatusChip.setText("Submitted");
                 setSectionVisible(false, true, false);
                 binding.tvScreenshotStatusLabel.setText("Awaiting admin verification");
+                renderProgress(2);
+                binding.layoutVerifiedCard.setVisibility(View.GONE);
                 loadScreenshotPreview();
                 break;
             case "verified":
-                binding.tvStatusChip.setText("Verified ✅");
+                binding.tvStatusChip.setText("Verified");
                 setSectionVisible(false, true, false);
                 binding.tvScreenshotStatusLabel.setText("Verified — thank you!");
+                renderProgress(3);
+                binding.layoutVerifiedCard.setVisibility(View.VISIBLE);
+                binding.tvVerifiedDetail.setText(
+                        CurrencyUtils.formatRupees(current.getAmountPaid() > 0
+                                ? current.getAmountPaid() : current.getAmountDue())
+                        + " received for " + MONTH_NAMES[current.getMonth() - 1] + " " + current.getYear()
+                        + ". Nothing further is owed for this period.");
                 loadScreenshotPreview();
                 break;
             case "rejected":
                 binding.tvStatusChip.setText("Rejected");
                 setSectionVisible(true, false, true);
+                renderProgress(0);
+                binding.layoutVerifiedCard.setVisibility(View.GONE);
                 binding.tvAdminNotes.setText(current.getAdminNotes() != null && !current.getAdminNotes().isEmpty()
                         ? current.getAdminNotes() : "Please re-upload a clearer payment screenshot.");
                 break;
             default:
                 setSectionVisible(false, false, false);
+                renderProgress(0);
+                binding.layoutVerifiedCard.setVisibility(View.GONE);
         }
     }
 
@@ -396,10 +474,59 @@ public class CommissionSettlementActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Full-screen zoomable view of a QR or a payment proof, via the existing
+     * MediaViewerActivity rather than a new dialog — it already handles zoom and
+     * is what the rest of the app uses for exactly this.
+     */
+    private void openZoom(String url) {
+        if (url == null || url.isEmpty()) return;
+        Intent i = new Intent(this, com.tiffincraft.app.activities.common.MediaViewerActivity.class);
+        i.putExtra(com.tiffincraft.app.activities.common.MediaViewerActivity.EXTRA_MEDIA_URL, url);
+        startActivity(i);
+    }
+
     private void openImagePicker() {
         Intent intent = new Intent(Intent.ACTION_PICK);
         intent.setType("image/*");
         imagePickerLauncher.launch(intent);
+    }
+
+    /**
+     * One tap of friction between picking an image and submitting it. Undoing a
+     * wrong submission means asking an admin to reject it, so showing the actual
+     * image and the actual amount first is much cheaper than that round trip.
+     */
+    private void confirmThenUpload(Uri imageUri) {
+        if (current == null) return;
+
+        double claiming = current.isPartiallyPaid() ? current.getAmountRemaining() : current.getAmountDue();
+        View sheet = getLayoutInflater().inflate(R.layout.sheet_confirm_commission_proof, null);
+        com.google.android.material.bottomsheet.BottomSheetDialog dialog =
+                new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+        dialog.setContentView(sheet);
+
+        ((android.widget.TextView) sheet.findViewById(R.id.tvSheetAmount)).setText(
+                "Claiming payment of " + CurrencyUtils.formatRupees(claiming)
+                        + " for " + MONTH_NAMES[current.getMonth() - 1] + " " + current.getYear());
+        Glide.with(this).load(imageUri).into((android.widget.ImageView) sheet.findViewById(R.id.ivSheetPreview));
+
+        sheet.findViewById(R.id.btnSheetSubmit).setOnClickListener(v -> {
+            dialog.dismiss();
+            uploadScreenshot(imageUri);
+        });
+        sheet.findViewById(R.id.btnSheetChooseAnother).setOnClickListener(v -> {
+            dialog.dismiss();
+            openImagePicker();
+        });
+        dialog.show();
+    }
+
+    /** Progress for the upload itself — the button IS the indicator, so there is
+     *  no full-screen spinner covering the amount the cook just confirmed. */
+    private void setSubmitting(boolean submitting) {
+        binding.btnUploadProof.setEnabled(!submitting);
+        binding.btnUploadProof.setText(submitting ? "Submitting…" : "Upload Payment Proof");
     }
 
     private void uploadScreenshot(Uri imageUri) {
@@ -414,14 +541,37 @@ public class CommissionSettlementActivity extends AppCompatActivity {
             return;
         }
 
-        okhttp3.MultipartBody.Part imagePart = ImageUploadHelper.createDocumentPart(this, imageUri);
-        if (imagePart == null) {
-            Toast.makeText(this, "Failed to prepare image for upload", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        setSubmitting(true);
 
-        binding.progressLoading.setVisibility(View.VISIBLE);
-        binding.btnUploadProof.setEnabled(false);
+        // Compress only when the file is actually big. compressImage() caps the
+        // long edge at 800px, which is fine for a 4MB camera photo but would
+        // needlessly soften a 300KB phone screenshot — and the one thing an admin
+        // must be able to read on this image is the amount and the timestamp.
+        // ponytail: single 2MB threshold, no quality ladder. Revisit only if
+        // admins start reporting unreadable proofs.
+        boolean needsCompression = !ImageUploadHelper.isValidFileSize(this, imageUri, 2);
+        // compressImage() blocks on Glide's synchronous FutureTarget, so it must
+        // not run on the main thread.
+        new Thread(() -> {
+            okhttp3.MultipartBody.Part part = null;
+            if (needsCompression) {
+                java.io.File compressed = ImageUtils.compressImage(this, imageUri);
+                if (compressed != null) part = ImageUtils.prepareFilePart("document", compressed);
+            }
+            if (part == null) part = ImageUploadHelper.createDocumentPart(this, imageUri);
+            final okhttp3.MultipartBody.Part imagePart = part;
+            runOnUiThread(() -> {
+                if (imagePart == null) {
+                    setSubmitting(false);
+                    Toast.makeText(this, "Failed to prepare image for upload", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                sendScreenshot(imagePart);
+            });
+        }).start();
+    }
+
+    private void sendScreenshot(okhttp3.MultipartBody.Part imagePart) {
         String token = "Bearer " + sessionManager.getToken();
 
         // Two-step, same as the customer-pays-cook Option A flow: upload the raw
@@ -430,8 +580,7 @@ public class CommissionSettlementActivity extends AppCompatActivity {
             @Override
             public void onResponse(@NonNull Call<UploadResponse> call, @NonNull Response<UploadResponse> response) {
                 if (!response.isSuccessful() || response.body() == null || !response.body().isSuccess()) {
-                    binding.progressLoading.setVisibility(View.GONE);
-                    binding.btnUploadProof.setEnabled(true);
+                    setSubmitting(false);
                     Toast.makeText(CommissionSettlementActivity.this, "Failed to upload screenshot", Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -441,8 +590,7 @@ public class CommissionSettlementActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(@NonNull Call<UploadResponse> call, @NonNull Throwable t) {
-                binding.progressLoading.setVisibility(View.GONE);
-                binding.btnUploadProof.setEnabled(true);
+                setSubmitting(false);
                 Toast.makeText(CommissionSettlementActivity.this, "Network error uploading screenshot", Toast.LENGTH_SHORT).show();
             }
         });
@@ -456,20 +604,30 @@ public class CommissionSettlementActivity extends AppCompatActivity {
         apiService.uploadCommissionScreenshot(token, current.getId(), body).enqueue(new Callback<RegisterResponse>() {
             @Override
             public void onResponse(@NonNull Call<RegisterResponse> call, @NonNull Response<RegisterResponse> response) {
-                binding.progressLoading.setVisibility(View.GONE);
-                binding.btnUploadProof.setEnabled(true);
+                setSubmitting(false);
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
                     Toast.makeText(CommissionSettlementActivity.this, "Payment proof submitted — an admin will verify it shortly.", Toast.LENGTH_LONG).show();
                     loadCurrentSettlement();
-                } else {
-                    Toast.makeText(CommissionSettlementActivity.this, "Failed to submit payment proof", Toast.LENGTH_SHORT).show();
+                    return;
                 }
+                // 409 is the server's duplicate-screenshot guard. It needs its own
+                // message: "Failed to submit" would leave a cook re-picking the
+                // same old screenshot forever, which is exactly what was rejected.
+                if (response.code() == 409) {
+                    new AlertDialog.Builder(CommissionSettlementActivity.this)
+                            .setTitle("Screenshot already used")
+                            .setMessage("This screenshot has already been submitted for another commission payment. Please upload the screenshot of this month's payment.")
+                            .setPositiveButton("Choose another", (d, w) -> openImagePicker())
+                            .setNegativeButton("Later", null)
+                            .show();
+                    return;
+                }
+                Toast.makeText(CommissionSettlementActivity.this, "Failed to submit payment proof", Toast.LENGTH_SHORT).show();
             }
 
             @Override
             public void onFailure(@NonNull Call<RegisterResponse> call, @NonNull Throwable t) {
-                binding.progressLoading.setVisibility(View.GONE);
-                binding.btnUploadProof.setEnabled(true);
+                setSubmitting(false);
                 Toast.makeText(CommissionSettlementActivity.this, "Network error submitting payment proof", Toast.LENGTH_SHORT).show();
             }
         });

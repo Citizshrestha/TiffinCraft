@@ -208,6 +208,23 @@ public class SubscriptionCalendarResponse {
         @SerializedName("can_request_custom")
         private boolean canRequestCustom;
 
+        /**
+         * The sent → received handshake, both decided server-side and both
+         * role-scoped: `can_mark_sent` is only ever true for the cook, and
+         * `can_mark_received` only ever for the customer. The same endpoint serves
+         * both viewers, so a client that reads the wrong one shows a button its
+         * caller can't use — hence the split rather than one shared flag.
+         *
+         * Note these are NOT gated on isLocked. The cutoff governs changing a
+         * day's plan; today is always past its own cutoff, and today is the only
+         * day the cook's button is for.
+         */
+        @SerializedName("can_mark_sent")
+        private boolean canMarkSent;
+
+        @SerializedName("can_mark_received")
+        private boolean canMarkReceived;
+
         public String getDate() { return date; }
         public String getStatus() { return status; }
         public String getLabel() { return label; }
@@ -221,8 +238,12 @@ public class SubscriptionCalendarResponse {
         public String getLockedMessage() { return lockedMessage; }
         public CustomMeal getCustomMeal() { return customMeal; }
         public boolean canRequestCustom() { return canRequestCustom; }
+        public boolean canMarkSent() { return canMarkSent; }
+        public boolean canMarkReceived() { return canMarkReceived; }
 
         public boolean isScheduled() { return "scheduled".equals(status); }
+        /** Cook has handed the meal over; waiting on the customer's confirmation. */
+        public boolean isSent() { return "sent".equals(status); }
         public boolean isCustomerSkipped() { return "customer_skipped".equals(status); }
         public boolean isCookUnavailable() { return "cook_unavailable".equals(status); }
         public boolean isDelivered() { return "delivered".equals(status); }

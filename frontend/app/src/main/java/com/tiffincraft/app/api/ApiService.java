@@ -459,6 +459,37 @@ public interface ApiService {
             @Header("Authorization") String token, @Path("id") int subscriptionId,
             @Body com.google.gson.JsonObject requestBody);
 
+    /**
+     * Cook states that one day's meal has left the kitchen. Body is
+     * {date: 'YYYY-MM-DD', note?}.
+     *
+     * TODAY ONLY — the server refuses a future date (nothing has been sent yet)
+     * and a past one (already settled by the nightly reconcile, and that verdict
+     * is what a dispute rests on). Moves the day to 'sent', which is NOT the end
+     * of it: the customer still confirms receipt, and only that writes
+     * 'delivered'.
+     *
+     * Fires a notification and a chat card to the customer from the same backend
+     * action, so the two can never disagree about what was announced.
+     */
+    @POST("subscriptions/{id}/mark-sent")
+    Call<com.tiffincraft.app.models.DayActionResponse> markSubscriptionDaySent(
+            @Header("Authorization") String token, @Path("id") int subscriptionId,
+            @Body com.google.gson.JsonObject requestBody);
+
+    /**
+     * Customer confirms one day's meal arrived. Body is {date, note?}.
+     *
+     * The only path by which a live day becomes 'delivered' on someone's say-so —
+     * every other route is the cron inferring it. Accepted only for a day the cook
+     * already marked 'sent', which is what makes the pair a handshake rather than
+     * two independent flags. Notifies the cook on both channels.
+     */
+    @POST("subscriptions/{id}/mark-received")
+    Call<com.tiffincraft.app.models.DayActionResponse> markSubscriptionDayReceived(
+            @Header("Authorization") String token, @Path("id") int subscriptionId,
+            @Body com.google.gson.JsonObject requestBody);
+
     /** Everyone the cook is cooking for on `date` (defaults to today in Nepal Time). */
     @GET("cook/today-deliveries")
     Call<com.tiffincraft.app.models.TodayDeliveriesResponse> getTodayDeliveries(
