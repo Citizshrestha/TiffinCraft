@@ -58,6 +58,11 @@ export function CommissionSettlementsPage() {
   const [recording, setRecording] = useState<CommissionSettlement | null>(null);
   const [recordNotes, setRecordNotes] = useState("");
   const [recordAmount, setRecordAmount] = useState("");
+  // Verifying a payment from a 260px thumbnail is guesswork — the amount and the
+  // timestamp on a phone screenshot are small. This is the core admin action, so
+  // it gets a real zoomable view instead of a new browser tab.
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
 
@@ -147,9 +152,16 @@ export function CommissionSettlementsPage() {
       if (parsed === null) return;
       amount = parsed;
     }
+    // A rejection sends the cook a push telling them to re-upload. Without a
+    // reason they have no idea what was wrong with the proof, so they re-send the
+    // same image and the loop repeats.
+    if (newStatus === "rejected" && !adminNotes.trim()) {
+      showToast("Say why the proof was rejected — the cook sees this and needs to know what to fix.", "error");
+      return;
+    }
     setSaving(true);
     try {
-      const res = await verifySettlementApi(processing.id, newStatus, adminNotes || undefined, amount);
+      const res = await verifySettlementApi(processing.id, newStatus, adminNotes.trim() || undefined, amount);
       setProcessing(null);
       // The backend downgrades a short payment back to 'pending', so report what
       // it actually did rather than what was requested.
@@ -256,6 +268,14 @@ export function CommissionSettlementsPage() {
   const totalSubmitted = rows.filter(r => r.status === "submitted").reduce((sum, r) => sum + r.amountRemaining, 0);
   const totalVerified = rows.filter(r => r.status === "verified").reduce((sum, r) => sum + r.amountPaid, 0);
 
+  const overdueCount = rows.filter(r => r.status === "overdue").length;
+  const submittedCount = rows.filter(r => r.status === "submitted").length;
+
+  const openLightbox = (url: string) => {
+    setZoom(1);
+    setLightbox(url);
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -353,13 +373,27 @@ export function CommissionSettlementsPage() {
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        {STAT_TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            style={{ padding: "10px 16px", borderRadius: 8, fontSize: 13, cursor: "pointer", border: "none", fontFamily: "Inter", fontWeight: 500,
-              background: tab === t.id ? "#3b82f6" : "#f2f5f7", color: tab === t.id ? "#fff" : "#9499a6" }}>
-            {t.label}
-          </button>
-        ))}
+        {STAT_TABS.map(t => {
+          // Counts come from the loaded rows, so they are only exact on the "all"
+          // tab; when a status filter is active the server has already narrowed
+          // the set. Showing the badge only on "all" keeps it from lying.
+          const count = t.id === "overdue" ? overdueCount : t.id === "submitted" ? submittedCount : 0;
+          return (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              style={{ padding: "10px 16px", borderRadius: 8, fontSize: 13, cursor: "pointer", border: "none", fontFamily: "Inter", fontWeight: 500,
+                display: "flex", alignItems: "center", gap: 7,
+                background: tab === t.id ? "#3b82f6" : "#f2f5f7", color: tab === t.id ? "#fff" : "#9499a6" }}>
+              {t.label}
+              {count > 0 && (
+                <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 999, padding: "1px 7px",
+                  background: tab === t.id ? "rgba(255,255,255,0.28)" : t.id === "overdue" ? "#f25959" : "#3b82f6",
+                  color: "#fff" }}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex items-center gap-2 px-4 py-3 rounded-[8px] bg-white" style={{ border: "1px solid #e5e8ed" }}>
@@ -470,7 +504,10 @@ export function CommissionSettlementsPage() {
           } />
           <DetailRow label="Payment Screenshot" value={
             viewing.screenshotUrl
-              ? <a href={viewing.screenshotUrl} target="_blank" rel="noreferrer" style={{ color: "#7887fa" }}>View screenshot ↗</a>
+              ? <button onClick={() => openLightbox(viewing.screenshotUrl!)}
+                  style={{ background: "none", border: "none", padding: 0, color: "#7887fa", fontFamily: "Inter", fontSize: 13, fontWeight: 600, cursor: "zoom-in" }}>
+                  View screenshot 🔍
+                </button>
               : "Not submitted yet"
           } />
           <DetailRow label="Admin Notes" value={viewing.adminNotes || "—"} />
@@ -487,9 +524,17 @@ export function CommissionSettlementsPage() {
             {processing.amountPaid > 0 ? ` of ₹${processing.amountDue.toFixed(2)} billed (₹${processing.amountPaid.toFixed(2)} already received).` : "."}
           </p>
           {processing.screenshotUrl && (
-            <a href={processing.screenshotUrl} target="_blank" rel="noreferrer">
-              <img src={processing.screenshotUrl} alt="Payment proof" style={{ width: "100%", maxHeight: 260, objectFit: "contain", borderRadius: 8, border: "1px solid #e5e8ed", marginBottom: 16 }} />
-            </a>
+            <div style={{ marginBottom: 16 }}>
+              <img
+                src={processing.screenshotUrl}
+                alt="Payment proof"
+                onClick={() => openLightbox(processing.screenshotUrl!)}
+                style={{ width: "100%", maxHeight: 260, objectFit: "contain", borderRadius: 8, border: "1px solid #e5e8ed", cursor: "zoom-in" }}
+              />
+              <p style={{ fontFamily: "Inter", fontSize: 11, color: "#9499a6", marginTop: 6 }}>
+                Click the proof to zoom in and check the amount and date.
+              </p>
+            </div>
           )}
           <div style={{ marginBottom: 16 }}>
             <p style={{ fontFamily: "Inter", fontWeight: 500, fontSize: 13, color: "#1c1f29", marginBottom: 6 }}>Decision</p>
@@ -517,7 +562,11 @@ export function CommissionSettlementsPage() {
               </p>
             </div>
           )}
-          <FormField label="Admin Notes (optional)" value={adminNotes} onChange={setAdminNotes} />
+          <FormField
+            label={newStatus === "rejected" ? "Reason for rejection (required)" : "Admin Notes (optional)"}
+            value={adminNotes}
+            onChange={setAdminNotes}
+          />
           <SaveCancel onCancel={() => setProcessing(null)} onSave={submitProcess} saving={saving} saveLabel="Update" />
         </Modal>
       )}
@@ -602,6 +651,40 @@ export function CommissionSettlementsPage() {
           </div>
           <SaveCancel onCancel={() => setEditingRate(false)} onSave={handleSaveRate} saving={savingRate} saveLabel="Update & Notify All Cooks" />
         </Modal>
+      )}
+
+      {/* Proof lightbox. Rendered outside the modals on purpose so it sits above
+          the verify dialog — the admin zooms the proof without losing the form
+          they had already half-filled. */}
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(12,14,20,0.88)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, overflow: "auto" }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            {[["−", () => setZoom(z => Math.max(1, +(z - 0.5).toFixed(1)))],
+              ["Reset", () => setZoom(1)],
+              ["+", () => setZoom(z => Math.min(5, +(z + 0.5).toFixed(1)))]].map(([label, fn]: any) => (
+              <button key={label} onClick={fn}
+                style={{ background: "rgba(255,255,255,0.14)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontFamily: "Inter", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                {label}
+              </button>
+            ))}
+            <a href={lightbox} target="_blank" rel="noreferrer"
+              style={{ background: "rgba(255,255,255,0.14)", color: "#fff", borderRadius: 8, padding: "8px 16px", fontFamily: "Inter", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+              Open original ↗
+            </a>
+          </div>
+          <img
+            src={lightbox}
+            alt="Payment proof"
+            onClick={e => { e.stopPropagation(); setZoom(z => (z >= 3 ? 1 : +(z + 1).toFixed(1))); }}
+            style={{ maxWidth: "90vw", maxHeight: "78vh", objectFit: "contain", borderRadius: 10, background: "#fff", transform: `scale(${zoom})`, transformOrigin: "center", transition: "transform 120ms ease-out", cursor: zoom >= 3 ? "zoom-out" : "zoom-in" }}
+          />
+          <p style={{ fontFamily: "Inter", fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 14 }}>
+            {zoom.toFixed(1)}× — click the image to zoom, click the backdrop to close.
+          </p>
+        </div>
       )}
     </div>
   );
