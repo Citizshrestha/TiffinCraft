@@ -986,12 +986,66 @@ public class CookDetailsActivity extends AppCompatActivity {
     }
 
     private void showBuyComboDialog(com.tiffincraft.app.models.ComboResponse.Combo combo) {
-        android.widget.EditText etAddress = new android.widget.EditText(this);
-        etAddress.setHint("Delivery address");
-        etAddress.setMinLines(2);
-        int pad = (int) (16 * getResources().getDisplayMetrics().density);
-        etAddress.setPadding(pad, pad, pad, pad);
+        android.app.Dialog dialog = new android.app.Dialog(this);
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_buy_combo, null);
+        dialog.setContentView(view);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(
+                    new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            dialog.getWindow().setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.9),
+                    WindowManager.LayoutParams.WRAP_CONTENT);
+        }
 
+        TextView tvName = view.findViewById(R.id.tvComboDialogName);
+        TextView tvCook = view.findViewById(R.id.tvComboDialogCook);
+        TextView tvItemCount = view.findViewById(R.id.tvComboDialogItemCount);
+        TextView tvItems = view.findViewById(R.id.tvComboDialogItems);
+        TextView tvPrice = view.findViewById(R.id.tvComboDialogPrice);
+        TextView tvOriginalPrice = view.findViewById(R.id.tvComboDialogOriginalPrice);
+        tvOriginalPrice.setPaintFlags(tvOriginalPrice.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
+        TextView tvSavings = view.findViewById(R.id.tvComboDialogSavings);
+        com.google.android.material.textfield.TextInputEditText etAddress =
+                view.findViewById(R.id.etComboDialogAddress);
+        MaterialButton btnCancel = view.findViewById(R.id.btnComboDialogCancel);
+        MaterialButton btnConfirm = view.findViewById(R.id.btnComboDialogConfirm);
+
+        tvName.setText(combo.getName());
+
+        String cookLabel = combo.getKitchenName() != null && !combo.getKitchenName().isEmpty()
+                ? combo.getKitchenName()
+                : (combo.getCookName() != null && !combo.getCookName().isEmpty()
+                    ? combo.getCookName() : cookDisplayName);
+        tvCook.setText(cookLabel != null && !cookLabel.isEmpty() ? "from " + cookLabel : "");
+
+        // Dish count is the sum of quantities, not the row count — a bundle of
+        // "2x Pasta" is two dishes, and the price is what the customer compares it to.
+        int dishCount = 0;
+        StringBuilder itemsSummary = new StringBuilder();
+        if (combo.getItems() != null) {
+            for (int i = 0; i < combo.getItems().size(); i++) {
+                com.tiffincraft.app.models.ComboResponse.ComboItem item = combo.getItems().get(i);
+                dishCount += Math.max(item.getQuantity(), 1);
+                if (i > 0) itemsSummary.append(", ");
+                itemsSummary.append(item.getQuantity()).append("x ").append(item.getName());
+            }
+        }
+        tvItemCount.setText(dishCount == 1 ? "1 dish in this bundle" : dishCount + " dishes in this bundle");
+        tvItems.setText(itemsSummary.toString());
+
+        tvPrice.setText(String.format(Locale.getDefault(), "₹%.0f", combo.getPrice()));
+        if (combo.getSavings() > 0) {
+            tvOriginalPrice.setText(String.format(Locale.getDefault(), "₹%.0f", combo.getIndividualTotal()));
+            tvOriginalPrice.setVisibility(View.VISIBLE);
+            tvSavings.setText(String.format(Locale.getDefault(), "SAVE ₹%.0f", combo.getSavings()));
+            tvSavings.setVisibility(View.VISIBLE);
+        } else {
+            tvOriginalPrice.setVisibility(View.GONE);
+            tvSavings.setVisibility(View.GONE);
+        }
+
+        // Prefill with the customer's saved address, if any.
         String token = "Bearer " + sessionManager.getToken();
         apiService.getCustomerProfile(token).enqueue(new Callback<CustomerProfileResponse>() {
             @Override
@@ -1006,26 +1060,18 @@ public class CookDetailsActivity extends AppCompatActivity {
             public void onFailure(Call<CustomerProfileResponse> call, Throwable t) { /* leave blank */ }
         });
 
-        LinearLayout container = new LinearLayout(this);
-        container.setOrientation(LinearLayout.VERTICAL);
-        container.addView(etAddress);
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnConfirm.setOnClickListener(v -> {
+            String address = etAddress.getText() != null ? etAddress.getText().toString().trim() : "";
+            if (address.isEmpty()) {
+                Toast.makeText(this, "Delivery address is required", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            dialog.dismiss();
+            buyCombo(combo, address, "online");
+        });
 
-        new AlertDialog.Builder(this)
-                .setTitle("Buy \"" + combo.getName() + "\"")
-                .setMessage(String.format(Locale.getDefault(),
-                        "₹%.0f · one-time order\n\nAfter continuing, pay by eSewa, Khalti, Fonepay, or bank transfer and upload your payment screenshot. The cook confirms the order after verifying it.",
-                        combo.getPrice()))
-                .setView(container)
-                .setPositiveButton("Continue to Payment", (dialog, which) -> {
-                    String address = etAddress.getText().toString().trim();
-                    if (address.isEmpty()) {
-                        Toast.makeText(this, "Delivery address is required", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    buyCombo(combo, address, "online");
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+        dialog.show();
     }
 
     private void buyCombo(com.tiffincraft.app.models.ComboResponse.Combo combo, String deliveryAddress, String paymentMethod) {

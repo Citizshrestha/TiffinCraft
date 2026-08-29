@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Amber counterpart to circle_bg_green_light, for the combo/offer icon well. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/sub_savings_pill_bg" />
+</shape>

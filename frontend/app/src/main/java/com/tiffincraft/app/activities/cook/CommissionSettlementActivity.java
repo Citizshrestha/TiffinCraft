@@ -56,6 +56,8 @@ public class CommissionSettlementActivity extends AppCompatActivity {
     private SessionManager sessionManager;
 
     private CommissionSettlement current;
+    /** This month's own bill, if one exists — `current` may be an older past-due one. */
+    private CommissionSettlement currentMonthBill;
     private CommissionSettlementCurrentResponse.Accruing accruing;
     private String adminEsewaQrUrl;
     private ActivityResultLauncher<Intent> imagePickerLauncher;
@@ -89,6 +91,7 @@ public class CommissionSettlementActivity extends AppCompatActivity {
                 openZoom(current == null ? null : current.getPaymentScreenshotUrl()));
         binding.btnRetryLoad.setOnClickListener(v -> loadCurrentSettlement());
         binding.btnUploadProof.setOnClickListener(v -> openImagePicker());
+        binding.btnPayAccruingNow.setOnClickListener(v -> confirmSettleNow());
         binding.tvViewHistory.setOnClickListener(v ->
                 startActivity(new Intent(this, CommissionHistoryActivity.class)));
 
@@ -226,6 +229,7 @@ public class CommissionSettlementActivity extends AppCompatActivity {
                 CommissionSettlement toShow = response.body().getPastDue() != null
                         ? response.body().getPastDue() : response.body().getCurrent();
                 current = toShow;
+                currentMonthBill = response.body().getCurrent();
                 accruing = response.body().getAccruing();
                 render();
             }
@@ -266,6 +270,96 @@ public class CommissionSettlementActivity extends AppCompatActivity {
         String period = accruing.getMonth() >= 1 && accruing.getMonth() <= 12
                 ? MONTH_NAMES[accruing.getMonth() - 1] : "this month";
         binding.tvAccruingLabel.setText("Accruing in " + period + " · " + n + " delivered order" + (n == 1 ? "" : "s"));
+
+        // The accrual is only payable while no bill exists for it. Once one does,
+        // the amount-due card below owns the payment flow and a second "pay" CTA
+        // here would be two buttons for one debt.
+        boolean payable = accruing.isPayableNow() && !hasUnpaidBillFor(accruing.getMonth(), accruing.getYear());
+        binding.btnPayAccruingNow.setVisibility(payable ? View.VISIBLE : View.GONE);
+        binding.tvAccruingNote.setText(payable
+                ? "Pay it now, or leave it — it is billed automatically once this month closes."
+                : "Billed automatically once this month closes.");
+    }
+
+    /** True when a bill already exists for that period (any status). */
+    private boolean hasUnpaidBillFor(int month, int year) {
+        for (CommissionSettlement s : new CommissionSettlement[]{ currentMonthBill, current }) {
+            if (s != null && s.getMonth() == month && s.getYear() == year) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Early payment is not reversible from the cook's side — the bill exists from
+     * then on and later deliveries roll into the next cycle — so the amount and
+     * that consequence are both stated before anything is created.
+     */
+    private void confirmSettleNow() {
+        if (accruing == null || accruing.getAmount() <= 0) return;
+        String period = accruing.getMonth() >= 1 && accruing.getMonth() <= 12
+                ? MONTH_NAMES[accruing.getMonth() - 1] + " " + accruing.getYear() : "this month";
+
+        new AlertDialog.Builder(this)
+                .setTitle("Pay " + CurrencyUtils.formatRupees(accruing.getAmount()) + " now?")
+                .setMessage("This creates your " + period + " commission bill for "
+                        + CurrencyUtils.formatRupees(accruing.getAmount()) + " right away, so you can pay it "
+                        + "and upload your payment screenshot today.\n\nOrders you deliver after this are "
+                        + "billed in the next cycle.")
+                .setPositiveButton("Create bill", (d, w) -> settleNow())
+                .setNegativeButton("Not now", null)
+                .show();
+    }
+
+    private void settleNow() {
+        binding.btnPayAccruingNow.setEnabled(false);
+        binding.btnPayAccruingNow.setText("Creating bill…");
+
+        apiService.settleCommissionNow("Bearer " + sessionManager.getToken())
+                .enqueue(new Callback<RegisterResponse>() {
+                    @Override
+                    public void onResponse(@NonNull Call<RegisterResponse> call,
+                                           @NonNull Response<RegisterResponse> response) {
+                        resetSettleButton();
+                        if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                            Toast.makeText(CommissionSettlementActivity.this,
+                                    "Bill created — pay the QR below and upload your screenshot.",
+                                    Toast.LENGTH_LONG).show();
+                            loadCurrentSettlement();
+                            return;
+                        }
+                        // 409 means a bill for this month already exists (submitted or
+                        // settled). Reloading shows the cook that real state instead of
+                        // leaving them looking at a stale accruing card. Retrofit puts a
+                        // non-2xx body in errorBody(), not body(), so read it from there.
+                        String message = serverMessage(response);
+                        Toast.makeText(CommissionSettlementActivity.this, message, Toast.LENGTH_LONG).show();
+                        loadCurrentSettlement();
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull Call<RegisterResponse> call, @NonNull Throwable t) {
+                        resetSettleButton();
+                        Toast.makeText(CommissionSettlementActivity.this,
+                                "No connection — couldn't create the bill.", Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    /** Server's own message for a non-2xx response, or a readable fallback. */
+    private String serverMessage(Response<?> response) {
+        try {
+            if (response.errorBody() != null) {
+                String raw = response.errorBody().string();
+                org.json.JSONObject json = new org.json.JSONObject(raw);
+                if (json.has("message")) return json.getString("message");
+            }
+        } catch (Exception ignored) {}
+        return "Couldn't create the bill. Please try again.";
+    }
+
+    private void resetSettleButton() {
+        binding.btnPayAccruingNow.setEnabled(true);
+        binding.btnPayAccruingNow.setText("Pay This Month Now");
     }
 
     /**

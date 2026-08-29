@@ -285,6 +285,10 @@ public interface ApiService {
     @PUT("commission/settlements/{id}/screenshot")
     Call<RegisterResponse> uploadCommissionScreenshot(@Header("Authorization") String token, @Path("id") int settlementId, @Body com.google.gson.JsonObject requestBody);
 
+    /** Turns the open month's accrual into a payable bill (cook taps "Pay Now" before month close). */
+    @POST("commission/settlements/settle-now")
+    Call<RegisterResponse> settleCommissionNow(@Header("Authorization") String token);
+
     @GET("commission/admin-qr")
     Call<com.tiffincraft.app.models.AdminQrResponse> getAdminQr(@Header("Authorization") String token);
 

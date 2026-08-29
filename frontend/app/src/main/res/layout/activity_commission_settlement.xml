@@ -397,9 +397,14 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:baselineAligned="false"
-                    android:orientation="horizontal"
+                    android:orientation="vertical"
                     android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:baselineAligned="false"
+                        android:orientation="horizontal">
 
                     <FrameLayout
                         android:layout_width="40dp"
@@ -446,10 +451,30 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="Not yet due — billed once this month closes."
+                            android:text="Pay it now, or leave it — it is billed automatically once this month closes."
                             android:textColor="@color/commission_due_accent"
                             android:textSize="12sp" />
                     </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- Early settlement: creates the bill for this month's accrual
+                         so the pay/upload flow below becomes available today. -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnPayAccruingNow"
+                        android:layout_width="match_parent"
+                        android:layout_height="46dp"
+                        android:layout_marginTop="14dp"
+                        android:backgroundTint="@color/commission_due_accent"
+                        android:text="Pay This Month Now"
+                        android:textAllCaps="false"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="12dp"
+                        app:icon="@drawable/ic_wallet"
+                        app:iconGravity="textStart"
+                        app:iconSize="16dp"
+                        app:iconTint="#FFFFFF" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

@@ -12,6 +12,7 @@ import {
     getMyCurrentSettlement,
     listMySettlements,
     uploadSettlementScreenshot,
+    settleAccruedNow,
     getCommissionRateHistoryEndpoint
 } from "../controllers/commissionController.js";
 
@@ -36,5 +37,7 @@ router.put("/settlements/:id/verify", protect, roleOnly("admin"), verifySettleme
 router.get("/settlements/current", protect, roleOnly("cook"), getMyCurrentSettlement);
 router.get("/settlements/mine", protect, roleOnly("cook"), listMySettlements);
 router.put("/settlements/:id/screenshot", protect, roleOnly("cook"), uploadSettlementScreenshot);
+// Pay the open month early instead of waiting for the 1st-of-month cron.
+router.post("/settlements/settle-now", protect, roleOnly("cook"), settleAccruedNow);
 
 export default router;

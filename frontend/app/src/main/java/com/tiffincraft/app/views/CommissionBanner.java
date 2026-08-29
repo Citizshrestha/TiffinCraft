@@ -226,8 +226,10 @@ public final class CommissionBanner {
     }
 
     /**
-     * The month in progress. There is no settlement row yet and nothing to pay,
-     * so this is deliberately calm — green, no chip urgency, no "Pay" verb.
+     * The month in progress. Nothing is overdue, so this stays calm — green, no
+     * urgency chip. The verb is still "Pay Now" when the accrual is settleable
+     * early (payable_now), because it genuinely is payable today; it is only
+     * "View Details" when the cook must wait for month close.
      */
     private void renderAccruing(CommissionSettlementCurrentResponse.Accruing accruing) {
         card.setVisibility(View.VISIBLE);
@@ -238,9 +240,9 @@ public final class CommissionBanner {
         int n = accruing.getOrderCount();
         subtitle.setText(n + (n == 1 ? " delivered order" : " delivered orders") + " in "
                 + CommissionFormat.monthName(accruing.getMonth(), "this month")
-                + " · billed after the month ends");
+                + (accruing.isPayableNow() ? " · pay now or after the month ends" : " · billed after the month ends"));
         setAmount(accruing.getAmount());
-        action.setText("View Details");
+        action.setText(accruing.isPayableNow() ? "Pay Now" : "View Details");
     }
 
     private void renderNothingDue() {

@@ -169,7 +169,38 @@ export const applyDeliveryCommission = snapshotDeliveryCommission;
  * matches getCommissionSummary's JS-side trend-fill, which already builds
  * its month buckets from local date parts for the same reason.
  */
-const getCommissionByCook = async (month, year) => {
+const getCommissionByCook = async (month, year, { unbilledOnly = false } = {}) => {
+    // Reporting (admin summary) wants "everything delivered in this month",
+    // period-pure, so it stays the default. Billing wants "everything not yet
+    // charged to a settlement", which is a different question the moment a cook
+    // can pay an open month early — see the carry-in clause below.
+    const billingScope = unbilledOnly
+        ? `AND o.commission_settlement_id IS NULL
+           AND (
+                (MONTH(${toNpt("o.delivered_at")}) = ? AND YEAR(${toNpt("o.delivered_at")}) = ?)
+                OR (
+                    -- Carry-in: an order whose own period already has a settlement
+                    -- row can never be billed there (uniq_cook_period + the
+                    -- INSERT IGNORE freeze), so it would otherwise be lost. This is
+                    -- exactly what an early payment leaves behind: orders delivered
+                    -- after the cook settled the month. Bounded to periods at or
+                    -- before the one being generated so a future month is untouched.
+                    (YEAR(${toNpt("o.delivered_at")}) < ?
+                     OR (YEAR(${toNpt("o.delivered_at")}) = ? AND MONTH(${toNpt("o.delivered_at")}) <= ?))
+                    AND EXISTS (
+                        SELECT 1 FROM commission_settlements s
+                        WHERE s.cook_id = o.cook_id
+                          AND s.month = MONTH(${toNpt("o.delivered_at")})
+                          AND s.year  = YEAR(${toNpt("o.delivered_at")})
+                    )
+                )
+           )`
+        : `AND MONTH(${toNpt("o.delivered_at")}) = ? AND YEAR(${toNpt("o.delivered_at")}) = ?`;
+
+    const params = unbilledOnly
+        ? [month, year, year, year, month]
+        : [month, year];
+
     const [rows] = await db.promise().query(
         `SELECT
             o.cook_id,
@@ -184,12 +215,47 @@ const getCommissionByCook = async (month, year) => {
          LEFT JOIN cook_profiles cp ON cp.user_id = o.cook_id
          WHERE o.status = 'delivered' AND o.commission_amount IS NOT NULL
            AND (o.refund_status IS NULL OR o.refund_status != 'refunded')
-           AND MONTH(${toNpt("o.delivered_at")}) = ? AND YEAR(${toNpt("o.delivered_at")}) = ?
+           ${billingScope}
          GROUP BY o.cook_id, u.full_name, u.phone, cp.kitchen_name
          ORDER BY commission_total DESC`,
-        [month, year]
+        params
     );
     return rows;
+};
+
+/**
+ * Marks the orders a settlement covers, so nothing is ever billed twice.
+ * Same scope as getCommissionByCook's billing query — including the carry-in —
+ * because the sum and the stamp must agree exactly or a rupee is either lost or
+ * charged twice.
+ *
+ * ponytail: not in a transaction with the INSERT. An order delivered in the
+ * millisecond between the SUM and this UPDATE gets stamped without being
+ * charged; wrap both in a transaction if that ever shows up in reconciliation.
+ */
+const stampBilledOrders = async (cookId, settlementId, month, year) => {
+    const [res] = await db.promise().query(
+        `UPDATE orders o
+         SET o.commission_settlement_id = ?
+         WHERE o.cook_id = ? AND o.status = 'delivered' AND o.commission_amount IS NOT NULL
+           AND (o.refund_status IS NULL OR o.refund_status != 'refunded')
+           AND o.commission_settlement_id IS NULL
+           AND (
+                (MONTH(${toNpt("o.delivered_at")}) = ? AND YEAR(${toNpt("o.delivered_at")}) = ?)
+                OR (
+                    (YEAR(${toNpt("o.delivered_at")}) < ?
+                     OR (YEAR(${toNpt("o.delivered_at")}) = ? AND MONTH(${toNpt("o.delivered_at")}) <= ?))
+                    AND EXISTS (
+                        SELECT 1 FROM commission_settlements s
+                        WHERE s.cook_id = o.cook_id
+                          AND s.month = MONTH(${toNpt("o.delivered_at")})
+                          AND s.year  = YEAR(${toNpt("o.delivered_at")})
+                    )
+                )
+           )`,
+        [settlementId, cookId, month, year, year, year, month]
+    );
+    return res.affectedRows;
 };
 
 /**
@@ -391,7 +457,9 @@ export const getAdminQr = async (req, res) => {
  * than re-deriving it in JS.
  */
 export const generateMonthlySettlements = async (month, year) => {
-    const byCook = await getCommissionByCook(month, year);
+    // unbilledOnly: a cook who paid this month early already has a settlement
+    // holding those orders. Re-summing the raw month would bill them twice.
+    const byCook = await getCommissionByCook(month, year, { unbilledOnly: true });
     let created = 0;
 
     for (const row of byCook) {
@@ -408,6 +476,7 @@ export const generateMonthlySettlements = async (month, year) => {
 
         if (result.affectedRows > 0) {
             created++;
+            await stampBilledOrders(row.cook_id, result.insertId, month, year);
             // insertId lets the push deep-link straight to this settlement instead
             // of dumping the cook on a generic list and making them find it.
             await notifyCommissionDue(row.cook_id, row.commission_total, month, year, result.insertId);
@@ -706,6 +775,7 @@ export const getMyCurrentSettlement = async (req, res) => {
              FROM orders
              WHERE cook_id = ? AND status = 'delivered' AND commission_amount IS NOT NULL
                AND (refund_status IS NULL OR refund_status != 'refunded')
+               AND commission_settlement_id IS NULL
                AND MONTH(${toNpt("delivered_at")}) = ? AND YEAR(${toNpt("delivered_at")}) = ?`,
             [cookId, month, year]
         );
@@ -719,7 +789,11 @@ export const getMyCurrentSettlement = async (req, res) => {
                 order_count: accruing.order_count,
                 month,
                 year,
-                note: "Not yet due — commission accrues live and is billed once this month closes."
+                // Cooks asked to clear this before the month closes rather than
+                // carry a growing balance. settle-now turns the accrual into a
+                // real settlement they can pay and upload proof for today.
+                payable_now: (parseFloat(accruing.amount) || 0) > 0,
+                note: "Payable now, or billed automatically once this month closes."
             }
         });
     } catch (error) {
@@ -739,6 +813,111 @@ export const listMySettlements = async (req, res) => {
         return res.status(200).json({ success: true, settlements: settlements.map(withCalendarDueDate) });
     } catch (error) {
         console.error("listMySettlements error:", error);
+        return res.status(500).json({ success: false, message: "Server error." });
+    }
+};
+
+/**
+ * POST /api/commission/settlements/settle-now — cook only.
+ *
+ * Turns the OPEN month's live accrual into a real settlement the cook can pay
+ * today, instead of waiting for the 1st-of-month cron. Everything downstream
+ * (platform QR, eSewa, screenshot upload, admin verification, notifications) is
+ * the existing flow untouched — this only materialises the row it needs.
+ *
+ * Idempotent-ish by the unique (cook_id, month, year) key: a period can hold
+ * exactly one settlement. So if a bill already exists for this month, that bill
+ * is what the cook pays; we never create a second one.
+ *
+ * Orders are stamped with the settlement id, so the month-close cron cannot bill
+ * them again, and deliveries made AFTER the early payment stay unbilled and roll
+ * into the next generation via getCommissionByCook's carry-in clause. No rupee
+ * is lost and none is charged twice.
+ */
+export const settleAccruedNow = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+        const { month, year } = getNptMonthYear();
+
+        const [[existing]] = await db.promise().query(
+            `SELECT * FROM commission_settlements WHERE cook_id = ? AND month = ? AND year = ?`,
+            [cookId, month, year]
+        );
+
+        if (existing) {
+            // pending/rejected are payable — hand the cook the bill they already
+            // have rather than erroring at them for tapping "Pay now" twice.
+            if (["pending", "rejected"].includes(existing.status)) {
+                return res.status(200).json({
+                    success: true,
+                    message: "This month's commission bill is ready to pay.",
+                    settlement: withCalendarDueDate(existing)
+                });
+            }
+            return res.status(409).json({
+                success: false,
+                message: existing.status === "submitted"
+                    ? "Your payment for this month is already awaiting admin verification."
+                    : "This month's commission is already settled. Anything you deliver from now on is billed in the next cycle."
+            });
+        }
+
+        const [[accrued]] = await db.promise().query(
+            `SELECT COUNT(*) AS order_count, COALESCE(SUM(commission_amount), 0) AS amount
+             FROM orders
+             WHERE cook_id = ? AND status = 'delivered' AND commission_amount IS NOT NULL
+               AND (refund_status IS NULL OR refund_status != 'refunded')
+               AND commission_settlement_id IS NULL
+               AND MONTH(${toNpt("delivered_at")}) = ? AND YEAR(${toNpt("delivered_at")}) = ?`,
+            [cookId, month, year]
+        );
+
+        const amount = parseFloat(accrued.amount) || 0;
+        // EC7's rule, applied early: no ₹0 bill. Silence is the correct answer.
+        if (amount <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "You have no commission to pay yet — nothing has been delivered this month."
+            });
+        }
+
+        const [[cook]] = await db.promise().query(
+            `SELECT u.full_name, u.phone, cp.kitchen_name
+             FROM users u LEFT JOIN cook_profiles cp ON cp.user_id = u.id
+             WHERE u.id = ?`,
+            [cookId]
+        );
+
+        // Same due_date arithmetic as generateMonthlySettlements, in SQL for the
+        // same reason: one place decides what "1st of next month + 15 days" means.
+        const [result] = await db.promise().query(
+            `INSERT INTO commission_settlements
+                 (cook_id, month, year, amount_due, order_count, due_date,
+                  cook_name_snapshot, cook_phone_snapshot, kitchen_name_snapshot)
+             VALUES (?, ?, ?, ?, ?, DATE_ADD(DATE_ADD(MAKEDATE(?, 1), INTERVAL ? MONTH), INTERVAL 15 DAY), ?, ?, ?)`,
+            [cookId, month, year, amount, accrued.order_count, year, month,
+             cook?.full_name || null, cook?.phone || null, cook?.kitchen_name || null]
+        );
+
+        await stampBilledOrders(cookId, result.insertId, month, year);
+
+        // The cook triggered this, so the in-app notification is a receipt, not
+        // an alert — but it is what makes the bill findable later from the
+        // notification list, exactly like a cron-generated one.
+        await notifyCommissionDue(cookId, amount, month, year, result.insertId);
+
+        const [[created]] = await db.promise().query(
+            "SELECT * FROM commission_settlements WHERE id = ?",
+            [result.insertId]
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: "Commission bill created. Pay it and upload your payment screenshot.",
+            settlement: withCalendarDueDate(created)
+        });
+    } catch (error) {
+        console.error("settleAccruedNow error:", error);
         return res.status(500).json({ success: false, message: "Server error." });
     }
 };
