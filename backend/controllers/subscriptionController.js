@@ -25,12 +25,18 @@ import {
     DAY_STATUS,
     DAY_STATUS_LABELS,
     applyDayStatus,
+    getDayRow,
     getDayRowsInRange,
     getCookClosuresInRange,
     isCookClosedOn,
     placeDayOrder,
     logDayEvent
 } from "../utils/subscriptionDailyLog.js";
+import {
+    announceSubscriptionEvent,
+    subscriptionCardMeta,
+    CARD_TYPES
+} from "../utils/subscriptionEvents.js";
 
 export function getDurationDays(duration) {
     if (duration === "2_weeks" || duration === "biweekly") return 14;
@@ -925,6 +931,23 @@ export const getSubscriptionCalendar = async (req, res) => {
                 can_request_custom: isLive && !locked
                     && status === DAY_STATUS.SCHEDULED
                     && !swapRows.has(date),
+                // ── The sent → received handshake ──────────────────────────
+                // Role-scoped: only the cook is ever offered "sent", only the
+                // customer is ever offered "received", and each mirrors exactly
+                // what its endpoint will accept so the UI can't show a button the
+                // server refuses.
+                //
+                // `locked` is deliberately NOT consulted. The cutoff governs
+                // CHANGING a day's plan, and today is always past its own cutoff
+                // (it closed last evening) — gating on it would mean the cook
+                // could never mark today's meal sent, which is the only day the
+                // button is for.
+                can_mark_sent: isCook && isLive
+                    && status === DAY_STATUS.SCHEDULED
+                    && date === today,
+                can_mark_received: isCustomer && isLive
+                    && status === DAY_STATUS.SENT
+                    && daysBetween(today, date) <= 0,
                 // Surfaced even when false so the UI can grey the toggle out with
                 // "Cutoff passed" rather than hiding it and looking broken.
                 locked_message: locked
@@ -1172,6 +1195,395 @@ export const skipDay = async (req, res) => {
         });
     } catch (error) {
         console.error("skipDay error:", error);
+        return res.status(500).json({ success: false, message: "Server error.", error: error.message });
+    }
+};
+
+// ── Per-day sent → received handshake ───────────────────────────────────────
+//
+// Before this, 'delivered' was only ever written by the 06:00 cron, inferred
+// from the linked order's status. Neither the cook nor the customer could state
+// what actually happened on a given day, so a dispute about one meal had nothing
+// in it but that inference.
+//
+//   scheduled --(cook: mark sent)--> sent --(customer: confirm)--> delivered
+//
+// Both writes go through applyDayStatus with an `onlyFrom` list, so the pair is a
+// real handshake rather than two independent flags: the customer cannot confirm a
+// meal the cook never sent, and neither call can overwrite a day that is already
+// settled as skipped, closed or delivered.
+//
+// Neither endpoint touches end_date or credit_deducted. This handshake records
+// what happened on a day that was always going to be delivered; it is not a
+// compensation event, and the credit was already decided when the order was
+// placed.
+
+/**
+ * Loads a subscription for a day-handshake write and authorises the caller.
+ *
+ * Returns { error: {status, body} } or { sub }. Ownership is checked against
+ * `req.user.id` for the role named in `as` — the :id in the URL proves nothing on
+ * its own, and the cook route and customer route must not be able to stand in
+ * for each other.
+ */
+const loadSubscriptionForDayWrite = async (subscriptionId, userId, as) => {
+    const [subs] = await db.promise().query(
+        `SELECT s.id, s.customer_id, s.cook_id, s.status,
+                DATE_FORMAT(s.start_date, '%Y-%m-%d') AS start_date,
+                DATE_FORMAT(s.end_date, '%Y-%m-%d')   AS end_date,
+                p.name AS plan_name, p.duration,
+                cu.full_name AS customer_name,
+                ck.full_name AS cook_name
+         FROM subscriptions s
+         JOIN subscription_plans p ON s.plan_id = p.id
+         JOIN users cu ON cu.id = s.customer_id
+         JOIN users ck ON ck.id = s.cook_id
+         WHERE s.id = ?`,
+        [subscriptionId]
+    );
+    if (subs.length === 0) {
+        return { error: { status: 404, body: { success: false, message: "Subscription not found." } } };
+    }
+    const sub = subs[0];
+
+    const owns = as === "cook" ? sub.cook_id === userId : sub.customer_id === userId;
+    if (!owns) {
+        return {
+            error: {
+                status: 403,
+                body: { success: false, message: "This subscription isn't yours." }
+            }
+        };
+    }
+
+    // 'scheduled' is allowed as well as 'active': a subscription that starts
+    // TODAY sits in 'scheduled' until the 06:00 cron flips it, and the cook may
+    // well hand over that first meal before then.
+    if (!["active", "scheduled"].includes(sub.status)) {
+        return {
+            error: {
+                status: 400,
+                body: {
+                    success: false,
+                    message: `This subscription is "${sub.status.replace(/_/g, " ")}" — it has no live delivery days.`
+                }
+            }
+        };
+    }
+    return { sub };
+};
+
+/**
+ * Guards a date against the subscription's own window. Returns a message string
+ * when the date is unusable, or null when it is fine.
+ */
+const dayOutsideWindow = (sub, target) => {
+    if (sub.start_date && daysBetween(sub.start_date, target) < 0) {
+        return `Deliveries on this subscription don't start until ${sub.start_date}.`;
+    }
+    if (sub.end_date && daysBetween(sub.end_date, target) > 0) {
+        return `${target} is past the end of this subscription (${sub.end_date}).`;
+    }
+    return null;
+};
+
+/**
+ * A blocked handshake write is not always a failure. "You already did that" is a
+ * success with nothing to do — returning 409 for it would make the app show an
+ * error for a state the user was trying to reach anyway, and a double tap on a
+ * slow connection is the most likely way to get here.
+ */
+const dayWriteConflictStatus = (outcome) =>
+    outcome.blockedBy === "already_set" ? 200 : 409;
+
+/** Why the cook's mark-sent didn't land, in the cook's own terms. */
+const markSentConflictBody = (outcome, target) => {
+    const prev = outcome.previousStatus;
+    if (prev === DAY_STATUS.SENT) {
+        return { success: true, code: "already_sent", message: `You'd already marked ${target} as sent.`, day: { date: target, status: prev } };
+    }
+    if (prev === DAY_STATUS.DELIVERED) {
+        return { success: true, code: "already_delivered", message: `${target} is done — the customer has already confirmed they received it.`, day: { date: target, status: prev } };
+    }
+    if (prev === DAY_STATUS.CUSTOMER_SKIPPED) {
+        return { success: false, code: "customer_skipped", message: `The customer skipped ${target}, so there was no meal to send.` };
+    }
+    if (prev === DAY_STATUS.COOK_UNAVAILABLE) {
+        return { success: false, code: "cook_unavailable", message: `Your kitchen is marked closed on ${target}. Reopen the date first if you did cook.` };
+    }
+    if (prev === DAY_STATUS.MISSED) {
+        return { success: false, code: "already_missed", message: `${target} was already settled as missed. That needs support to change, not this button.` };
+    }
+    return { success: false, code: "not_applied", message: `Couldn't mark ${target} as sent — it's currently "${prev}".` };
+};
+
+/** Why the customer's confirmation didn't land, in the customer's own terms. */
+const markReceivedConflictBody = (outcome, target) => {
+    const prev = outcome.previousStatus;
+    if (prev === DAY_STATUS.DELIVERED) {
+        return { success: true, code: "already_received", message: `You'd already confirmed ${target}. Thanks!`, day: { date: target, status: prev } };
+    }
+    if (prev === DAY_STATUS.SCHEDULED) {
+        // The handshake in action: the customer's button is only offered for a
+        // 'sent' day, so reaching this means the cook un-sent it or the screen was
+        // stale.
+        return { success: false, code: "not_sent_yet", message: `The cook hasn't marked ${target}'s meal as sent yet, so there's nothing to confirm.` };
+    }
+    if (prev === DAY_STATUS.CUSTOMER_SKIPPED) {
+        return { success: false, code: "customer_skipped", message: `You skipped ${target}, so no meal was coming.` };
+    }
+    if (prev === DAY_STATUS.COOK_UNAVAILABLE) {
+        return { success: false, code: "cook_unavailable", message: `The kitchen was closed on ${target}.` };
+    }
+    if (prev === DAY_STATUS.MISSED) {
+        return { success: false, code: "already_missed", message: `${target} is recorded as missed. If you did get that meal, contact support — this can't be reversed here.` };
+    }
+    return { success: false, code: "not_applied", message: `Couldn't confirm ${target} — it's currently "${prev}".` };
+};
+
+/**
+ * POST /api/subscriptions/:id/mark-sent — cook only.
+ * Body: { date: 'YYYY-MM-DD', note? }
+ *
+ * The cook states that today's meal has left the kitchen. This does NOT settle
+ * the day: it moves it to 'sent' and hands the last word to the customer, who
+ * confirms receipt via mark-received. A day the customer never confirms is
+ * settled as delivered by the next morning's reconcile pass, so it can't hang
+ * open forever.
+ *
+ * TODAY ONLY, deliberately. Marking a future day sent would claim a delivery that
+ * hasn't happened, and letting the cook backfill a past day would let them
+ * overwrite the reconcile pass's verdict — which is the record a dispute rests on.
+ *
+ * The cutoff is NOT consulted here. isDateLocked() answers "may this day still be
+ * CHANGED", and today is always past its own cutoff (it closed last evening).
+ * Confirming what physically happened is not a change to the plan.
+ */
+export const markDaySent = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+        const { id } = req.params;
+        const { date, note } = req.body;
+
+        if (!isValidDateString(date)) {
+            return res.status(400).json({
+                success: false,
+                message: "date is required, as a real calendar date in YYYY-MM-DD form."
+            });
+        }
+        const target = date.trim();
+
+        const loaded = await loadSubscriptionForDayWrite(id, cookId, "cook");
+        if (loaded.error) return res.status(loaded.error.status).json(loaded.error.body);
+        const sub = loaded.sub;
+
+        const today = getNptToday();
+        if (target !== today) {
+            return res.status(400).json({
+                success: false,
+                code: "not_today",
+                message: daysBetween(today, target) > 0
+                    ? `${target} hasn't arrived yet — you can only mark today's meal as sent.`
+                    : `${target} has already been settled. You can only mark today's meal as sent.`
+            });
+        }
+        const windowProblem = dayOutsideWindow(sub, target);
+        if (windowProblem) {
+            return res.status(400).json({ success: false, message: windowProblem });
+        }
+
+        // credit_deducted is carried over from the existing row, never re-decided.
+        // applyDayStatus writes whatever it is given, so passing a bare `false`
+        // here would quietly un-charge a day the ordering pass had already
+        // charged for.
+        const existing = await getDayRow(db.promise(), sub.id, target);
+        const outcome = await applyDayStatus(db.promise(), {
+            subscriptionId: sub.id,
+            deliveryDate: target,
+            status: DAY_STATUS.SENT,
+            toggledBy: "cook",
+            reason: note ? String(note).slice(0, 500) : null,
+            creditDeducted: existing ? !!existing.credit_deducted : false,
+            // Only a day that was actually still going to be delivered. This is
+            // what makes the branches below reachable: without it, marking a day
+            // sent would silently overwrite the customer's own skip.
+            onlyFrom: [DAY_STATUS.SCHEDULED]
+        });
+
+        if (!outcome.applied) {
+            await logDayEvent({
+                subscriptionId: sub.id,
+                event: "mark_sent_rejected",
+                actor: "cook",
+                detail: `Mark-sent for ${target} not applied — day is "${outcome.previousStatus}" (${outcome.blockedBy}).`
+            });
+            return res.status(dayWriteConflictStatus(outcome)).json(
+                markSentConflictBody(outcome, target)
+            );
+        }
+
+        await logDayEvent({
+            subscriptionId: sub.id,
+            event: "day_sent",
+            actor: "cook",
+            detail: `Cook marked ${target} as sent${note ? ` — "${String(note).slice(0, 200)}"` : ""}.`
+                + " Waiting on the customer to confirm receipt."
+        });
+
+        const pretty = formatDeliveryDate(target);
+        const { conversationId } = await announceSubscriptionEvent({
+            io: req.app.get("io"),
+            customerId: sub.customer_id, cookId: sub.cook_id,
+            senderId: sub.cook_id, recipientId: sub.customer_id,
+            senderName: sub.cook_name,
+            cardType: CARD_TYPES.SUBSCRIPTION_UPDATE,
+            cardText: `Your ${sub.plan_name} meal for ${pretty} is on its way. Tap "Mark as received" once it reaches you.`,
+            metadata: subscriptionCardMeta({
+                subscriptionId: sub.id,
+                planName: sub.plan_name,
+                duration: sub.duration,
+                startDate: sub.start_date,
+                endDate: sub.end_date,
+                status: sub.status,
+                customerName: sub.customer_name,
+                cookName: sub.cook_name,
+                note: `Meal for ${pretty} marked sent by the cook.`
+            }),
+            referenceId: sub.id, referenceType: "subscription",
+            title: "Your meal is on the way 🍱",
+            body: `${sub.cook_name} sent your ${sub.plan_name} meal for ${pretty}. Confirm it once it arrives.`,
+            notifType: "subscription_meal_sent",
+            pushData: { deliveryDate: target }
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: `${pretty} marked as sent. The customer has been told and can now confirm they received it.`,
+            date: target,
+            day: { date: target, status: DAY_STATUS.SENT, credit_deducted: existing ? !!existing.credit_deducted : false },
+            conversation_id: conversationId
+        });
+    } catch (error) {
+        console.error("markDaySent error:", error);
+        return res.status(500).json({ success: false, message: "Server error.", error: error.message });
+    }
+};
+
+/**
+ * POST /api/subscriptions/:id/mark-received — customer only.
+ * Body: { date: 'YYYY-MM-DD', note? }
+ *
+ * The customer confirms the meal arrived. This is the ONLY path by which a live
+ * day becomes 'delivered' on someone's say-so; every other route to 'delivered'
+ * is the reconcile pass inferring it. 'delivered' is terminal, which is why the
+ * confirmation is the customer's and not the cook's — the person who received the
+ * food is the one who can close the day.
+ *
+ * `onlyFrom: ['sent']` is the handshake. A day the cook never marked sent cannot
+ * be confirmed, so the two buttons are two halves of one exchange rather than two
+ * independent flags that could disagree.
+ *
+ * Today or earlier only: a meal that hasn't been cooked yet can't have arrived.
+ * Earlier is allowed because a meal handed over at 9pm is often confirmed the
+ * next morning — until 06:00 NPT, when the reconcile pass settles it.
+ */
+export const markDayReceived = async (req, res) => {
+    try {
+        const customerId = req.user.id;
+        const { id } = req.params;
+        const { date, note } = req.body;
+
+        if (!isValidDateString(date)) {
+            return res.status(400).json({
+                success: false,
+                message: "date is required, as a real calendar date in YYYY-MM-DD form."
+            });
+        }
+        const target = date.trim();
+
+        const loaded = await loadSubscriptionForDayWrite(id, customerId, "customer");
+        if (loaded.error) return res.status(loaded.error.status).json(loaded.error.body);
+        const sub = loaded.sub;
+
+        const today = getNptToday();
+        if (daysBetween(today, target) > 0) {
+            return res.status(400).json({
+                success: false,
+                code: "future_date",
+                message: `${target} hasn't happened yet — you can't confirm a meal before it's delivered.`
+            });
+        }
+        const windowProblem = dayOutsideWindow(sub, target);
+        if (windowProblem) {
+            return res.status(400).json({ success: false, message: windowProblem });
+        }
+
+        const existing = await getDayRow(db.promise(), sub.id, target);
+        const outcome = await applyDayStatus(db.promise(), {
+            subscriptionId: sub.id,
+            deliveryDate: target,
+            status: DAY_STATUS.DELIVERED,
+            toggledBy: "customer",
+            reason: note ? String(note).slice(0, 500) : null,
+            creditDeducted: existing ? !!existing.credit_deducted : false,
+            onlyFrom: [DAY_STATUS.SENT]
+        });
+
+        if (!outcome.applied) {
+            await logDayEvent({
+                subscriptionId: sub.id,
+                event: "mark_received_rejected",
+                actor: "customer",
+                detail: `Receipt confirmation for ${target} not applied — day is "${outcome.previousStatus}" (${outcome.blockedBy}).`
+            });
+            return res.status(dayWriteConflictStatus(outcome)).json(
+                markReceivedConflictBody(outcome, target)
+            );
+        }
+
+        await logDayEvent({
+            subscriptionId: sub.id,
+            event: "day_delivered",
+            actor: "customer",
+            detail: `Customer confirmed receipt of ${target}${note ? ` — "${String(note).slice(0, 200)}"` : ""}.`
+                + " Day closed as delivered."
+        });
+
+        const pretty = formatDeliveryDate(target);
+        const { conversationId } = await announceSubscriptionEvent({
+            io: req.app.get("io"),
+            customerId: sub.customer_id, cookId: sub.cook_id,
+            senderId: sub.customer_id, recipientId: sub.cook_id,
+            senderName: sub.customer_name,
+            cardType: CARD_TYPES.SUBSCRIPTION_UPDATE,
+            cardText: `Got the ${sub.plan_name} meal for ${pretty} — thank you!`,
+            metadata: subscriptionCardMeta({
+                subscriptionId: sub.id,
+                planName: sub.plan_name,
+                duration: sub.duration,
+                startDate: sub.start_date,
+                endDate: sub.end_date,
+                status: sub.status,
+                customerName: sub.customer_name,
+                cookName: sub.cook_name,
+                note: `${pretty} confirmed received by the customer.`
+            }),
+            referenceId: sub.id, referenceType: "subscription",
+            title: "Delivery confirmed ✅",
+            body: `${sub.customer_name} confirmed they received the ${sub.plan_name} meal for ${pretty}.`,
+            notifType: "subscription_meal_received",
+            pushData: { deliveryDate: target }
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: `Thanks — ${pretty} is confirmed as delivered and the cook has been told.`,
+            date: target,
+            day: { date: target, status: DAY_STATUS.DELIVERED, credit_deducted: existing ? !!existing.credit_deducted : false },
+            conversation_id: conversationId
+        });
+    } catch (error) {
+        console.error("markDayReceived error:", error);
         return res.status(500).json({ success: false, message: "Server error.", error: error.message });
     }
 };

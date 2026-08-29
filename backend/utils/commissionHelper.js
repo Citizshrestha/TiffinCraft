@@ -1,4 +1,5 @@
 import db from "../config/db.js";
+import { DEFAULT_COMMISSION_PCT } from "./commissionSnapshot.js";
 import { notifyCommissionRateChange } from "./notificationHelper.js";
 
 /**
@@ -178,7 +179,7 @@ export const calculatePendingCommissionForCook = async (cookId) => {
         const [[settings]] = await db.promise().query(
             "SELECT commission_pct FROM platform_settings WHERE id = 1"
         );
-        const currentRate = settings ? parseFloat(settings.commission_pct) : 5.00;
+        const currentRate = settings ? parseFloat(settings.commission_pct) : DEFAULT_COMMISSION_PCT;
 
         // Get pending orders (not yet delivered)
         const [[pending]] = await db.promise().query(
@@ -206,7 +207,7 @@ export const calculatePendingCommissionForCook = async (cookId) => {
             order_count: 0,
             total_amount: 0,
             estimated_commission: 0,
-            current_rate: 5.00
+            current_rate: DEFAULT_COMMISSION_PCT
         };
     }
 };

@@ -1,12 +1,18 @@
 import db from "../config/db.js";
+import crypto from "crypto";
 import {
     notifyCommissionDue,
+    notifyCommissionDueReminder,
     notifyCommissionSettlementSubmitted,
     notifyCommissionSettlementVerified,
     notifyCommissionSettlementRejected
 } from "../utils/notificationHelper.js";
-import { getNptNow, getNptMonthYear, toNpt } from "../utils/nepaliTime.js";
+import { getNptNow, getNptMonthYear, getNptPreviousMonthYear, toNpt } from "../utils/nepaliTime.js";
 import { notifyAllCooksOfRateChange, getCommissionRateHistory } from "../utils/commissionHelper.js";
+import {
+    DEFAULT_COMMISSION_PCT,
+    applyDeliveryCommission as snapshotDeliveryCommission
+} from "../utils/commissionSnapshot.js";
 
 /**
  * Platform commission — one global rate admins can change, snapshotted onto
@@ -45,7 +51,7 @@ export const getCommissionSettings = async (req, res) => {
         );
         return res.status(200).json({
             success: true,
-            commission_pct: settings ? parseFloat(settings.commission_pct) : 4.00,
+            commission_pct: settings ? parseFloat(settings.commission_pct) : DEFAULT_COMMISSION_PCT,
             updated_at: settings ? settings.updated_at : null
         });
     } catch (error) {
@@ -68,7 +74,7 @@ export const updateCommissionSettings = async (req, res) => {
         const [[currentSettings]] = await db.promise().query(
             "SELECT commission_pct FROM platform_settings WHERE id = 1"
         );
-        const oldRate = currentSettings ? parseFloat(currentSettings.commission_pct) : 5.00;
+        const oldRate = currentSettings ? parseFloat(currentSettings.commission_pct) : DEFAULT_COMMISSION_PCT;
 
         // Check if rate actually changed
         if (Math.abs(oldRate - pct) < 0.01) {
@@ -119,63 +125,26 @@ export const updateCommissionSettings = async (req, res) => {
 };
 
 /**
- * Snapshots the current commission rate onto an order the moment it's
- * marked 'delivered' — called from both the cook's and the admin's
- * order-status endpoints (the only two places status can become
- * 'delivered'). Idempotent via the "commission_amount IS NULL" guard, so
- * calling it twice (e.g. an admin re-saving the same status) never
- * re-charges commission at a possibly-changed rate.
+ * Commission is charged by utils/commissionSnapshot.js, which is the single
+ * implementation for every delivery path (cook order status, admin order
+ * status, subscription day, backfill script). Re-exported here because
+ * orderController and adminController have always imported it from this
+ * module; moving it would be a rename for no gain.
  *
- * Rounding (documented, not "fixed"): commission is snapshotted PER ORDER
- * as ROUND(total_amount * pct / 100, 2). A month's amount_due
- * (generateMonthlySettlements) is the SUM of these already-rounded
- * per-order snapshots, not a fresh ROUND(month_gross * pct / 100, 2). The
- * two can differ by a few paisa. The per-order snapshot is kept as the
- * source of truth deliberately — it is what lets a rate change never
- * retroactively alter a closed period (see the module-level comment and
- * edge case 9). Do not "fix" this drift by recomputing monthly totals from
- * the gross; that would defeat the whole point of snapshotting.
+ * Edge case 2 (late order into a closed period) — DECISION: INSERT IGNORE in
+ * generateMonthlySettlements means a period's settlement is generated once and
+ * never recomputed, even if an order delivered later logically belongs to that
+ * period. This is INTENTIONAL, not a silent loss: such an order's
+ * commission_amount is still snapshotted on the order row and still counts in
+ * getCommissionSummary's all-time and trend totals — it is simply not re-added
+ * to that closed period's frozen amount_due. It rolls into whichever period's
+ * settlement generation next picks it up by delivered_at. Net effect: no
+ * commission is ever lost, only ever deferred by at most one billing cycle, and
+ * a closed period's amount_due never changes after a cook was told what it was.
  *
- * Edge case 2 (late order into a closed period) — DECISION: INSERT IGNORE
- * in generateMonthlySettlements means a period's settlement is generated
- * once and never recomputed, even if an order delivered later logically
- * belongs to that period (e.g. its delivered_at somehow lands in an
- * already-settled month). This is INTENTIONAL, not a silent loss: such an
- * order's commission_amount is still snapshotted here and still exists on
- * the order row and in getCommissionSummary's all-time/trend totals — it
- * is simply not re-added to that closed period's amount_due. It rolls into
- * whichever period's settlement generation next picks it up by
- * delivered_at, which for a genuinely late order is virtually always the
- * period it actually belongs to (settlement generation runs monthly, and
- * delivered_at is set once, at actual delivery time — so an order can only
- * be "late" into an already-closed period if its true delivery happened
- * after that period's settlement run, which itself only happens after the
- * period ended). Net effect: no commission is ever lost, only ever
- * deferred by at most one billing cycle, and a closed period's amount_due
- * never silently changes after a cook has been notified of it.
+ * See commissionSnapshot.js for the per-order rounding decision (edge case 9).
  */
-export const applyDeliveryCommission = async (orderId) => {
-    try {
-        const [[settings]] = await db.promise().query(
-            "SELECT commission_pct FROM platform_settings WHERE id = 1"
-        );
-        const pct = settings ? parseFloat(settings.commission_pct) : 4.00;
-
-        // delivered_at is the true, immutable delivery moment — unlike updated_at
-        // (which changes on any later touch to the row), this is set once here
-        // and never again, so commission period grouping stays stable forever.
-        await db.promise().query(
-            `UPDATE orders
-             SET commission_pct = ?, commission_amount = ROUND(total_amount * ? / 100, 2), delivered_at = NOW()
-             WHERE id = ? AND commission_amount IS NULL`,
-            [pct, pct, orderId]
-        );
-    } catch (error) {
-        // Never let a commission-snapshot failure block the delivery status
-        // update itself — log it and move on.
-        console.error(`❌ applyDeliveryCommission failed for order #${orderId}:`, error.message);
-    }
-};
+export const applyDeliveryCommission = snapshotDeliveryCommission;
 
 /**
  * Per-cook commission totals for a given period — "how much does each cook
@@ -306,7 +275,7 @@ export const getCommissionSummary = async (req, res) => {
         const [[settings]] = await db.promise().query(
             "SELECT commission_pct FROM platform_settings WHERE id = 1"
         );
-        const pct = settings ? parseFloat(settings.commission_pct) : 4.00;
+        const pct = settings ? parseFloat(settings.commission_pct) : DEFAULT_COMMISSION_PCT;
 
         // Pending collection — commission not yet locked in because the orders
         // haven't been delivered. Estimated at the CURRENT rate (the rate that
@@ -439,7 +408,9 @@ export const generateMonthlySettlements = async (month, year) => {
 
         if (result.affectedRows > 0) {
             created++;
-            await notifyCommissionDue(row.cook_id, row.commission_total, month, year);
+            // insertId lets the push deep-link straight to this settlement instead
+            // of dumping the cook on a generic list and making them find it.
+            await notifyCommissionDue(row.cook_id, row.commission_total, month, year, result.insertId);
         }
     }
 
@@ -456,10 +427,11 @@ export const generateSettlementsNow = async (req, res) => {
         let year = parseInt(req.query.year);
 
         if (!month || !year) {
-            const now = new Date();
-            const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            month = prevMonthDate.getMonth() + 1;
-            year = prevMonthDate.getFullYear();
+            // NPT, not server-local: on a UTC-clock host the two disagree about
+            // which month just closed for the first 5h45m of every 1st.
+            const prev = getNptPreviousMonthYear();
+            month = prev.month;
+            year = prev.year;
         }
 
         if (month < 1 || month > 12 || year < 2000 || year > 2100) {
@@ -657,10 +629,28 @@ export const verifySettlement = async (req, res) => {
             // A partial payment is deliberately NOT notified as "verified" — the
             // cook still owes money and must not be told they're settled up.
             if (settlement.cook_id && !isPartial) {
-                await notifyCommissionSettlementVerified(settlement.cook_id, settlement.amount_due, settlement.month, settlement.year);
+                await notifyCommissionSettlementVerified(settlement.cook_id, settlement.amount_due, settlement.month, settlement.year, settlement.id);
             }
         } else if (settlement.cook_id) {
-            await notifyCommissionSettlementRejected(settlement.cook_id, settlement.amount_due, admin_notes);
+            await notifyCommissionSettlementRejected(settlement.cook_id, settlement.amount_due, admin_notes, settlement.id);
+        }
+
+        // Live refresh for a cook sitting on the commission screen right now.
+        // Without this they stare at "Awaiting admin verification" until they
+        // think to pull-to-refresh, which is exactly when they message support.
+        try {
+            const io = req.app.get("io");
+            if (io && settlement.cook_id) {
+                io.to(`user_${settlement.cook_id}`).emit("commissionSettlementUpdated", {
+                    settlement_id: Number(id),
+                    status: newStatus,
+                    amount_paid: (newPaidPaisa / 100).toFixed(2),
+                    amount_remaining: (remainingPaisa / 100).toFixed(2),
+                    partial: isPartial
+                });
+            }
+        } catch (emitErr) {
+            console.error("commissionSettlementUpdated emit failed:", emitErr.message);
         }
 
         return res.status(200).json({
@@ -780,12 +770,30 @@ export const uploadSettlementScreenshot = async (req, res) => {
             return res.status(400).json({ success: false, message: `Cannot submit payment proof for a settlement that's already "${settlement.status}".` });
         }
 
-        await db.promise().query(
-            `UPDATE commission_settlements
-             SET payment_screenshot_url = ?, status = 'submitted', submitted_at = NOW()
-             WHERE id = ?`,
-            [payment_screenshot_url, id]
-        );
+        // Dedupe on the actual image bytes. Without this a cook could re-submit
+        // one genuine payment screenshot every month and settle each period with
+        // a single real payment. The same guard already protects subscription
+        // payment proofs (subscription_payment_screenshot_hash), so this mirrors
+        // a pattern that is already in production rather than inventing one.
+        const screenshotHash = await hashRemoteImage(payment_screenshot_url);
+
+        try {
+            await db.promise().query(
+                `UPDATE commission_settlements
+                 SET payment_screenshot_url = ?, payment_screenshot_hash = ?,
+                     status = 'submitted', submitted_at = NOW()
+                 WHERE id = ?`,
+                [payment_screenshot_url, screenshotHash, id]
+            );
+        } catch (err) {
+            if (err.code === "ER_DUP_ENTRY") {
+                return res.status(409).json({
+                    success: false,
+                    message: "This screenshot has already been submitted for another commission payment. Please upload the screenshot of this month's payment."
+                });
+            }
+            throw err;
+        }
 
         const [[cook]] = await db.promise().query("SELECT full_name FROM users WHERE id = ?", [cookId]);
         const [admins] = await db.promise().query("SELECT id FROM users WHERE role = 'admin' AND is_active = TRUE");
@@ -820,4 +828,124 @@ export const getCommissionRateHistoryEndpoint = async (req, res) => {
         console.error("getCommissionRateHistoryEndpoint error:", error);
         return res.status(500).json({ success: false, message: "Server error." });
     }
+};
+
+
+/**
+ * SHA-256 of the bytes behind an uploaded screenshot URL.
+ *
+ * Hashed server-side from the real bytes rather than trusting a client-sent
+ * hash — a client that computes its own hash can trivially send a random one
+ * and defeat the dedupe it is supposed to be subject to.
+ *
+ * FAILS OPEN, deliberately: if the image cannot be fetched, this returns null
+ * and the submission proceeds un-deduped. Blocking a cook's genuine payment
+ * because Cloudinary was briefly unreachable is a worse outcome than letting a
+ * duplicate through to an admin who is going to eyeball the screenshot anyway.
+ * The failure is logged loudly so it is visible if it stops being rare.
+ */
+const SCREENSHOT_HASH_MAX_BYTES = 10 * 1024 * 1024; // uploads are capped at 5MB; 2x headroom
+const SCREENSHOT_HASH_TIMEOUT_MS = 8000;
+
+const hashRemoteImage = async (url) => {
+    try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), SCREENSHOT_HASH_TIMEOUT_MS);
+        let buf;
+        try {
+            const resp = await fetch(url, { signal: controller.signal });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const len = Number(resp.headers.get("content-length") || 0);
+            if (len > SCREENSHOT_HASH_MAX_BYTES) throw new Error(`too large (${len} bytes)`);
+            buf = Buffer.from(await resp.arrayBuffer());
+        } finally {
+            clearTimeout(timer);
+        }
+        if (buf.length > SCREENSHOT_HASH_MAX_BYTES) throw new Error(`too large (${buf.length} bytes)`);
+        return crypto.createHash("sha256").update(buf).digest("hex");
+    } catch (err) {
+        console.error(`⚠️  Could not hash commission screenshot (dedupe skipped for this submission): ${err.message}`);
+        return null;
+    }
+};
+
+/**
+ * Daily sweep that reminds cooks about unpaid commission.
+ *
+ * Cadence, and why: one nudge 3 days BEFORE the due date (early enough to act
+ * on, late enough not to be ignored), one ON the due date, then weekly once
+ * overdue. Not daily-once-overdue — a cook who is short on cash and gets
+ * pinged every morning mutes the app, and then never sees the notification
+ * that actually matters.
+ *
+ * Throttled by last_reminder_at so a restart, a duplicate cron fire, or two
+ * app instances sharing one DB cannot double-send. The throttle is compared on
+ * the NPT calendar day, not a 24h window, so "already reminded today" means
+ * what a cook would mean by it.
+ *
+ * Amount chased is what is STILL OWED (amount_due - amount_paid): a cook who
+ * has part-paid must never be asked for the original figure again.
+ */
+export const sendCommissionDueReminders = async () => {
+    const { month: nptMonth, year: nptYear } = getNptMonthYear();
+    const nptToday = getNptNow();
+    const todayIso = nptToday.toISOString().slice(0, 10);
+
+    const [rows] = await db.promise().query(
+        `SELECT id, cook_id, month, year, amount_due, amount_paid,
+                DATE_FORMAT(due_date, '%Y-%m-%d') AS due_date,
+                DATE_FORMAT(last_reminder_at, '%Y-%m-%d') AS last_reminder_day,
+                DATEDIFF(due_date, ?) AS days_until_due,
+                DATEDIFF(?, last_reminder_at) AS days_since_reminder
+         FROM commission_settlements
+         WHERE status = 'pending'
+           AND cook_id IS NOT NULL
+           AND due_date IS NOT NULL
+           AND amount_due > amount_paid`,
+        [todayIso, todayIso]
+    );
+
+    let sent = 0;
+    for (const r of rows) {
+        // At most one reminder per settlement per calendar day, whatever else
+        // below says. This is the spam guard and it comes first.
+        if (r.last_reminder_day === todayIso) continue;
+
+        const daysUntilDue = r.days_until_due;
+        const isOverdue = daysUntilDue < 0;
+
+        let shouldSend = false;
+        if (daysUntilDue === 3 || daysUntilDue === 0) {
+            shouldSend = true;
+        } else if (isOverdue) {
+            // First overdue reminder fires immediately, then weekly.
+            shouldSend = r.days_since_reminder === null || r.days_since_reminder >= 7;
+        }
+        if (!shouldSend) continue;
+
+        const remaining = Math.max(0, Number(r.amount_due) - Number(r.amount_paid || 0));
+        if (remaining <= 0) continue;
+
+        const dueLabel = r.due_date
+            ? new Date(`${r.due_date}T00:00:00Z`).toLocaleDateString("en-US",
+                { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
+            : null;
+
+        try {
+            await notifyCommissionDueReminder(
+                r.cook_id, remaining, r.month, r.year, r.id, dueLabel, isOverdue
+            );
+            // Stamped only after the notification actually went out, so a failed
+            // send is retried tomorrow instead of being silently skipped.
+            await db.promise().query(
+                "UPDATE commission_settlements SET last_reminder_at = NOW() WHERE id = ?",
+                [r.id]
+            );
+            sent++;
+        } catch (err) {
+            console.error(`❌ Commission reminder failed for settlement #${r.id}:`, err.message);
+        }
+    }
+
+    return { candidates: rows.length, sent, period: `${nptMonth}/${nptYear}` };
 };

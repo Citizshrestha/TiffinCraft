@@ -59,3 +59,19 @@ export const skipDayLimiter = perUserLimiter({
     limit: 20,
     message: "Too many changes to your delivery days. Please wait a while before making more."
 });
+
+/**
+ * The per-day sent/received handshake.
+ *
+ * Separate from skipDayLimiter, and much higher, because the traffic shape is
+ * different: a busy cook legitimately marks one meal sent for EVERY subscriber,
+ * every single day, so a 20/hour cap would lock out the 21st customer's meal
+ * through no fault of anyone's. Each call notifies exactly one person (unlike a
+ * closure, which fans out to every subscriber at once), so the blast radius of a
+ * stolen token is one push per call rather than a hundred.
+ */
+export const dayHandshakeLimiter = perUserLimiter({
+    windowMs: 60 * 60 * 1000,
+    limit: 120,
+    message: "Too many delivery confirmations in a row. Please wait a few minutes."
+});

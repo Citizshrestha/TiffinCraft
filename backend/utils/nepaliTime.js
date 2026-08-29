@@ -38,3 +38,21 @@ export const getNptMonthYear = () => {
  * extracting date parts. Usage: `MONTH(${toNpt('o.delivered_at')})`.
  */
 export const toNpt = (column) => `CONVERT_TZ(${column}, '+00:00', '+05:45')`;
+
+/**
+ * { month: 1-12, year } for the month BEFORE the current one, in Nepal time.
+ *
+ * The settlement cron and the manual generate endpoint both used
+ * `new Date(now.getFullYear(), now.getMonth() - 1, 1)` — server-local time,
+ * while every commission query buckets by NPT. On a UTC-clock host (Render,
+ * most managed hosts) 01:00 NPT on the 1st is still 19:15 on the 30th UTC, so
+ * getMonth() - 1 picked the month before the one that actually just closed and
+ * billed the wrong period. Uses getUTC* accessors because getNptNow() encodes
+ * NPT wall-clock into a Date's UTC fields.
+ */
+export const getNptPreviousMonthYear = () => {
+    const d = getNptNow();
+    d.setUTCDate(1);
+    d.setUTCMonth(d.getUTCMonth() - 1);
+    return { month: d.getUTCMonth() + 1, year: d.getUTCFullYear() };
+};

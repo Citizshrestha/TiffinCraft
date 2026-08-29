@@ -81,10 +81,11 @@ const reconcileYesterday = async () => {
         const [open] = await db.promise().query(
             `SELECT sdl.id, sdl.subscription_id,
                     DATE_FORMAT(sdl.delivery_date, '%Y-%m-%d') AS delivery_date,
+                    sdl.status AS day_status,
                     sdl.order_id, o.status AS order_status
              FROM subscription_daily_log sdl
              LEFT JOIN orders o ON o.id = sdl.order_id
-             WHERE sdl.status = 'scheduled'
+             WHERE sdl.status IN ('scheduled', 'sent')
                AND sdl.delivery_date < ?`,
             [today]
         );
@@ -97,19 +98,29 @@ const reconcileYesterday = async () => {
         let delivered = 0;
         let missed = 0;
         for (const row of open) {
-            const wasDelivered = row.order_status === "delivered" || row.order_status === "completed";
+            // A 'sent' day is settled as DELIVERED without consulting the order.
+            // The cook stated they handed it over and the customer had until now
+            // to say otherwise; treating that as 'missed' because the order row
+            // was never moved to 'delivered' would contradict both people who
+            // were actually there. This is also what stops an unconfirmed
+            // handshake hanging open forever.
+            const wasSent = row.day_status === DAY_STATUS.SENT;
+            const wasDelivered = wasSent
+                || row.order_status === "delivered" || row.order_status === "completed";
             const newStatus = wasDelivered ? DAY_STATUS.DELIVERED : DAY_STATUS.MISSED;
-            const reason = wasDelivered
-                ? null
-                : `Auto-settled: order ${row.order_id ? `#${row.order_id} was "${row.order_status}"` : "was never placed"} at end of day.`;
+            const reason = wasSent
+                ? "Auto-confirmed: the cook marked it sent and the customer didn't confirm or dispute it by end of day."
+                : wasDelivered
+                    ? null
+                    : `Auto-settled: order ${row.order_id ? `#${row.order_id} was "${row.order_status}"` : "was never placed"} at end of day.`;
 
-            // Guarded on status = 'scheduled' so a late manual update by the cook
-            // between the read above and this write is not overwritten.
+            // Guarded on the status we read so a late manual update — the customer
+            // confirming receipt seconds after the SELECT — is not overwritten.
             const [upd] = await db.promise().query(
                 `UPDATE subscription_daily_log
                  SET status = ?, toggled_by = 'system', reason = COALESCE(?, reason), toggled_at = NOW()
-                 WHERE id = ? AND status = 'scheduled'`,
-                [newStatus, reason, row.id]
+                 WHERE id = ? AND status = ?`,
+                [newStatus, reason, row.id, row.day_status]
             );
             if (upd.affectedRows === 0) continue;
 
@@ -121,8 +132,17 @@ const reconcileYesterday = async () => {
 
             // Only the bad outcome is audited. A delivered day is the expected
             // path and writing an event for every one of them would bury the
-            // exceptions that a dispute actually needs to find.
-            if (!wasDelivered) {
+            // exceptions that a dispute actually needs to find. An auto-confirmed
+            // 'sent' day is the exception to that exception: nobody actually
+            // confirmed it, and a dispute over that day turns on knowing so.
+            if (wasSent) {
+                await logDayEvent({
+                    subscriptionId: row.subscription_id,
+                    event: "day_auto_confirmed",
+                    actor: "system",
+                    detail: `${row.delivery_date} closed as delivered. ${reason}`
+                });
+            } else if (!wasDelivered) {
                 await logDayEvent({
                     subscriptionId: row.subscription_id,
                     event: "day_missed",

@@ -327,20 +327,59 @@ export const notifyRefundProcessed = async (customerId, orderId, status, adminNo
  * Create notification when a monthly commission settlement is generated
  * for a cook (sent to the cook).
  */
-export const notifyCommissionDue = async (cookId, amountDue, month, year) => {
+export const notifyCommissionDue = async (cookId, amountDue, month, year, settlementId = null) => {
     const monthLabel = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' });
     return createNotification(
         cookId,
         'Commission Due',
         `Your platform commission for ${monthLabel} ${year} is ₹${Number(amountDue).toFixed(2)}. Pay via the platform QR in Earnings and upload your payment screenshot.`,
         'commission_due',
-        null,
+        settlementId,
         'commission_settlement',
         {
             pushData: {
                 type: 'commission_due',
+                settlementId: settlementId == null ? '' : String(settlementId),
                 month: String(month),
                 year: String(year)
+            }
+        }
+    );
+};
+
+/**
+ * Due-date reminder for a settlement that is still unpaid.
+ *
+ * Separate from notifyCommissionDue because the copy has to differ: "here is
+ * your bill" and "your bill is late" read the same to a cook otherwise, and a
+ * cook who cannot tell a reminder from a new charge assumes they have been
+ * double-billed. Amount is what is STILL OWED, not the original bill — a cook
+ * who has already part-paid must never be chased for the full figure.
+ */
+export const notifyCommissionDueReminder = async (
+    cookId, amountRemaining, month, year, settlementId, dueDateLabel, isOverdue
+) => {
+    const monthLabel = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' });
+    const amount = `₹${Number(amountRemaining).toFixed(2)}`;
+    const title = isOverdue ? 'Commission Payment Overdue' : 'Commission Due Soon';
+    const message = isOverdue
+        ? `${amount} commission for ${monthLabel} ${year} was due${dueDateLabel ? ` on ${dueDateLabel}` : ''}. Please pay it and upload your screenshot to keep your kitchen in good standing.`
+        : `${amount} commission for ${monthLabel} ${year} is due${dueDateLabel ? ` on ${dueDateLabel}` : ' soon'}. Pay via the platform QR and upload your screenshot.`;
+
+    return createNotification(
+        cookId,
+        title,
+        message,
+        'commission_due',
+        settlementId,
+        'commission_settlement',
+        {
+            pushData: {
+                type: 'commission_due',
+                settlementId: String(settlementId),
+                month: String(month),
+                year: String(year),
+                overdue: isOverdue ? '1' : '0'
             }
         }
     );
@@ -358,7 +397,7 @@ export const notifyCommissionSettlementSubmitted = async (adminId, settlementId,
         'commission_submitted',
         settlementId,
         'commission_settlement',
-        {}
+        { pushData: { type: 'commission_submitted', settlementId: String(settlementId) } }
     );
 };
 
@@ -366,20 +405,20 @@ export const notifyCommissionSettlementSubmitted = async (adminId, settlementId,
  * Create notification when an admin verifies or rejects a cook's commission
  * payment (sent to the cook).
  */
-export const notifyCommissionSettlementVerified = async (cookId, amount, month, year) => {
+export const notifyCommissionSettlementVerified = async (cookId, amount, month, year, settlementId = null) => {
     const monthLabel = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' });
     return createNotification(
         cookId,
         'Commission Payment Verified ✅',
         `Your ₹${Number(amount).toFixed(2)} commission payment for ${monthLabel} ${year} has been verified. Thank you!`,
         'commission_verified',
-        null,
+        settlementId,
         'commission_settlement',
-        { pushData: { type: 'commission_verified' } }
+        { pushData: { type: 'commission_verified', settlementId: settlementId == null ? '' : String(settlementId) } }
     );
 };
 
-export const notifyCommissionSettlementRejected = async (cookId, amount, adminNotes) => {
+export const notifyCommissionSettlementRejected = async (cookId, amount, adminNotes, settlementId = null) => {
     const message = `Your ₹${Number(amount).toFixed(2)} commission payment screenshot could not be verified`
         + (adminNotes ? ` — "${adminNotes}"` : '')
         + '. Please re-upload proof of payment.';
@@ -388,9 +427,9 @@ export const notifyCommissionSettlementRejected = async (cookId, amount, adminNo
         'Commission Payment Rejected',
         message,
         'commission_rejected',
-        null,
+        settlementId,
         'commission_settlement',
-        { pushData: { type: 'commission_rejected' } }
+        { pushData: { type: 'commission_rejected', settlementId: settlementId == null ? '' : String(settlementId) } }
     );
 };
 
@@ -696,6 +735,7 @@ export default {
     notifyRefundFeedbackToCook,
     notifyRefundProcessed,
     notifyCommissionDue,
+    notifyCommissionDueReminder,
     notifyCommissionSettlementSubmitted,
     notifyCommissionSettlementVerified,
     notifyCommissionSettlementRejected,

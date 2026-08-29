@@ -50,7 +50,7 @@ const statements = [
         id INT PRIMARY KEY AUTO_INCREMENT,
         subscription_id INT NOT NULL,
         delivery_date DATE NOT NULL COMMENT 'the NPT calendar date this row is about, never a timestamp',
-        status ENUM('scheduled','customer_skipped','cook_unavailable','delivered','missed')
+        status ENUM('scheduled','customer_skipped','cook_unavailable','delivered','missed','sent')
             NOT NULL DEFAULT 'scheduled',
         toggled_by ENUM('customer','cook','system') NULL COMMENT 'actor for dispute resolution; system = cron',
         reason TEXT NULL,

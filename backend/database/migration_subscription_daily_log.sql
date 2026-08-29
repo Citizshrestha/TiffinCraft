@@ -27,11 +27,18 @@ CREATE TABLE IF NOT EXISTS subscription_daily_log (
     delivery_date DATE NOT NULL COMMENT 'the NPT calendar date this row is about, never a timestamp',
 
     -- scheduled        : a meal is expected and nothing has overridden it
+    -- sent             : cook handed it over, customer hasn't confirmed yet
     -- customer_skipped : customer opted out of this one day (no credit charged)
     -- cook_unavailable : cook closed for this date (bulk, no credit charged)
     -- delivered        : the order was actually fulfilled — terminal, never overwritten
     -- missed           : the day passed with no delivery and no explicit skip
-    status ENUM('scheduled','customer_skipped','cook_unavailable','delivered','missed')
+    --
+    -- 'sent' sits at the END of the list, not next to 'scheduled' where it
+    -- belongs logically: it was added later by
+    -- migration_subscription_day_handshake.sql, and an ENUM is stored as the
+    -- ordinal of its value, so the two definitions have to agree position for
+    -- position or an existing row changes meaning.
+    status ENUM('scheduled','customer_skipped','cook_unavailable','delivered','missed','sent')
         NOT NULL DEFAULT 'scheduled',
 
     toggled_by ENUM('customer','cook','system') NULL COMMENT 'actor for dispute resolution; system = cron',

@@ -22,10 +22,13 @@
 
 import db from "../config/db.js";
 import { dateOnly } from "./nptTime.js";
+import { settleSubscriptionDayOrder } from "./commissionSnapshot.js";
 
 /** Every state a single delivery day can be in. Mirrors the table's ENUM. */
 export const DAY_STATUS = {
     SCHEDULED: "scheduled",
+    /** Cook handed the meal over; waiting on the customer to confirm receipt. */
+    SENT: "sent",
     CUSTOMER_SKIPPED: "customer_skipped",
     COOK_UNAVAILABLE: "cook_unavailable",
     DELIVERED: "delivered",
@@ -39,6 +42,7 @@ export const NON_DELIVERY_STATUSES = [DAY_STATUS.CUSTOMER_SKIPPED, DAY_STATUS.CO
  *  Android app and any future web client can't drift apart on it. */
 export const DAY_STATUS_LABELS = {
     [DAY_STATUS.SCHEDULED]: "Scheduled",
+    [DAY_STATUS.SENT]: "Sent",
     [DAY_STATUS.CUSTOMER_SKIPPED]: "You skipped",
     [DAY_STATUS.COOK_UNAVAILABLE]: "Kitchen closed",
     [DAY_STATUS.DELIVERED]: "Delivered",
@@ -68,6 +72,42 @@ export async function logDayEvent({ subscriptionId, event, actor = "system", det
     } catch (err) {
         console.error(`❌ Could not audit "${event}" on subscription ${subscriptionId}:`, err.message);
     }
+}
+
+/**
+ * Bridge from a delivered subscription day to the orders ledger.
+ *
+ * placeDayOrder inserts subscription orders as 'confirmed'/'paid' and nothing
+ * ever moved them on, so every subscription delivery was invisible to BOTH the
+ * commission ledger and the cook's own earnings screen — each of which filters
+ * on orders.status = 'delivered'. Commission on subscription revenue was
+ * therefore ₹0 no matter how much a cook delivered.
+ *
+ * Done here rather than in the three callers so it cannot drift: the customer
+ * confirming receipt (subscriptionController.markDayReceived), a cook-side
+ * delivery, and the nightly reconcile all reach 'delivered' through
+ * applyDayStatus, and all three now charge commission identically.
+ *
+ * Never throws — a commission failure must not undo a delivery the customer has
+ * already received. settleSubscriptionDayOrder swallows and logs its own
+ * errors, and backfill_commission.mjs sweeps up anything that lands there.
+ */
+async function chargeCommissionForDeliveredDay(executor, subscriptionId, date, knownOrderId) {
+    let orderId = knownOrderId;
+    if (!orderId) {
+        // The UPDATE path never writes order_id, so on a scheduled → delivered
+        // transition the id lives only on the existing row.
+        const [[row]] = await executor.query(
+            `SELECT order_id FROM subscription_daily_log
+             WHERE subscription_id = ? AND delivery_date = ?`,
+            [subscriptionId, date]
+        );
+        orderId = row ? row.order_id : null;
+    }
+    // A day can legitimately be delivered with no order row (a legacy day, or
+    // one whose order failed to place). Nothing to charge — not an error.
+    if (!orderId) return;
+    await settleSubscriptionDayOrder(orderId, executor);
 }
 
 /**
@@ -122,6 +162,9 @@ export async function applyDayStatus(executor, {
         [subscriptionId, date, status, toggledBy, reason, creditDeducted ? 1 : 0, orderId]
     );
     if (ins.affectedRows === 1) {
+        if (status === DAY_STATUS.DELIVERED) {
+            await chargeCommissionForDeliveredDay(executor, subscriptionId, date, orderId);
+        }
         return { applied: true, created: true, previousStatus: null, blockedBy: null };
     }
 
@@ -160,6 +203,12 @@ export async function applyDayStatus(executor, {
     );
 
     if (upd.affectedRows === 1) {
+        // Only on an applied transition: a blocked or raced write must not
+        // charge commission a second time (the snapshot's IS NULL guard makes
+        // that harmless, but not charging at all is clearer than relying on it).
+        if (status === DAY_STATUS.DELIVERED) {
+            await chargeCommissionForDeliveredDay(executor, subscriptionId, date, orderId);
+        }
         return { applied: true, created: false, previousStatus, blockedBy: null };
     }
 

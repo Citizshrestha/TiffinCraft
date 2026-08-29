@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { protect, roleOnly } from "../middleware/authMiddleware.js";
-import { subscriptionInitiateLimiter, skipDayLimiter } from "../middleware/rateLimiters.js";
+import { subscriptionInitiateLimiter, skipDayLimiter, dayHandshakeLimiter } from "../middleware/rateLimiters.js";
 import {
     createSubscription,
     getMySubscriptions,
@@ -8,6 +8,8 @@ import {
     pauseSubscription,
     resumeSubscription,
     skipDay,
+    markDaySent,
+    markDayReceived,
     getSubscriptionCalendar,
     cancelSubscription,
     uploadSubscriptionScreenshot,
@@ -84,6 +86,17 @@ router.post("/:id/skip-day", protect, roleOnly("customer"), skipDayLimiter, skip
 // would break every copy of the app that hasn't updated yet. Retire it once the
 // new build is out.
 router.put("/:id/skip", protect, roleOnly("customer"), skipDayLimiter, skipDay);
+
+// ── The per-day sent → received handshake ─────────────────────────────────
+// Two halves of one exchange, so they are deliberately split by role rather
+// than being one endpoint with an actor field: roleOnly makes it impossible for
+// a customer to declare their own meal sent, and the controllers additionally
+// check cook_id / customer_id against req.user.id.
+//
+// POST, matching skip-day: each call is a distinct dated event in the audit log,
+// not an idempotent overwrite of a resource. Body is { date, note? }.
+router.post("/:id/mark-sent", protect, roleOnly("cook"), dayHandshakeLimiter, markDaySent);
+router.post("/:id/mark-received", protect, roleOnly("customer"), dayHandshakeLimiter, markDayReceived);
 
 router.put("/:id/screenshot", protect, roleOnly("customer"), uploadSubscriptionScreenshot);
 router.put("/:id/verify-payment", protect, roleOnly("cook"), verifySubscriptionPayment);
