@@ -69,7 +69,7 @@ public class TodayOrderAdapter extends RecyclerView.Adapter<TodayOrderAdapter.Or
             holder.tvAvatarInitials.setVisibility(View.GONE);
             
             SessionManager sessionManager = new SessionManager(context);
-            String token = sessionManager.getAuthToken();
+            String token = sessionManager.getToken();
             
             GlideUrl glideUrl = new GlideUrl(profileImageUrl, new LazyHeaders.Builder()
                     .addHeader("Authorization", "Bearer " + token)
