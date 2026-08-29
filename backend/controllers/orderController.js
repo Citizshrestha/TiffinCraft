@@ -340,6 +340,7 @@ export const getCookOrders = async (req, res) => {
                     -- o.customer_id = u.id, so the value is unambiguous.
                     ANY_VALUE(u.full_name) as customer_name,
                     ANY_VALUE(u.phone) as customer_phone,
+                    ANY_VALUE(u.profile_image) as customer_profile_image,
                     COUNT(oi.id) as items_count,
                     GROUP_CONCAT(CONCAT(oi.quantity, '× ', m.name) SEPARATOR ', ') as items_summary,
                     MIN(m.image_url) as meal_image,

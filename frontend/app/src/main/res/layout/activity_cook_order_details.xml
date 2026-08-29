@@ -223,7 +223,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="20dp"
                 android:layout_marginTop="24dp"
-                android:text="Items to prepare"
+                android:text="Food Items"
                 android:textColor="#111111"
                 android:textSize="15sp"
                 android:textStyle="bold" />

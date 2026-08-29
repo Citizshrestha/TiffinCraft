@@ -10,14 +10,9 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.engine.DiskCacheStrategy;
-import com.bumptech.glide.load.model.GlideUrl;
-import com.bumptech.glide.load.model.LazyHeaders;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.models.ChatMessage;
 import com.tiffincraft.app.models.Order;
-import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.CurrencyUtils;
 
 import java.util.List;
@@ -62,26 +57,12 @@ public class TodayOrderAdapter extends RecyclerView.Adapter<TodayOrderAdapter.Or
         holder.tvCustomerName.setText(name);
 
         // Load customer profile picture with fallback to initials
-        String profileImageUrl = order.getCustomerProfileImage();
-        if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
-            // Show real profile picture
+        String profileImageUrl = com.tiffincraft.app.utils.ImageUrlHelper.resolve(order.getCustomerProfileImage());
+        if (profileImageUrl != null) {
             holder.imgCustomerAvatar.setVisibility(View.VISIBLE);
             holder.tvAvatarInitials.setVisibility(View.GONE);
-            
-            SessionManager sessionManager = new SessionManager(context);
-            String token = sessionManager.getToken();
-            
-            GlideUrl glideUrl = new GlideUrl(profileImageUrl, new LazyHeaders.Builder()
-                    .addHeader("Authorization", "Bearer " + token)
-                    .build());
-            
-            Glide.with(context)
-                    .load(glideUrl)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .placeholder(R.drawable.ic_person)
-                    .error(R.drawable.ic_person)
-                    .circleCrop()
-                    .into(holder.imgCustomerAvatar);
+            com.tiffincraft.app.utils.ImageUrlHelper.loadCircle(
+                    holder.imgCustomerAvatar, profileImageUrl, R.drawable.avatar_customer);
         } else {
             // Fallback to initials
             holder.imgCustomerAvatar.setVisibility(View.GONE);

@@ -312,6 +312,20 @@ public class ManageOrdersActivity extends AppCompatActivity
     }
 
     @Override
+    public void onOrderClick(Order order) {
+        Intent intent = new Intent(this, OrderDetailsCookActivity.class);
+        intent.putExtra("order_id", order.getId());
+        startActivity(intent);
+    }
+
+    @Override
+    public void onTrackOrder(Order order) {
+        Intent intent = new Intent(this, com.tiffincraft.app.activities.order.TrackOrderActivity.class);
+        intent.putExtra("order_id", order.getId());
+        startActivity(intent);
+    }
+
+    @Override
     public void onDeleteOrder(Order order) {
         String token = "Bearer " + sessionManager.getToken();
 

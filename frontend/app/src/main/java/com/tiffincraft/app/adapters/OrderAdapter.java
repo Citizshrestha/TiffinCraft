@@ -35,6 +35,8 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
         void onActionClick(Order order, String nextStatus);
         void onVerifyPaymentClick(Order order);
         void onDeleteOrder(Order order);
+        void onOrderClick(Order order);
+        void onTrackOrder(Order order);
     }
 
     private final Context context;
@@ -147,6 +149,17 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
         boolean canDelete = "delivered".equalsIgnoreCase(status) || "completed".equalsIgnoreCase(status);
         holder.btnMoreOptions.setVisibility(canDelete ? View.VISIBLE : View.GONE);
         holder.btnMoreOptions.setOnClickListener(v -> showDeleteConfirmation(v, order));
+
+        // Open details — card tap and the explicit button both land on the same screen
+        holder.itemView.setOnClickListener(v -> {
+            if (listener != null) listener.onOrderClick(order);
+        });
+        holder.btnViewDetails.setOnClickListener(v -> {
+            if (listener != null) listener.onOrderClick(order);
+        });
+        holder.btnTrackOrder.setOnClickListener(v -> {
+            if (listener != null) listener.onTrackOrder(order);
+        });
     }
 
     private void showDeleteConfirmation(View anchorView, Order order) {
@@ -397,7 +410,7 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
         ImageView imgMealPlaceholder;
         ImageButton btnPrevImage, btnNextImage, btnMoreOptions;
         LinearLayout layoutIndicators, layoutItemChips, layoutSpecialInstructions;
-        MaterialButton btnNextAction, btnVerifyPayment;
+        MaterialButton btnNextAction, btnVerifyPayment, btnViewDetails, btnTrackOrder;
 
         OrderViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -418,6 +431,8 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
             layoutSpecialInstructions   = itemView.findViewById(R.id.layoutSpecialInstructions);
             btnNextAction               = itemView.findViewById(R.id.btnNextAction);
             btnVerifyPayment            = itemView.findViewById(R.id.btnVerifyPayment);
+            btnViewDetails              = itemView.findViewById(R.id.btnViewDetails);
+            btnTrackOrder               = itemView.findViewById(R.id.btnTrackOrder);
         }
     }
 }
