@@ -4,14 +4,20 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.load.model.GlideUrl;
+import com.bumptech.glide.load.model.LazyHeaders;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.models.ChatMessage;
 import com.tiffincraft.app.models.Order;
+import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.CurrencyUtils;
 
 import java.util.List;
@@ -55,9 +61,35 @@ public class TodayOrderAdapter extends RecyclerView.Adapter<TodayOrderAdapter.Or
                 ? order.getCustomerName() : "Customer";
         holder.tvCustomerName.setText(name);
 
-        holder.tvAvatarInitials.setText(initialsFor(name));
-        int color = AVATAR_COLORS[Math.abs(name.hashCode()) % AVATAR_COLORS.length];
-        holder.tvAvatarInitials.getBackground().mutate().setTint(color);
+        // Load customer profile picture with fallback to initials
+        String profileImageUrl = order.getCustomerProfileImage();
+        if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+            // Show real profile picture
+            holder.imgCustomerAvatar.setVisibility(View.VISIBLE);
+            holder.tvAvatarInitials.setVisibility(View.GONE);
+            
+            SessionManager sessionManager = new SessionManager(context);
+            String token = sessionManager.getAuthToken();
+            
+            GlideUrl glideUrl = new GlideUrl(profileImageUrl, new LazyHeaders.Builder()
+                    .addHeader("Authorization", "Bearer " + token)
+                    .build());
+            
+            Glide.with(context)
+                    .load(glideUrl)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .placeholder(R.drawable.ic_person)
+                    .error(R.drawable.ic_person)
+                    .circleCrop()
+                    .into(holder.imgCustomerAvatar);
+        } else {
+            // Fallback to initials
+            holder.imgCustomerAvatar.setVisibility(View.GONE);
+            holder.tvAvatarInitials.setVisibility(View.VISIBLE);
+            holder.tvAvatarInitials.setText(initialsFor(name));
+            int color = AVATAR_COLORS[Math.abs(name.hashCode()) % AVATAR_COLORS.length];
+            holder.tvAvatarInitials.getBackground().mutate().setTint(color);
+        }
 
         holder.tvOrderTime.setText(ChatMessage.formatTime(order.getCreatedAt()));
 
@@ -123,10 +155,12 @@ public class TodayOrderAdapter extends RecyclerView.Adapter<TodayOrderAdapter.Or
     }
 
     static class OrderViewHolder extends RecyclerView.ViewHolder {
+        ImageView imgCustomerAvatar;
         TextView tvAvatarInitials, tvCustomerName, tvOrderTime, tvMealSummary, tvOrderAmount, tvOrderStatus;
 
         OrderViewHolder(@NonNull View itemView) {
             super(itemView);
+            imgCustomerAvatar = itemView.findViewById(R.id.imgCustomerAvatar);
             tvAvatarInitials = itemView.findViewById(R.id.tvAvatarInitials);
             tvCustomerName   = itemView.findViewById(R.id.tvCustomerName);
             tvOrderTime      = itemView.findViewById(R.id.tvOrderTime);

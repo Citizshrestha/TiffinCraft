@@ -82,7 +82,7 @@ public class CookHomeActivity extends AppCompatActivity {
 
     // Earnings Trend chart range toggle
     private TextView tvTrendRange, tvTrendSubtitle;
-    private int trendRange = 2; // 0=Week (7d), 1=Month (30d), 2=Year (12mo)
+    private int trendRange = 0; // 0=Week (7d), 1=Month (30d), 2=Year (12mo) - Default to Week
     private java.util.List<com.tiffincraft.app.models.WeeklyBreakdown> trendWeekly;
     private java.util.List<com.tiffincraft.app.models.WeeklyBreakdown> trendDaily30;
     private java.util.List<MonthlyBreakdown> trendMonthly;
