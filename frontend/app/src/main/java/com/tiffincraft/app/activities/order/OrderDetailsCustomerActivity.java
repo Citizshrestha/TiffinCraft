@@ -35,7 +35,10 @@ import com.tiffincraft.app.models.OrderResponse;
 import com.tiffincraft.app.models.RegisterResponse;
 import com.tiffincraft.app.models.UploadResponse;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.CurrencyUtils;
+import com.tiffincraft.app.utils.ImageUrlHelper;
 import com.tiffincraft.app.utils.ImageUtils;
+import com.tiffincraft.app.utils.TimeFormat;
 
 import org.json.JSONObject;
 
@@ -142,16 +145,30 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
     }
 
     private void populateOrder(Order order) {
-        if (binding.tvOrderId != null)
-            binding.tvOrderId.setText("Order #TC" + order.getId());
-        if (binding.tvOrderDate != null && order.getCreatedAt() != null)
-            binding.tvOrderDate.setText(order.getCreatedAt());
-        if (binding.tvTotalAmount != null)
-            binding.tvTotalAmount.setText("Total Amount: ₹" + String.format("%.0f", order.getTotalAmount()));
-        if (binding.tvOrderItems != null) {
-            String items = order.getItemsSummary();
-            binding.tvOrderItems.setText(items != null && !items.isEmpty() ? items : "No item details available.");
-        }
+        binding.tvOrderId.setText("Order #TC" + order.getId());
+        // created_at arrives as UTC ISO ("2026-08-29T05:24:40.000Z") — TimeFormat
+        // renders it in the device's zone instead of dumping the raw string.
+        binding.tvOrderDate.setText(TimeFormat.relative(order.getCreatedAt()));
+        bindStatusChip(order.getStatus());
+
+        binding.tvKitchenName.setText(
+                order.getKitchenName() != null && !order.getKitchenName().isEmpty()
+                        ? order.getKitchenName()
+                        : (order.getCookName() != null ? order.getCookName() : "Kitchen"));
+
+        binding.tvDeliveryAddress.setText(
+                order.getDeliveryAddress() != null && !order.getDeliveryAddress().trim().isEmpty()
+                        ? order.getDeliveryAddress() : "No delivery address on this order");
+
+        boolean hasNote = order.getSpecialInstructions() != null
+                && !order.getSpecialInstructions().trim().isEmpty();
+        binding.layoutSpecialInstructions.setVisibility(hasNote ? View.VISIBLE : View.GONE);
+        if (hasNote) binding.tvSpecialInstructions.setText(order.getSpecialInstructions().trim());
+
+        binding.tvPaymentMethod.setText(
+                "cod".equalsIgnoreCase(order.getPaymentMethod()) ? "Cash on Delivery" : "Online Payment");
+
+        bindItems(order);
 
         cookId = order.getCookId();
         kitchenName = order.getKitchenName() != null && !order.getKitchenName().isEmpty()
@@ -223,6 +240,119 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
                 }
             }
         }
+    }
+
+    /**
+     * Renders the order's real order_items rows.
+     *
+     * GET /orders/{id} returns an `items` array but no `items_summary` — this screen
+     * only read the (always-null) summary and so always showed "No item details
+     * available", even on orders with items. The list endpoints are the ones that
+     * pre-aggregate a summary, so fall back to it only if items is missing.
+     */
+    private void bindItems(Order order) {
+        LinearLayout container = binding.layoutItemsContainer;
+        container.removeAllViews();
+
+        java.util.List<Order.OrderItem> items = order.getItems();
+        double subtotal = 0;
+        int count = 0;
+
+        if (items != null && !items.isEmpty()) {
+            for (Order.OrderItem item : items) {
+                int qty = Math.max(item.getQuantity(), 1);
+                double lineTotal = item.getPriceAtTime() * qty;
+                subtotal += lineTotal;
+                count += qty;
+                addItemRow(container, item.getMealName(), qty, item.getPriceAtTime(), lineTotal, item.getImageUrl());
+            }
+        } else if (order.getMealName() != null) {
+            // Legacy single-meal orders, where the join flattened one item onto the row.
+            int qty = Math.max(order.getQuantity(), 1);
+            subtotal = order.getMealPrice() * qty;
+            count = qty;
+            addItemRow(container, order.getMealName(), qty, order.getMealPrice(), subtotal, order.getMealImage());
+        } else if (order.getItemsSummary() != null && !order.getItemsSummary().isEmpty()) {
+            TextView summary = new TextView(this);
+            summary.setText(order.getItemsSummary());
+            summary.setTextColor(getColor(R.color.text_on_light));
+            summary.setTextSize(14f);
+            container.addView(summary);
+            subtotal = order.getTotalAmount();
+            count = order.getItemsCount();
+        } else {
+            TextView empty = new TextView(this);
+            empty.setText("Item breakdown unavailable for this order.");
+            empty.setTextColor(getColor(R.color.text_subtitle));
+            empty.setTextSize(13f);
+            container.addView(empty);
+            subtotal = order.getTotalAmount();
+        }
+
+        binding.tvItemCount.setText(count == 1 ? "1 item" : count + " items");
+        binding.tvItemCount.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
+        binding.tvSubtotal.setText(CurrencyUtils.formatRupees(subtotal));
+        binding.tvTotalAmount.setText(CurrencyUtils.formatRupees(order.getTotalAmount()));
+
+        // Delivery fees/discounts (and legacy price drift) make the order total differ
+        // from the sum of the lines; show the gap rather than letting the two numbers
+        // silently disagree.
+        double other = order.getTotalAmount() - subtotal;
+        boolean showOther = Math.abs(other) >= 1;
+        binding.layoutOtherChargesRow.setVisibility(showOther ? View.VISIBLE : View.GONE);
+        if (showOther) {
+            binding.tvOtherCharges.setText((other < 0 ? "− " : "") + CurrencyUtils.formatRupees(Math.abs(other)));
+        }
+    }
+
+    private void addItemRow(LinearLayout container, String name, int qty,
+                            double unitPrice, double lineTotal, String imageUrl) {
+        View row = getLayoutInflater().inflate(R.layout.item_order_detail_line, container, false);
+        ((TextView) row.findViewById(R.id.tvItemName)).setText(name != null ? name : "Item");
+        ((TextView) row.findViewById(R.id.tvItemQtyPrice))
+                .setText(qty + " × " + CurrencyUtils.formatRupees(unitPrice));
+        ((TextView) row.findViewById(R.id.tvItemLineTotal)).setText(CurrencyUtils.formatRupees(lineTotal));
+        ImageUrlHelper.load(row.findViewById(R.id.ivItemImage), imageUrl, R.drawable.ic_image_placeholder);
+        container.addView(row);
+    }
+
+    /** Same chip vocabulary the order list uses, so the two screens agree. */
+    private void bindStatusChip(String status) {
+        String s = status != null ? status.toLowerCase(java.util.Locale.US) : "";
+        int bgRes, textColor, iconRes;
+        String label;
+        switch (s) {
+            case "pending":
+                bgRes = R.drawable.status_chip_new; textColor = 0xFF1565C0;
+                iconRes = R.drawable.ic_clock; label = "Waiting for kitchen"; break;
+            case "confirmed":
+                bgRes = R.drawable.status_chip_delivered; textColor = 0xFF2E7D32;
+                iconRes = R.drawable.ic_check_circle; label = "Confirmed"; break;
+            case "preparing":
+                bgRes = R.drawable.status_chip_preparing; textColor = 0xFFA8660B;
+                iconRes = R.drawable.ic_clock; label = "Being Prepared"; break;
+            case "ready":
+                bgRes = R.drawable.status_chip_out_for_delivery; textColor = 0xFF1565C0;
+                iconRes = R.drawable.ic_check_circle; label = "Ready for Pickup"; break;
+            case "delivered":
+            case "completed":
+                bgRes = R.drawable.status_chip_delivered; textColor = 0xFF2E7D32;
+                iconRes = R.drawable.ic_check_circle; label = "Delivered"; break;
+            case "cancelled":
+                bgRes = R.drawable.status_chip_sold_out; textColor = 0xFFC62828;
+                iconRes = R.drawable.ic_close; label = "Cancelled"; break;
+            default:
+                bgRes = R.drawable.status_chip_new; textColor = 0xFF1565C0;
+                iconRes = R.drawable.ic_info;
+                label = s.isEmpty() ? "Unknown" : Character.toUpperCase(s.charAt(0)) + s.substring(1);
+                break;
+        }
+        TextView chip = binding.tvOrderStatus;
+        chip.setBackgroundResource(bgRes);
+        chip.setTextColor(textColor);
+        chip.setText(label);
+        chip.setCompoundDrawablesRelativeWithIntrinsicBounds(iconRes, 0, 0, 0);
+        chip.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(textColor));
     }
 
     private static final String ESEWA_PACKAGE = "com.f1soft.esewa";

@@ -380,29 +380,7 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
     }
 
     private String formatDateShort(String isoDate) {
-        if (isoDate == null || isoDate.isEmpty()) return "—";
-
-        Date date = null;
-        String[] patterns = {
-                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-                "yyyy-MM-dd'T'HH:mm:ss'Z'",
-                "yyyy-MM-dd HH:mm:ss",
-                "yyyy-MM-dd'T'HH:mm:ss"
-        };
-        for (String pattern : patterns) {
-            SimpleDateFormat fmt = new SimpleDateFormat(pattern, Locale.getDefault());
-            if (pattern.contains("'Z'")) {
-                fmt.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-            }
-            try {
-                date = fmt.parse(isoDate);
-                if (date != null) break;
-            } catch (ParseException ignored) { }
-        }
-        if (date == null) return isoDate;
-
-        SimpleDateFormat outputFmt = new SimpleDateFormat("d MMM, yyyy", Locale.getDefault());
-        return outputFmt.format(date);
+        return com.tiffincraft.app.utils.TimeFormat.dayOnly(isoDate);
     }
 
     private int dpToPx(int dp) {

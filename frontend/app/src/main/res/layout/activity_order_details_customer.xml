@@ -1,22 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
+    android:background="@color/background_light"
     android:orientation="vertical">
 
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="@color/white"
+        android:elevation="2dp"
         android:padding="16dp">
+
         <ImageButton
             android:id="@+id/btnBack"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/back"
             android:src="@drawable/ic_arrow_back"
             app:tint="@color/text_title" />
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -29,196 +35,461 @@
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:clipToPadding="false">
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="20dp">
-            
-            <TextView
-                android:id="@+id/tvOrderId"
-                android:layout_width="wrap_content"
+            android:paddingStart="16dp"
+            android:paddingTop="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="24dp">
+
+            <!-- ══════ SUMMARY CARD: id, status, when, kitchen ══════ -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Order #TC123456"
-                android:textColor="@color/text_title"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp">
 
-            <TextView
-                android:id="@+id/tvOrderDate"
-                android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvOrderId"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:textColor="@color/text_title"
+                            android:textSize="17sp"
+                            android:textStyle="bold"
+                            tools:text="Order #TC9" />
+
+                        <TextView
+                            android:id="@+id/tvOrderStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/status_chip_pending"
+                            android:drawablePadding="5dp"
+                            android:paddingStart="10dp"
+                            android:paddingTop="5dp"
+                            android:paddingEnd="10dp"
+                            android:paddingBottom="5dp"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            tools:text="Being Prepared" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvOrderDate"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:drawablePadding="6dp"
+                        android:gravity="center_vertical"
+                        android:textColor="@color/text_subtitle"
+                        android:textSize="13sp"
+                        app:drawableStartCompat="@drawable/ic_clock"
+                        app:drawableTint="@color/text_subtitle"
+                        tools:text="Today, 11:09 AM" />
+
+                    <TextView
+                        android:id="@+id/tvKitchenName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:drawablePadding="6dp"
+                        android:gravity="center_vertical"
+                        android:textColor="@color/text_on_light"
+                        android:textSize="13.5sp"
+                        android:textStyle="bold"
+                        app:drawableStartCompat="@drawable/ic_restaurant"
+                        app:drawableTint="@color/green_primary"
+                        tools:text="Mina's Kitchen" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- ══════ ITEMS + BILL CARD ══════ -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text=""
-                android:textColor="@color/text_subtitle"
-                android:textSize="13sp" />
+                android:layout_marginTop="14dp"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp">
 
-            <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/input_border" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Items"
+                            android:textColor="@color/text_title"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvItemCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_item_chip"
+                            android:paddingStart="10dp"
+                            android:paddingTop="3dp"
+                            android:paddingEnd="10dp"
+                            android:paddingBottom="3dp"
+                            android:textColor="@color/green_primary_dark"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            tools:text="2 items" />
+                    </LinearLayout>
+
+                    <!-- Item rows are inflated here from the order's real
+                         order_items rows (item_order_detail_line.xml). -->
+                    <LinearLayout
+                        android:id="@+id/layoutItemsContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="vertical" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="8dp"
+                        android:layout_marginBottom="12dp"
+                        android:background="@color/input_border" />
+
+                    <LinearLayout
+                        android:id="@+id/layoutSubtotalRow"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Item subtotal"
+                            android:textColor="@color/text_subtitle"
+                            android:textSize="13.5sp" />
+
+                        <TextView
+                            android:id="@+id/tvSubtotal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/text_on_light"
+                            android:textSize="13.5sp"
+                            tools:text="₹900" />
+                    </LinearLayout>
+
+                    <!-- Only shown when the order total differs from the item
+                         subtotal (delivery fee, discount, legacy price drift). -->
+                    <LinearLayout
+                        android:id="@+id/layoutOtherChargesRow"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Other charges"
+                            android:textColor="@color/text_subtitle"
+                            android:textSize="13.5sp" />
+
+                        <TextView
+                            android:id="@+id/tvOtherCharges"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/text_on_light"
+                            android:textSize="13.5sp"
+                            tools:text="₹40" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Total paid"
+                            android:textColor="@color/text_title"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvTotalAmount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/green_primary_dark"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            tools:text="₹900" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvPaymentMethod"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textColor="@color/text_subtitle"
+                        android:textSize="12.5sp"
+                        tools:text="Online Payment" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- ══════ DELIVERY CARD ══════ -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardDelivery"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Items"
-                android:textColor="@color/text_title"
-                android:textStyle="bold" />
+                android:layout_marginTop="14dp"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp">
 
-            <TextView
-                android:id="@+id/tvOrderItems"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text=""
-                android:textColor="@color/text_on_light" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-            <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/input_border" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Delivery"
+                        android:textColor="@color/text_title"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/tvTotalAmount"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Total Amount: ₹ 0"
-                android:textColor="@color/green_primary"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/tvDeliveryAddress"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:drawablePadding="8dp"
+                        android:textColor="@color/text_on_light"
+                        android:textSize="13.5sp"
+                        app:drawableStartCompat="@drawable/ic_location"
+                        app:drawableTint="@color/orange_warm"
+                        tools:text="Baluwatar, Kathmandu" />
 
-            <!-- ══════ PAYMENT SECTION (online only) ════════ -->
-            <LinearLayout
+                    <LinearLayout
+                        android:id="@+id/layoutSpecialInstructions"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/bg_item_chip"
+                        android:orientation="vertical"
+                        android:padding="12dp"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Your note to the cook"
+                            android:textColor="@color/text_subtitle"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvSpecialInstructions"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:textColor="@color/text_on_light"
+                            android:textSize="13.5sp"
+                            tools:text="Less spicy please" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- ══════ PAYMENT SECTION (online only) ══════ -->
+            <com.google.android.material.card.MaterialCardView
                 android:id="@+id/layoutPaymentSection"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:orientation="vertical"
-                android:visibility="gone">
+                android:layout_marginTop="14dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp">
 
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/input_border" android:layout_marginBottom="16dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Payment"
-                    android:textColor="@color/text_title"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-                <TextView
-                    android:id="@+id/tvPaymentStatusBadge"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:paddingStart="12dp"
-                    android:paddingTop="4dp"
-                    android:paddingEnd="12dp"
-                    android:paddingBottom="4dp"
-                    android:text="Pending"
-                    android:textColor="@color/status_pending_text"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
-                <ImageView
-                    android:id="@+id/ivPaymentScreenshot"
-                    android:layout_width="match_parent"
-                    android:layout_height="200dp"
-                    android:layout_marginTop="12dp"
-                    android:contentDescription="Payment Screenshot"
-                    android:scaleType="fitCenter"
-                    android:visibility="gone" />
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Payment"
+                            android:textColor="@color/text_title"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
 
-                <!-- Manual eSewa pay: customer opens the real eSewa app (or
-                     scans the cook's QR from within it), sends the amount,
-                     then uploads the screenshot below for the cook to verify. -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnPayWithEsewa"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginTop="12dp"
-                    android:text="Pay with eSewa"
-                    android:textAllCaps="false"
-                    android:textColor="@color/white"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:visibility="gone"
-                    app:backgroundTint="#60BB46"
-                    app:cornerRadius="12dp"
-                    app:icon="@drawable/ic_arrow_up_right"
-                    app:iconGravity="textStart"
-                    app:iconTint="@color/white" />
+                        <TextView
+                            android:id="@+id/tvPaymentStatusBadge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:paddingStart="12dp"
+                            android:paddingTop="5dp"
+                            android:paddingEnd="12dp"
+                            android:paddingBottom="5dp"
+                            android:textColor="@color/status_pending_text"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            tools:text="Payment Pending" />
+                    </LinearLayout>
 
-                <TextView
-                    android:id="@+id/tvScanToPay"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:layout_gravity="center_horizontal"
-                    android:text="Or scan the cook's eSewa QR (tap to save). Other online payment screenshots are also accepted."
-                    android:textAlignment="center"
-                    android:textColor="@color/text_subtitle"
-                    android:textSize="12sp"
-                    android:visibility="gone" />
+                    <ImageView
+                        android:id="@+id/ivPaymentScreenshot"
+                        android:layout_width="match_parent"
+                        android:layout_height="200dp"
+                        android:layout_marginTop="12dp"
+                        android:contentDescription="Payment Screenshot"
+                        android:scaleType="fitCenter"
+                        android:visibility="gone" />
 
-                <ImageView
-                    android:id="@+id/ivCookEsewaQr"
-                    android:layout_width="220dp"
-                    android:layout_height="220dp"
-                    android:layout_marginTop="8dp"
-                    android:layout_gravity="center_horizontal"
-                    android:contentDescription="Cook eSewa payment QR"
-                    android:scaleType="fitCenter"
-                    android:visibility="gone" />
+                    <!-- Manual eSewa pay: customer opens the real eSewa app (or
+                         scans the cook's QR from within it), sends the amount,
+                         then uploads the screenshot below for the cook to verify. -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnPayWithEsewa"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="14dp"
+                        android:text="Pay with eSewa"
+                        android:textAllCaps="false"
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:visibility="gone"
+                        app:backgroundTint="#60BB46"
+                        app:cornerRadius="12dp"
+                        app:icon="@drawable/ic_arrow_up_right"
+                        app:iconGravity="textStart"
+                        app:iconTint="@color/white" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnUploadPayment"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginTop="8dp"
-                    android:text="Upload Payment Screenshot"
-                    android:textAllCaps="false"
-                    android:textColor="@color/white"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:visibility="gone"
-                    app:backgroundTint="@color/green_primary"
-                    app:cornerRadius="12dp"
-                    app:icon="@drawable/ic_upload"
-                    app:iconGravity="textStart"
-                    app:iconTint="@color/white" />
+                    <TextView
+                        android:id="@+id/tvScanToPay"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:text="Or scan the cook's eSewa QR (tap to save). Other online payment screenshots are also accepted."
+                        android:textAlignment="center"
+                        android:textColor="@color/text_subtitle"
+                        android:textSize="12sp"
+                        android:visibility="gone" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnRequestRefund"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginTop="12dp"
-                    android:text="Request Refund"
-                    android:textAllCaps="false"
-                    android:textColor="@color/error_red"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:visibility="gone"
-                    app:backgroundTint="@color/white"
-                    app:cornerRadius="12dp"
-                    app:strokeColor="@color/error_red"
-                    app:strokeWidth="1dp" />
+                    <ImageView
+                        android:id="@+id/ivCookEsewaQr"
+                        android:layout_width="200dp"
+                        android:layout_height="200dp"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginTop="10dp"
+                        android:contentDescription="Cook eSewa payment QR"
+                        android:scaleType="fitCenter"
+                        android:visibility="gone" />
 
-            </LinearLayout>
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnUploadPayment"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="12dp"
+                        android:text="Upload Payment Screenshot"
+                        android:textAllCaps="false"
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:visibility="gone"
+                        app:backgroundTint="@color/green_primary"
+                        app:cornerRadius="12dp"
+                        app:icon="@drawable/ic_upload"
+                        app:iconGravity="textStart"
+                        app:iconTint="@color/white" />
 
-            <Button
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnRequestRefund"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="12dp"
+                        android:text="Request Refund"
+                        android:textAllCaps="false"
+                        android:textColor="@color/error_red"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:visibility="gone"
+                        app:backgroundTint="@color/white"
+                        app:cornerRadius="12dp"
+                        app:strokeColor="@color/error_red"
+                        app:strokeWidth="1dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnTrackOrder"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:backgroundTint="@color/orange_warm"
+                android:layout_height="50dp"
+                android:layout_marginTop="18dp"
                 android:text="Track Order"
+                android:textAllCaps="false"
                 android:textColor="@color/white"
-                android:textStyle="bold" />
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/orange_warm"
+                app:cornerRadius="12dp" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnRateReview"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:backgroundTint="@color/green_primary"
+                android:layout_height="50dp"
+                android:layout_marginTop="10dp"
                 android:text="Rate &amp; Review"
+                android:textAllCaps="false"
                 android:textColor="@color/white"
-                android:textStyle="bold" />
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/green_primary"
+                app:cornerRadius="12dp" />
 
         </LinearLayout>
     </ScrollView>

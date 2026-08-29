@@ -345,22 +345,12 @@ public class OrderDetailsCookActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * created_at is UTC ISO ("...T05:24:40.000Z"); this used to strip the 'Z' and
+     * parse it as local time, showing an order placed at 11:09 AM NPT as 05:24 AM.
+     */
     private String formatTime(String isoDate) {
         if (TextUtils.isEmpty(isoDate)) return "—";
-        try {
-            SimpleDateFormat[] inputFormats = {
-                    new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US),
-                    new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-            };
-            for (SimpleDateFormat in : inputFormats) {
-                try {
-                    java.util.Date date = in.parse(isoDate.length() >= 19 ? isoDate.substring(0, 19) : isoDate);
-                    if (date != null) {
-                        return new SimpleDateFormat("hh:mm a", Locale.US).format(date);
-                    }
-                } catch (Exception ignored) { }
-            }
-        } catch (Exception ignored) { }
-        return isoDate;
+        return com.tiffincraft.app.utils.TimeFormat.time(isoDate);
     }
 }

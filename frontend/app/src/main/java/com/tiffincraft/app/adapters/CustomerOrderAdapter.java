@@ -345,37 +345,7 @@ public class CustomerOrderAdapter extends RecyclerView.Adapter<CustomerOrderAdap
          * when it sends one.
          */
         private String formatDate(String rawDate) {
-            if (rawDate == null || rawDate.isEmpty()) return "";
-            Date date = null;
-            String[] patterns = {
-                    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-                    "yyyy-MM-dd'T'HH:mm:ss'Z'",
-                    "yyyy-MM-dd HH:mm:ss",
-                    "yyyy-MM-dd'T'HH:mm:ss"
-            };
-            for (String pattern : patterns) {
-                SimpleDateFormat fmt = new SimpleDateFormat(pattern, Locale.US);
-                if (pattern.contains("'Z'")) {
-                    fmt.setTimeZone(TimeZone.getTimeZone("UTC"));
-                }
-                try {
-                    date = fmt.parse(rawDate);
-                    if (date != null) break;
-                } catch (ParseException ignored) { }
-            }
-            if (date == null) return rawDate;
-
-            String time = new SimpleDateFormat("h:mm a", Locale.US).format(date);
-            String day = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(date);
-            java.util.Calendar cal = java.util.Calendar.getInstance();
-            SimpleDateFormat dayKey = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
-            String today = dayKey.format(cal.getTime());
-            cal.add(java.util.Calendar.DAY_OF_YEAR, -1);
-            String yesterday = dayKey.format(cal.getTime());
-
-            if (day.equals(today)) return "Today, " + time;
-            if (day.equals(yesterday)) return "Yesterday, " + time;
-            return new SimpleDateFormat("d MMM yyyy, h:mm a", Locale.US).format(date);
+            return com.tiffincraft.app.utils.TimeFormat.relative(rawDate);
         }
     }
 }
