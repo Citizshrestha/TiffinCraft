@@ -72,6 +72,10 @@ public class SubscriptionCalendarResponse {
         @SerializedName("duration")
         private String duration;
 
+        /** Original plan duration (e.g., 7 for a 1-week plan). */
+        @SerializedName("plan_duration")
+        private Integer planDuration;
+
         @SerializedName("customer_name")
         private String customerName;
 
@@ -104,6 +108,7 @@ public class SubscriptionCalendarResponse {
         public String getPaymentStatus() { return paymentStatus; }
         public String getPlanName() { return planName; }
         public String getDuration() { return duration; }
+        public Integer getPlanDuration() { return planDuration; }
         public String getCustomerName() { return customerName; }
         public String getCookName() { return cookName; }
         public String getStartDate() { return startDate; }

@@ -957,6 +957,19 @@ export const getSubscriptionCalendar = async (req, res) => {
         }
 
         const nextEditableDate = getNptTomorrow();
+        
+        // Calculate numeric plan duration from duration string
+        let planDuration = null;
+        if (sub.duration) {
+            const durationLower = sub.duration.toLowerCase();
+            if (durationLower.includes('week')) {
+                const match = durationLower.match(/(\d+)/);
+                planDuration = match ? parseInt(match[1]) * 7 : 7;
+            } else if (durationLower === 'monthly' || durationLower.includes('month')) {
+                planDuration = 30;
+            }
+        }
+        
         return res.status(200).json({
             success: true,
             viewer: isCustomer ? "customer" : "cook",
@@ -967,6 +980,7 @@ export const getSubscriptionCalendar = async (req, res) => {
                 payment_status: sub.payment_status,
                 plan_name: sub.plan_name,
                 duration: sub.duration,
+                plan_duration: planDuration,
                 customer_name: sub.customer_name,
                 cook_name: sub.cook_name,
                 start_date: sub.start_date,

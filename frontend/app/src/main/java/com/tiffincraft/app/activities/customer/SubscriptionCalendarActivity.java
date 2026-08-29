@@ -149,7 +149,8 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
                 if (body.getDays() != null) days.addAll(body.getDays());
 
                 renderSummary(body);
-                renderCutoff(body.getCutoff());
+                // Cutoff banner removed - confusing for users
+                // renderCutoff(body.getCutoff());
                 renderDays();
             }
 
@@ -173,13 +174,14 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         tvHeaderPlan.setVisibility(View.VISIBLE);
 
         if (info.isScheduled()) {
-            // Deliberately NOT "Active" — nothing is being delivered yet, and the
-            // customer has already paid. Both facts have to survive to the label.
-            tvSummaryStatusChip.setText("Starts soon");
+            // If started (first delivery is today), show "Started" instead of "Starts soon"
+            Integer until = info.getDaysUntilStart();
+            boolean hasStarted = until != null && until == 0;
+            
+            tvSummaryStatusChip.setText(hasStarted ? "Started" : "Starts soon");
             tvSummaryStatusChip.setBackgroundResource(R.drawable.status_chip_preparing);
             tvSummaryStatusChip.setTextColor(getColor(R.color.status_preparing_text));
 
-            Integer until = info.getDaysUntilStart();
             String when = DeliveryDateUtils.formatLongDate(info.getStartDate());
             String relative = until == null ? ""
                     : until == 0 ? " — today"
@@ -218,9 +220,22 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         if (info.getEndDate() != null) {
             String range = DeliveryDateUtils.formatShortDate(info.getStartDate())
                     + " – " + DeliveryDateUtils.formatLongDate(info.getEndDate());
-            tvSummaryCredits.setText(info.getMealsTotal() != null
-                    ? range + " · " + info.getMealsTotal() + " days"
-                    : range);
+            
+            // Calculate skipped meals count from total days
+            if (info.getMealsTotal() != null) {
+                Integer planDuration = info.getPlanDuration();  // Original plan duration
+                int totalDays = info.getMealsTotal();
+                
+                if (planDuration != null && totalDays > planDuration) {
+                    int skippedDays = totalDays - planDuration;
+                    tvSummaryCredits.setText(range + " · " + planDuration + " days + " 
+                            + skippedDays + (skippedDays == 1 ? " day added (Skipped Meals)" : " days added (Skipped Meals)"));
+                } else {
+                    tvSummaryCredits.setText(range + " · " + totalDays + " days");
+                }
+            } else {
+                tvSummaryCredits.setText(range);
+            }
             tvSummaryCredits.setVisibility(View.VISIBLE);
         } else {
             tvSummaryCredits.setVisibility(View.GONE);
