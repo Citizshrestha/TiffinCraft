@@ -9,7 +9,11 @@ export const validateRegister = [
         .trim()
         .notEmpty().withMessage('Email is required')
         .isEmail().withMessage('Invalid email format')
-        .normalizeEmail(),
+        // Only lowercase — do NOT use normalizeEmail(): it strips dots and
+        // +suffixes from gmail addresses, so a stored "anu.pte01@gmail.com"
+        // (written by admin create/update, which only lowercases) would never
+        // match the "anupte01@gmail.com" that login looked up.
+        .toLowerCase(),
     body('phone')
         .trim()
         .notEmpty().withMessage('Phone number is required')
@@ -37,7 +41,9 @@ export const validateLogin = [
         .trim()
         .notEmpty().withMessage('Email is required')
         .isEmail().withMessage('Invalid email format')
-        .normalizeEmail(),
+        // See validateRegister — normalizeEmail() would mangle dotted gmail
+        // addresses and break login for them.
+        .toLowerCase(),
     body('password')
         .notEmpty().withMessage('Password is required'),
     (req, res, next) => {
