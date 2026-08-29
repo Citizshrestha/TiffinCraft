@@ -272,10 +272,13 @@ public class ManageOrdersActivity extends AppCompatActivity
                                     "Order #" + order.getId() + " → " + label,
                                     Toast.LENGTH_SHORT).show();
                             loadOrders(); // Refresh
-                        } else {
+                        } else if (response.code() != 403) {
                             // Retrofit leaves response.body() null on non-2xx — the real reason
-                            // (e.g. "Cannot mark as delivered until payment is verified") lives in
-                            // errorBody() and was previously discarded in favor of a generic toast.
+                            // (e.g. "Payment not verified yet") lives in errorBody() and was
+                            // previously discarded in favor of a generic toast.
+                            //
+                            // 403 is skipped: AuthErrorInterceptor already toasts the server's
+                            // message for those, and toasting here too showed it twice.
                             Toast.makeText(ManageOrdersActivity.this,
                                     extractErrorMessage(response.errorBody()), Toast.LENGTH_LONG).show();
                         }

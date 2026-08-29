@@ -16,8 +16,11 @@ export const registerUser = async (req, res) => {
             return res.status(400).json({ message: "Role must be customer or cook." });
         }
 
+        // Normalize email: trim whitespace and convert to lowercase
+        const normalizedEmail = email.trim().toLowerCase();
+
         const [existingEmail] = await db.promise().query(
-            "SELECT id FROM users WHERE email = ?", [email]
+            "SELECT id FROM users WHERE email = ?", [normalizedEmail]
         );
         if (existingEmail.length > 0) {
             return res.status(400).json({ message: "Email already registered." });
@@ -35,11 +38,11 @@ export const registerUser = async (req, res) => {
         const otpExpiry = getOTPExpiry();
 
         const [result] = await db.promise().query(
-            `INSERT INTO users 
-             (full_name, email, phone, password_hash, role, 
+            `INSERT INTO users
+             (full_name, email, phone, password_hash, role,
               otp_code, otp_expires_at, is_verified, auth_provider)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [full_name, email, phone, password_hash, role,
+            [full_name, normalizedEmail, phone, password_hash, role,
              otp, otpExpiry, false, 'local']
         );
 
@@ -53,7 +56,7 @@ export const registerUser = async (req, res) => {
             );
         }
 
-        const emailResult = await sendOTPEmail(email, otp, full_name);
+        const emailResult = await sendOTPEmail(normalizedEmail, otp, full_name);
 
         if (!emailResult.success) {
             // Email failed — mark user as auto-verified so they can still log in
@@ -65,7 +68,7 @@ export const registerUser = async (req, res) => {
             return res.status(201).json({
                 success: true,
                 message: "Registration successful! (Email verification skipped in dev mode)",
-                email: email,
+                email: normalizedEmail,
                 userId: result.insertId,
                 autoVerified: true
             });
@@ -74,7 +77,7 @@ export const registerUser = async (req, res) => {
         return res.status(201).json({
             success: true,
             message: "OTP sent to your email. Please verify to complete registration.",
-            email: email,
+            email: normalizedEmail,
             userId: result.insertId
         });
 
@@ -91,8 +94,11 @@ export const verifyOTP = async (req, res) => {
             return res.status(400).json({ message: "Email and OTP are required." });
         }
 
+        // Normalize email: trim whitespace and convert to lowercase
+        const normalizedEmail = email.trim().toLowerCase();
+
         const [users] = await db.promise().query(
-            "SELECT * FROM users WHERE email = ?", [email]
+            "SELECT * FROM users WHERE email = ?", [normalizedEmail]
         );
 
         if (users.length === 0) {
@@ -114,10 +120,10 @@ export const verifyOTP = async (req, res) => {
         }
 
         await db.promise().query(
-            `UPDATE users 
-             SET is_verified = true, otp_code = NULL, otp_expires_at = NULL 
+            `UPDATE users
+             SET is_verified = true, otp_code = NULL, otp_expires_at = NULL
              WHERE email = ?`,
-            [email]
+            [normalizedEmail]
         );
 
         const token = jwt.sign(
@@ -153,8 +159,11 @@ export const resendOTP = async (req, res) => {
             return res.status(400).json({ message: "Email is required." });
         }
 
+        // Normalize email: trim whitespace and convert to lowercase
+        const normalizedEmail = email.trim().toLowerCase();
+
         const [users] = await db.promise().query(
-            "SELECT * FROM users WHERE email = ?", [email]
+            "SELECT * FROM users WHERE email = ?", [normalizedEmail]
         );
 
         if (users.length === 0) {
@@ -172,10 +181,10 @@ export const resendOTP = async (req, res) => {
 
         await db.promise().query(
             "UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE email = ?",
-            [otp, otpExpiry, email]
+            [otp, otpExpiry, normalizedEmail]
         );
 
-        const emailResult = await sendOTPEmail(email, otp, user.full_name);
+        const emailResult = await sendOTPEmail(normalizedEmail, otp, user.full_name);
 
         if (!emailResult.success) {
             return res.status(500).json({ message: "Failed to resend OTP." });
@@ -198,8 +207,11 @@ export const loginUser = async (req, res) => {
             return res.status(400).json({ message: "Email and password are required." });
         }
 
+        // Normalize email: trim whitespace and convert to lowercase
+        const normalizedEmail = email.trim().toLowerCase();
+
         const [users] = await db.promise().query(
-            "SELECT * FROM users WHERE email = ?", [email]
+            "SELECT * FROM users WHERE email = ?", [normalizedEmail]
         );
 
         if (users.length === 0) {
@@ -280,13 +292,19 @@ export const forgotPassword = async (req, res) => {
             return res.status(400).json({ message: "Email is required." });
         }
 
+        // Normalize email: trim whitespace and convert to lowercase
+        const normalizedEmail = email.trim().toLowerCase();
+
         const [users] = await db.promise().query(
-            "SELECT id, full_name, is_verified FROM users WHERE email = ?", [email]
+            "SELECT id, full_name, is_verified FROM users WHERE email = ?", [normalizedEmail]
         );
 
         if (users.length === 0) {
+            // Deliberately indistinguishable from the success case so this endpoint
+            // can't be used to enumerate which emails have accounts.
             return res.status(200).json({
-                message: "If that email is registered, a reset link has been sent."
+                success: true,
+                message: "If that email is registered, a reset code has been sent."
             });
         }
 
@@ -296,14 +314,14 @@ export const forgotPassword = async (req, res) => {
 
         await db.promise().query(
             "UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE email = ?",
-            [resetToken, resetExpiry, email]
+            [resetToken, resetExpiry, normalizedEmail]
         );
 
         const { sendEmail } = await import("../utils/emailService.js");
 
         const mailOptions = {
             from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
-            to: email,
+            to: normalizedEmail,
             subject: "TiffinCraft — Password Reset Code",
             html: `
             <div style="font-family: Arial, sans-serif; max-width: 480px;
@@ -348,10 +366,14 @@ export const forgotPassword = async (req, res) => {
 
         if (!result.success) {
             console.error("Email send failed:", result.error);
-            return res.status(500).json({ message: "Failed to send reset email. Try again." });
+            return res.status(500).json({
+                success: false,
+                message: "We couldn't send the reset email just now. Please try again."
+            });
         }
 
         return res.status(200).json({
+            success: true,
             message: "Password reset code sent to your email."
         });
 
@@ -372,8 +394,11 @@ export const resetPassword = async (req, res) => {
             return res.status(400).json({ message: "Password must be at least 6 characters." });
         }
 
+        // Normalize email: trim whitespace and convert to lowercase
+        const normalizedEmail = email.trim().toLowerCase();
+
         const [users] = await db.promise().query(
-            "SELECT * FROM users WHERE email = ?", [email]
+            "SELECT * FROM users WHERE email = ?", [normalizedEmail]
         );
 
         if (users.length === 0) {
@@ -394,7 +419,7 @@ export const resetPassword = async (req, res) => {
 
         await db.promise().query(
             "UPDATE users SET password_hash = ?, otp_code = NULL, otp_expires_at = NULL WHERE email = ?",
-            [password_hash, email]
+            [password_hash, normalizedEmail]
         );
 
         return res.status(200).json({ message: "Password reset successfully. You can now login." });

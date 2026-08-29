@@ -504,8 +504,11 @@ export const createUser = async (req, res) => {
             });
         }
 
+        // Normalize email: trim whitespace and convert to lowercase
+        const normalizedEmail = email.trim().toLowerCase();
+
         const [existingEmail] = await db.promise().query(
-            "SELECT id FROM users WHERE email = ?", [email]
+            "SELECT id FROM users WHERE email = ?", [normalizedEmail]
         );
         if (existingEmail.length > 0) {
             return res.status(400).json({ success: false, message: "Email is already registered." });
@@ -523,13 +526,13 @@ export const createUser = async (req, res) => {
         const [result] = await db.promise().query(
             `INSERT INTO users (full_name, email, phone, password_hash, role, is_active, is_verified, auth_provider)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [full_name, email, phone, password_hash, role, is_active !== false, true, "local"]
+            [full_name, normalizedEmail, phone, password_hash, role, is_active !== false, true, "local"]
         );
 
         await db.promise().query(
             `INSERT INTO admin_records (admin_id, action_type, description)
              VALUES (?, ?, ?)`,
-            [req.user.id, "user_created", `User id ${result.insertId} (${email}) created`]
+            [req.user.id, "user_created", `User id ${result.insertId} (${normalizedEmail}) created`]
         );
 
         const [rows] = await db.promise().query(
@@ -574,9 +577,12 @@ export const updateUser = async (req, res) => {
             });
         }
 
-        if (email !== undefined) {
+        // Normalize email if provided
+        const normalizedEmail = email !== undefined ? email.trim().toLowerCase() : undefined;
+
+        if (normalizedEmail !== undefined) {
             const [dupEmail] = await db.promise().query(
-                "SELECT id FROM users WHERE email = ? AND id != ?", [email, userId]
+                "SELECT id FROM users WHERE email = ? AND id != ?", [normalizedEmail, userId]
             );
             if (dupEmail.length > 0) {
                 return res.status(400).json({ success: false, message: "Email is already in use by another account." });
@@ -595,7 +601,7 @@ export const updateUser = async (req, res) => {
         const updates = [];
         const values = [];
         if (full_name !== undefined) { updates.push("full_name = ?"); values.push(full_name); }
-        if (email !== undefined) { updates.push("email = ?"); values.push(email); }
+        if (normalizedEmail !== undefined) { updates.push("email = ?"); values.push(normalizedEmail); }
         if (phone !== undefined) { updates.push("phone = ?"); values.push(phone); }
         if (role !== undefined) { updates.push("role = ?"); values.push(role); }
         if (is_active !== undefined) { updates.push("is_active = ?"); values.push(!!is_active); }
@@ -1161,8 +1167,11 @@ export const createCook = async (req, res) => {
             return res.status(400).json({ success: false, message: "Rating must be between 0 and 5." });
         }
 
+        // Normalize email: trim whitespace and convert to lowercase
+        const normalizedEmail = email.trim().toLowerCase();
+
         const [existingEmail] = await db.promise().query(
-            "SELECT id FROM users WHERE email = ?", [email]
+            "SELECT id FROM users WHERE email = ?", [normalizedEmail]
         );
         if (existingEmail.length > 0) {
             return res.status(400).json({ success: false, message: "Email is already registered." });
@@ -1180,7 +1189,7 @@ export const createCook = async (req, res) => {
         const [result] = await db.promise().query(
             `INSERT INTO users (full_name, email, phone, password_hash, role, is_active, is_verified, auth_provider)
              VALUES (?, ?, ?, ?, 'cook', TRUE, TRUE, 'local')`,
-            [full_name, email, phone, password_hash]
+            [full_name, normalizedEmail, phone, password_hash]
         );
 
         await db.promise().query(
@@ -1192,7 +1201,7 @@ export const createCook = async (req, res) => {
         await db.promise().query(
             `INSERT INTO admin_records (admin_id, action_type, description)
              VALUES (?, ?, ?)`,
-            [req.user.id, "cook_created", `Cook user_id ${result.insertId} (${email}) created`]
+            [req.user.id, "cook_created", `Cook user_id ${result.insertId} (${normalizedEmail}) created`]
         );
 
         const [rows] = await db.promise().query(

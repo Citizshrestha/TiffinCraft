@@ -110,9 +110,15 @@ public class RetrofitClient {
                 // measured 17s+ for a trivial request — and CookHomeActivity alone
                 // fires 4 parallel calls on every onResume, so a tight read timeout
                 // turned that tunnel latency into spurious "network error" toasts.
+                //
+                // 60s, not 40s: the hosted backend is on a free tier that spins down
+                // when idle, and a measured cold start is ~20s before the handler even
+                // runs. An endpoint that then does real work — forgot-password waits
+                // on an SMTP send — could exceed 40s from a cold instance and surface
+                // as a network error on a request that actually succeeded server-side.
                 .connectTimeout(15, TimeUnit.SECONDS)
-                .readTimeout(40, TimeUnit.SECONDS)
-                .writeTimeout(40, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
                 .cookieJar(cookieJar)
                 .addInterceptor(authInterceptor)

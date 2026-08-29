@@ -117,11 +117,23 @@ export const getCookEarningsSummary = async (req, res) => {
         // commission_amount is only set on orders delivered after the commission
         // feature shipped (NULL on older ones), so COALESCE it to 0 rather than
         // letting SUM() silently skip those rows' contribution to the total.
+        // Subscription and combo revenue are already IN total_amount — both flow
+        // through the orders table (a combo purchase is a normal order tagged with
+        // combo_id; a subscription day gets an order placed by placeDayOrder). They
+        // are split out here so the screen can prove that, instead of a cook having
+        // to trust that a total covering three revenue streams really does.
+        //
+        // EXISTS, not a LEFT JOIN on subscription_daily_log: order_id has no unique
+        // key there, so a join could fan a row out and double-count it in `total`.
+        const isSubscriptionOrder =
+            `EXISTS (SELECT 1 FROM subscription_daily_log sdl WHERE sdl.order_id = orders.id)`;
         const [[monthResult]] = await db.promise().query(
             `SELECT
                 COALESCE(SUM(total_amount), 0) as total,
                 COALESCE(SUM(commission_amount), 0) as commission,
-                COUNT(*) as order_count
+                COUNT(*) as order_count,
+                COALESCE(SUM(CASE WHEN ${isSubscriptionOrder} THEN total_amount ELSE 0 END), 0) as subscription_total,
+                COALESCE(SUM(CASE WHEN combo_id IS NOT NULL THEN total_amount ELSE 0 END), 0) as combo_total
              FROM orders
              WHERE cook_id = ? AND status = 'delivered' AND ${notRefunded()}
              AND MONTH(${earnedAt()}) = ? AND YEAR(${earnedAt()}) = ?`,
@@ -131,6 +143,15 @@ export const getCookEarningsSummary = async (req, res) => {
         const thisMonthCommission = parseFloat(monthResult.commission) || 0;
         const thisMonthNetTotal = thisMonthTotal - thisMonthCommission;
         const thisMonthOrderCount = parseInt(monthResult.order_count) || 0;
+        const thisMonthSubscriptionTotal = parseFloat(monthResult.subscription_total) || 0;
+        const thisMonthComboTotal = parseFloat(monthResult.combo_total) || 0;
+        // Whatever is left is a plain one-off order. Floored at 0 so a hypothetical
+        // order that is somehow both (a combo bought inside a subscription day) can
+        // never render as a negative "orders" figure.
+        const thisMonthDirectTotal = Math.max(
+            0,
+            thisMonthTotal - thisMonthSubscriptionTotal - thisMonthComboTotal
+        );
 
         // Recent transactions (last 10, or that month's last 10 when filtered).
         const monthFilterSql = filterByMonth
@@ -204,6 +225,9 @@ export const getCookEarningsSummary = async (req, res) => {
                 thisMonthCommission,
                 thisMonthNetTotal,
                 thisMonthOrderCount,
+                thisMonthSubscriptionTotal,
+                thisMonthComboTotal,
+                thisMonthDirectTotal,
                 todayTotal,
                 recentTransactions: formattedTransactions,
                 weeklyBreakdown: last7Days,

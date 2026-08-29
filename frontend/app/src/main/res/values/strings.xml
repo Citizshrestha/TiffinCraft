@@ -72,10 +72,15 @@
     <string name="otp_sent_to_email">OTP sent to your email!</string>
     <string name="network_error">Network error. Please try again.</string>
 
+    <string name="fp_title">Forgot Password?</string>
+    <string name="fp_subtitle">Enter the email you signed up with and we\'ll send you a 6-digit reset code.</string>
+    <string name="fp_helper">The code stays valid for 10 minutes.</string>
+    <string name="fp_remember_password">Remember your password?</string>
     <string name="fp_send_code">Send Reset Code</string>
     <string name="fp_sending">Sending…</string>
     <string name="fp_code_sent">Reset code sent! Check your email.</string>
     <string name="fp_send_failed">Failed to send reset code. Try again.</string>
+    <string name="fp_slow_network">Couldn\'t reach the server. It may still be waking up — try again in a moment.</string>
 
     <string name="rp_title">Reset Password</string>
     <string name="rp_code_sent_to">Enter the 6-digit code sent to\n%s</string>

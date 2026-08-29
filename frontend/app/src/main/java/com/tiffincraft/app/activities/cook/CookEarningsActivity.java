@@ -205,9 +205,26 @@ public class CookEarningsActivity extends AppCompatActivity {
                 ? "Total Earnings · 1 order"
                 : "Total Earnings · " + orderCount + " orders");
 
+        // Gross, commission, and where the gross came from. The source split is shown
+        // because "is my subscription and combo money in here?" is not answerable from
+        // a single total — and the answer is yes: both are orders under the hood.
+        StringBuilder breakdown = new StringBuilder();
         if (monthCommission > 0) {
-            binding.tvCommissionBreakdown.setText("Gross " + CurrencyUtils.formatRupees(monthTotal)
-                    + " · Commission −" + CurrencyUtils.formatRupees(monthCommission));
+            breakdown.append("Gross ").append(CurrencyUtils.formatRupees(monthTotal))
+                    .append(" · Commission −").append(CurrencyUtils.formatRupees(monthCommission));
+        } else if (monthTotal > 0) {
+            breakdown.append("Gross ").append(CurrencyUtils.formatRupees(monthTotal));
+        }
+        double subscriptionTotal = summary.getThisMonthSubscriptionTotal();
+        double comboTotal = summary.getThisMonthComboTotal();
+        if (subscriptionTotal > 0 || comboTotal > 0) {
+            if (breakdown.length() > 0) breakdown.append('\n');
+            breakdown.append("Orders ").append(CurrencyUtils.formatRupees(summary.getThisMonthDirectTotal()))
+                    .append(" · Subscriptions ").append(CurrencyUtils.formatRupees(subscriptionTotal))
+                    .append(" · Combos ").append(CurrencyUtils.formatRupees(comboTotal));
+        }
+        if (breakdown.length() > 0) {
+            binding.tvCommissionBreakdown.setText(breakdown.toString());
             binding.tvCommissionBreakdown.setVisibility(View.VISIBLE);
         } else {
             binding.tvCommissionBreakdown.setVisibility(View.GONE);

@@ -8,6 +8,10 @@ public class EarningsSummary {
     private double thisMonthCommission;
     private double thisMonthNetTotal;
     private int thisMonthOrderCount;
+    /** Slices of thisMonthTotal by revenue stream — they sum to the gross total. */
+    private double thisMonthSubscriptionTotal;
+    private double thisMonthComboTotal;
+    private double thisMonthDirectTotal;
     private double todayTotal;
     private List<EarningsTransaction> recentTransactions;
     private List<WeeklyBreakdown> weeklyBreakdown;
@@ -52,6 +56,19 @@ public class EarningsSummary {
 
     public int getThisMonthOrderCount() {
         return thisMonthOrderCount;
+    }
+
+    public double getThisMonthSubscriptionTotal() {
+        return thisMonthSubscriptionTotal;
+    }
+
+    public double getThisMonthComboTotal() {
+        return thisMonthComboTotal;
+    }
+
+    /** One-off orders: gross minus the subscription and combo slices. */
+    public double getThisMonthDirectTotal() {
+        return thisMonthDirectTotal;
     }
 
     public void setThisMonthOrderCount(int thisMonthOrderCount) {

@@ -451,7 +451,7 @@ export const updateOrderStatus = async (req, res) => {
         if (status === 'delivered' && order.payment_method === 'online' && order.payment_status !== 'verified') {
             return res.status(403).json({
                 success: false,
-                message: "Cannot mark as delivered until payment is verified. Please verify the payment screenshot first."
+                message: "Payment not verified yet — verify the customer's payment proof before marking this order delivered."
             });
         }
 

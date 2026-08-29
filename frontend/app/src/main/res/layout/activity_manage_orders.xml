@@ -28,7 +28,7 @@
             android:textColor="#1A1A1A"
             android:textSize="24sp"
             android:textStyle="bold"
-            android:gravity="start"
+            android:gravity="center"
             android:layout_marginBottom="4dp" />
 
         <!-- Real-time info text -->
@@ -38,7 +38,7 @@
             android:text="Real-time view of orders and table statuses."
             android:textColor="#666666"
             android:textSize="13sp"
-            android:gravity="start"
+            android:gravity="center"
             android:layout_marginBottom="16dp" />
 
         <!-- Green Refresh Button -->

@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.tiffincraft.app.R;
@@ -30,6 +31,7 @@ public class ForgotPasswordActivity extends AppCompatActivity {
     private TextInputLayout tilEmail;
     private TextInputEditText etEmail;
     private MaterialButton btnResetPassword;
+    private CircularProgressIndicator progressSending;
     private TextView tvBackToLogin;
     private boolean isLoading = false;
 
@@ -52,6 +54,7 @@ public class ForgotPasswordActivity extends AppCompatActivity {
         tilEmail = findViewById(R.id.tilEmail);
         etEmail = findViewById(R.id.etEmail);
         btnResetPassword = findViewById(R.id.btnResetPassword);
+        progressSending = findViewById(R.id.progressSending);
         tvBackToLogin = findViewById(R.id.tvBackToLogin);
     }
 
@@ -65,6 +68,37 @@ public class ForgotPasswordActivity extends AppCompatActivity {
                 .start();
             attemptPasswordReset();
         });
+
+        // The field already advertises actionDone; without this the key did nothing.
+        etEmail.setOnEditorActionListener((v, actionId, event) -> {
+            attemptPasswordReset();
+            return true;
+        });
+
+        // Clear a stale "invalid email" the moment the user starts correcting it,
+        // rather than leaving red text under a field they are actively fixing.
+        etEmail.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int st, int c, int a) { }
+            @Override public void onTextChanged(CharSequence s, int st, int b, int c) {
+                if (tilEmail.getError() != null) tilEmail.setError(null);
+            }
+            @Override public void afterTextChanged(android.text.Editable s) { }
+        });
+    }
+
+    /**
+     * Loading state lives in one place so no path can leave the button stuck
+     * disabled — the previous version repeated the reset in three callbacks.
+     */
+    private void setLoading(boolean loading) {
+        isLoading = loading;
+        btnResetPassword.setEnabled(!loading);
+        // Text is cleared, not swapped for "Sending…": the spinner is drawn on top of
+        // the button and would otherwise sit over the label.
+        btnResetPassword.setText(loading ? "" : getString(R.string.fp_send_code));
+        btnResetPassword.setIconResource(loading ? 0 : R.drawable.ic_arrow_forward);
+        btnResetPassword.setAlpha(loading ? 0.75f : 1f);
+        progressSending.setVisibility(loading ? View.VISIBLE : View.GONE);
     }
 
     private void attemptPasswordReset() {
@@ -84,20 +118,14 @@ public class ForgotPasswordActivity extends AppCompatActivity {
             return;
         }
 
-        isLoading = true;
-        btnResetPassword.setEnabled(false);
-        btnResetPassword.setText(R.string.fp_sending);
-        btnResetPassword.setAlpha(0.7f);
+        setLoading(true);
 
         RetrofitClient.getInstance(this).getApiService()
             .forgotPassword(new ForgotPasswordRequest(email))
             .enqueue(new Callback<RegisterResponse>() {
                 @Override
                 public void onResponse(Call<RegisterResponse> call, Response<RegisterResponse> response) {
-                    isLoading = false;
-                    btnResetPassword.setEnabled(true);
-                    btnResetPassword.setText(R.string.fp_send_code);
-                    btnResetPassword.setAlpha(1f);
+                    setLoading(false);
 
                     if (response.isSuccessful()) {
                         Toast.makeText(ForgotPasswordActivity.this,
@@ -108,21 +136,39 @@ public class ForgotPasswordActivity extends AppCompatActivity {
                         intent.putExtra("email", email);
                         startActivity(intent);
                     } else {
+                        // The server says why (unverified account, mail send failed);
+                        // a fixed "Failed to send reset code" hid all of it.
+                        String message = serverMessage(response);
                         Toast.makeText(ForgotPasswordActivity.this,
-                            R.string.fp_send_failed, Toast.LENGTH_LONG).show();
+                            message != null ? message : getString(R.string.fp_send_failed),
+                            Toast.LENGTH_LONG).show();
                     }
                 }
 
                 @Override
                 public void onFailure(Call<RegisterResponse> call, Throwable t) {
-                    isLoading = false;
-                    btnResetPassword.setEnabled(true);
-                    btnResetPassword.setText(R.string.fp_send_code);
-                    btnResetPassword.setAlpha(1f);
+                    setLoading(false);
+                    // A timeout here is almost always the free-tier backend cold-starting,
+                    // not a dead connection — "Network error. Please try again." sent users
+                    // hunting for a Wi-Fi problem they didn't have.
+                    boolean timedOut = t instanceof java.net.SocketTimeoutException;
                     Toast.makeText(ForgotPasswordActivity.this,
-                        R.string.network_error, Toast.LENGTH_LONG).show();
+                        timedOut ? R.string.fp_slow_network : R.string.network_error,
+                        Toast.LENGTH_LONG).show();
                 }
             });
+    }
+
+    /** The server's own "message" for a non-2xx response, or null. */
+    private String serverMessage(Response<RegisterResponse> response) {
+        try {
+            if (response.errorBody() == null) return null;
+            String message = new org.json.JSONObject(response.errorBody().string())
+                    .optString("message", "");
+            return message.isEmpty() ? null : message;
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private void applyEntranceAnimations() {

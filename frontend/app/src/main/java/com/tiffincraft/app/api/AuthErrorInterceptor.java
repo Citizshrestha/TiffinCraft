@@ -59,7 +59,10 @@ public class AuthErrorInterceptor implements Interceptor {
             // Real auth failure — token expired/invalid
             handleUnauthorized();
         } else if (response.code() == 403) {
-            handleForbidden();
+            // Most 403s here are business rules, not permission failures ("payment not
+            // verified yet", "order already delivered"). The reason is in the body, so
+            // show it instead of a generic "Access denied" that misstates what happened.
+            handleForbidden(readMessage(response));
         }
 
         return response;
@@ -79,10 +82,29 @@ public class AuthErrorInterceptor implements Interceptor {
         });
     }
 
-    private void handleForbidden() {
+    /**
+     * The server's own "message" for this response, or null.
+     *
+     * peekBody, not body(): the body is a one-shot stream and the calling Activity
+     * still needs to read it.
+     */
+    private String readMessage(Response response) {
+        try {
+            String body = response.peekBody(4096).string();
+            String message = new org.json.JSONObject(body).optString("message", "");
+            return message.isEmpty() ? null : message;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private void handleForbidden(String serverMessage) {
+        String message = serverMessage != null
+                ? serverMessage
+                : "Access denied. You don't have permission for this action.";
         android.os.Handler mainHandler = new android.os.Handler(context.getMainLooper());
         mainHandler.post(() -> {
-            Toast.makeText(context, "Access denied. You don't have permission for this action.", Toast.LENGTH_LONG).show();
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show();
         });
     }
 }

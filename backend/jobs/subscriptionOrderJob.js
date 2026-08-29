@@ -22,6 +22,7 @@ import {
     placeDayOrder,
     logDayEvent
 } from "../utils/subscriptionDailyLog.js";
+import { settleSubscriptionDayOrder } from "../utils/commissionSnapshot.js";
 import { expireDanglingCustomMealRequests } from "../controllers/customMealController.js";
 
 /**
@@ -126,6 +127,15 @@ const reconcileYesterday = async () => {
 
             if (wasDelivered) {
                 delivered++;
+                // This pass writes subscription_daily_log directly instead of going
+                // through applyDayStatus, so it never reached
+                // chargeCommissionForDeliveredDay. A day the cook marked 'sent' and
+                // the customer never confirmed was therefore settled as delivered
+                // here while its order row stayed 'confirmed' — invisible to the
+                // cook's earnings screen AND to the commission ledger, both of which
+                // filter on orders.status = 'delivered'. Idempotent (guarded on
+                // status <> 'delivered' and commission_amount IS NULL).
+                await settleSubscriptionDayOrder(row.order_id);
             } else {
                 missed++;
             }
