@@ -59,6 +59,9 @@ public class Order {
     @SerializedName("kitchen_name")
     private String kitchenName;
 
+    @SerializedName("cook_address")
+    private String cookAddress;
+
     @SerializedName("items_count")
     private int itemsCount;
 
@@ -170,6 +173,7 @@ public class Order {
     public String getMealImage() { return mealImage; }
     public String getCookName() { return cookName; }
     public String getKitchenName() { return kitchenName; }
+    public String getCookAddress() { return cookAddress; }
     public int getItemsCount() { return itemsCount; }
     public String getItemsSummary() { return itemsSummary; }
 
@@ -213,6 +217,11 @@ public class Order {
                 && customerLatitude != null && customerLongitude != null;
     }
 
+    public boolean hasAnyMapCoordinates() {
+        return (cookLatitude != null && cookLongitude != null)
+                || (customerLatitude != null && customerLongitude != null);
+    }
+
     // Setters
     public void setId(int id) { this.id = id; }
     public void setStatus(String status) { this.status = status; }
@@ -221,4 +230,9 @@ public class Order {
     public void setCancelledBy(String cancelledBy) { this.cancelledBy = cancelledBy; }
     public void setCancellationReason(String cancellationReason) { this.cancellationReason = cancellationReason; }
     public void setRefundStatus(String refundStatus) { this.refundStatus = refundStatus; }
+    public void setCookLatitude(Double cookLatitude) { this.cookLatitude = cookLatitude; }
+    public void setCookLongitude(Double cookLongitude) { this.cookLongitude = cookLongitude; }
+    public void setCustomerLatitude(Double customerLatitude) { this.customerLatitude = customerLatitude; }
+    public void setCustomerLongitude(Double customerLongitude) { this.customerLongitude = customerLongitude; }
+    public void setCookAddress(String cookAddress) { this.cookAddress = cookAddress; }
 }

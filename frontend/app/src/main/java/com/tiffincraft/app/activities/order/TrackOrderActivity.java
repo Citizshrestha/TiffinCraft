@@ -1,6 +1,7 @@
 package com.tiffincraft.app.activities.order;
 
 import android.graphics.drawable.GradientDrawable;
+import android.location.Geocoder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -38,9 +39,11 @@ import com.tiffincraft.app.utils.SocketManager;
 
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -67,6 +70,8 @@ public class TrackOrderActivity extends AppCompatActivity implements OnMapReadyC
 
     private GoogleMap map;
     private Order loadedOrder;
+    private volatile boolean geocodingInProgress;
+    private volatile boolean geocodingAttempted;
 
     private LinearLayout[] stepRows;
     private ImageView[] stepIcons;
@@ -245,51 +250,177 @@ public class TrackOrderActivity extends AppCompatActivity implements OnMapReadyC
     // ==================== Route map ====================
 
     /**
-     * Draws the cook → customer route. The line's appearance encodes the order
-     * stage: nothing while the food is still being prepared (there is no journey
-     * yet), a light dashed line once it's out for delivery (in progress), and a
-     * solid green line once delivered (completed).
+     * Draws the cook → customer route. When coordinates are missing from the
+     * server, resolves delivery and kitchen addresses via Geocoder before
+     * rendering. Partial geocoding still shows whatever point(s) are available.
      */
     private void drawRoute(Order order) {
         if (map == null) return; // onMapReady will re-invoke this
 
-        if (!order.hasMapCoordinates()) {
-            binding.layoutMapUnavailable.setVisibility(View.VISIBLE);
-            binding.tvRouteStage.setVisibility(View.GONE);
+        if (order.hasMapCoordinates()) {
+            renderRouteOnMap(order);
             return;
         }
+
+        if (order.hasAnyMapCoordinates()) {
+            renderRouteOnMap(order);
+            return;
+        }
+
+        if (!geocodingAttempted && !geocodingInProgress) {
+            tryGeocodeAndDrawRoute(order);
+            return;
+        }
+
+        if (geocodingInProgress) {
+            binding.layoutMapUnavailable.setVisibility(View.GONE);
+            binding.tvRouteStage.setVisibility(View.VISIBLE);
+            binding.tvRouteStage.setText("Locating addresses…");
+            return;
+        }
+
+        binding.layoutMapUnavailable.setVisibility(View.VISIBLE);
+        binding.tvRouteStage.setVisibility(View.GONE);
+    }
+
+    private void tryGeocodeAndDrawRoute(Order order) {
+        geocodingInProgress = true;
+        binding.layoutMapUnavailable.setVisibility(View.GONE);
+        binding.tvRouteStage.setVisibility(View.VISIBLE);
+        binding.tvRouteStage.setText("Locating addresses…");
+
+        new Thread(() -> {
+            Double cookLat = order.getCookLatitude();
+            Double cookLng = order.getCookLongitude();
+            Double custLat = order.getCustomerLatitude();
+            Double custLng = order.getCustomerLongitude();
+
+            if (cookLat == null || cookLng == null) {
+                String cookQuery = resolveCookGeocodeQuery(order);
+                if (cookQuery != null) {
+                    android.location.Address addr = geocodeAddress(cookQuery);
+                    if (addr != null) {
+                        cookLat = addr.getLatitude();
+                        cookLng = addr.getLongitude();
+                    }
+                }
+            }
+
+            if (custLat == null || custLng == null) {
+                String deliveryAddress = order.getDeliveryAddress();
+                if (deliveryAddress != null && !deliveryAddress.trim().isEmpty()) {
+                    android.location.Address addr = geocodeAddress(deliveryAddress.trim());
+                    if (addr != null) {
+                        custLat = addr.getLatitude();
+                        custLng = addr.getLongitude();
+                    }
+                }
+            }
+
+            final Double fCookLat = cookLat;
+            final Double fCookLng = cookLng;
+            final Double fCustLat = custLat;
+            final Double fCustLng = custLng;
+
+            runOnUiThread(() -> {
+                geocodingInProgress = false;
+                geocodingAttempted = true;
+
+                if (fCookLat != null) order.setCookLatitude(fCookLat);
+                if (fCookLng != null) order.setCookLongitude(fCookLng);
+                if (fCustLat != null) order.setCustomerLatitude(fCustLat);
+                if (fCustLng != null) order.setCustomerLongitude(fCustLng);
+
+                loadedOrder = order;
+                if (order.hasAnyMapCoordinates()) {
+                    renderRouteOnMap(order);
+                } else {
+                    binding.layoutMapUnavailable.setVisibility(View.VISIBLE);
+                    binding.tvRouteStage.setVisibility(View.GONE);
+                }
+            });
+        }).start();
+    }
+
+    private String resolveCookGeocodeQuery(Order order) {
+        if (order.getCookAddress() != null && !order.getCookAddress().trim().isEmpty()) {
+            return order.getCookAddress().trim();
+        }
+        if (order.getKitchenName() != null && !order.getKitchenName().trim().isEmpty()) {
+            return order.getKitchenName().trim();
+        }
+        if (order.getCookName() != null && !order.getCookName().trim().isEmpty()) {
+            return order.getCookName().trim();
+        }
+        return null;
+    }
+
+    private android.location.Address geocodeAddress(String query) {
+        try {
+            if (!Geocoder.isPresent()) return null;
+            List<android.location.Address> results =
+                    new Geocoder(this, Locale.getDefault()).getFromLocationName(query, 1);
+            if (results != null && !results.isEmpty()) {
+                return results.get(0);
+            }
+        } catch (IOException ignored) {
+            // offline / geocoder unavailable
+        }
+        return null;
+    }
+
+    private void renderRouteOnMap(Order order) {
         binding.layoutMapUnavailable.setVisibility(View.GONE);
 
-        LatLng cook = new LatLng(order.getCookLatitude(), order.getCookLongitude());
-        LatLng customer = new LatLng(order.getCustomerLatitude(), order.getCustomerLongitude());
+        LatLng cook = hasCookCoordinates(order)
+                ? new LatLng(order.getCookLatitude(), order.getCookLongitude()) : null;
+        LatLng customer = hasCustomerCoordinates(order)
+                ? new LatLng(order.getCustomerLatitude(), order.getCustomerLongitude()) : null;
 
         map.clear();
 
-        map.addMarker(new MarkerOptions()
-                .position(cook)
-                .title(order.getKitchenName() != null && !order.getKitchenName().isEmpty()
-                        ? order.getKitchenName() : "Kitchen")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)));
+        if (cook != null) {
+            map.addMarker(new MarkerOptions()
+                    .position(cook)
+                    .title(order.getKitchenName() != null && !order.getKitchenName().isEmpty()
+                            ? order.getKitchenName() : "Kitchen")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)));
+        }
 
-        map.addMarker(new MarkerOptions()
-                .position(customer)
-                .title("Delivery address")
-                .snippet(order.getDeliveryAddress())
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
+        if (customer != null) {
+            map.addMarker(new MarkerOptions()
+                    .position(customer)
+                    .title("Delivery address")
+                    .snippet(order.getDeliveryAddress())
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
+        }
 
-        applyRouteStyle(order.getStatus(), cook, customer);
-
-        try {
-            LatLngBounds bounds = new LatLngBounds.Builder().include(cook).include(customer).build();
-            map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
-        } catch (IllegalStateException e) {
-            // Both points identical (cook delivering to their own address).
-            map.animateCamera(CameraUpdateFactory.newLatLngZoom(cook, 14f));
+        if (cook != null && customer != null) {
+            applyRouteStyle(order.getStatus(), cook, customer);
+            try {
+                LatLngBounds bounds = new LatLngBounds.Builder().include(cook).include(customer).build();
+                map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+            } catch (IllegalStateException e) {
+                map.animateCamera(CameraUpdateFactory.newLatLngZoom(cook, 14f));
+            }
+        } else {
+            LatLng center = cook != null ? cook : customer;
+            binding.tvRouteStage.setVisibility(View.VISIBLE);
+            binding.tvRouteStage.setText(cook != null ? "Kitchen location" : "Delivery location");
+            map.animateCamera(CameraUpdateFactory.newLatLngZoom(center, 14f));
         }
     }
 
+    private boolean hasCookCoordinates(Order order) {
+        return order.getCookLatitude() != null && order.getCookLongitude() != null;
+    }
+
+    private boolean hasCustomerCoordinates(Order order) {
+        return order.getCustomerLatitude() != null && order.getCustomerLongitude() != null;
+    }
+
     private void applyRouteStyle(String status, LatLng cook, LatLng customer) {
-        String s = status != null ? status.toLowerCase() : "";
+        String s = status != null ? status.toLowerCase(Locale.ROOT) : "";
 
         if (s.contains("cancel")) {
             binding.tvRouteStage.setVisibility(View.VISIBLE);
@@ -306,7 +437,16 @@ public class TrackOrderActivity extends AppCompatActivity implements OnMapReadyC
             return;
         }
 
+        boolean outForDelivery = s.equals("ready") || s.equals("prepared")
+                || s.equals("out_for_delivery") || s.equals("shipped")
+                || s.contains("out for delivery");
         boolean delivered = s.equals("delivered") || s.equals("completed");
+
+        if (!outForDelivery && !delivered) {
+            binding.tvRouteStage.setVisibility(View.VISIBLE);
+            binding.tvRouteStage.setText("Preparing your order");
+            return;
+        }
 
         PolylineOptions line = new PolylineOptions()
                 .add(cook, customer)

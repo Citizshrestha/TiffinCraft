@@ -387,13 +387,20 @@ db.getConnection((err, connection) => {
     // Initialize Firebase Admin SDK for FCM push notifications
     initFirebase();
 
-    transporter.verify((smtpErr) => {
-        if (smtpErr) {
-            console.warn(`⚠️  SMTP not ready: ${smtpErr.message}`);
-        } else {
-            console.log(`✅ SMTP ready — ${process.env.SMTP_HOST}`);
-        }
-    });
+    if (process.env.BREVO_API_KEY) {
+        // Primary transport is HTTPS, so a blocked outbound 587 (Render free tier)
+        // is expected here and must not read as "email is broken".
+        console.log("✅ Mail transport — Brevo HTTPS API (SMTP is fallback only)");
+    } else {
+        transporter.verify((smtpErr) => {
+            if (smtpErr) {
+                console.warn(`⚠️  SMTP not ready: ${smtpErr.message}`);
+                console.warn("   ↳ if this host blocks outbound SMTP, set BREVO_API_KEY to send over HTTPS.");
+            } else {
+                console.log(`✅ SMTP ready — ${process.env.SMTP_HOST}`);
+            }
+        });
+    }
 
     // Start subscription auto-order cron job (runs daily at 06:00)
     startSubscriptionJob();

@@ -1,4 +1,5 @@
 import db from "../config/db.js";
+import { notifyNewComboOrder } from "../utils/notificationHelper.js";
 
 /** Validates the items array shared by create/update — same rules as
  *  subscription plans: non-empty, each meal owned by this cook, positive
@@ -270,7 +271,7 @@ export const buyCombo = async (req, res) => {
     try {
         const customerId = req.user.id;
         const { id } = req.params;
-        const { delivery_address, payment_method, special_instructions } = req.body;
+        const { delivery_address, delivery_latitude, delivery_longitude, payment_method, special_instructions } = req.body;
 
         if (!delivery_address) {
             return res.status(400).json({ success: false, message: "delivery_address is required." });
@@ -310,9 +311,9 @@ export const buyCombo = async (req, res) => {
         await connection.beginTransaction();
 
         const [orderResult] = await connection.query(
-            `INSERT INTO orders (customer_id, cook_id, total_amount, delivery_address, status, payment_method, payment_status, special_instructions, combo_id)
-             VALUES (?, ?, ?, ?, 'pending', ?, 'pending', ?, ?)`,
-            [customerId, combo.cook_id, combo.price, delivery_address, selectedPaymentMethod, special_instructions || null, combo.id]
+            `INSERT INTO orders (customer_id, cook_id, total_amount, delivery_address, delivery_latitude, delivery_longitude, status, payment_method, payment_status, special_instructions, combo_id)
+             VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'pending', ?, ?)`,
+            [customerId, combo.cook_id, combo.price, delivery_address, delivery_latitude || null, delivery_longitude || null, selectedPaymentMethod, special_instructions || null, combo.id]
         );
         const orderId = orderResult.insertId;
 
@@ -324,6 +325,41 @@ export const buyCombo = async (req, res) => {
         }
 
         await connection.commit();
+
+        // ── Notify the cook ──────────────────────────────────────────
+        // Get customer name for the notification
+        const [[customer]] = await db.promise().query(
+            "SELECT full_name FROM users WHERE id = ?",
+            [customerId]
+        );
+        const customerName = customer?.full_name || "A customer";
+
+        // Build a human-readable meal summary for the notification body
+        const mealSummary = items.map(i => `${i.quantity}x ${i.name}`).join(", ");
+
+        // In-app notification + FCM push to this cook
+        await notifyNewComboOrder(
+            combo.cook_id, orderId, customerName,
+            combo.name, combo.price, mealSummary
+        );
+
+        // Real-time Socket.IO event so CookHomeActivity / ManageOrdersActivity
+        // update live without the cook needing to pull-to-refresh.
+        const io = req.app.get("io");
+        if (io) {
+            io.to(`cook_${combo.cook_id}`).emit("newOrder", {
+                orderId,
+                customerId,
+                customerName,
+                mealName: `Combo: ${combo.name}`,
+                mealSummary,
+                quantity: items.reduce((sum, i) => sum + i.quantity, 0),
+                total_amount: parseFloat(combo.price),
+                delivery_address,
+                payment_method: selectedPaymentMethod,
+                isCombo: true
+            });
+        }
 
         return res.status(201).json({
             success: true,

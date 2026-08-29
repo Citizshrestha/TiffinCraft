@@ -271,22 +271,32 @@ public class CommissionSettlementActivity extends AppCompatActivity {
                 ? MONTH_NAMES[accruing.getMonth() - 1] : "this month";
         binding.tvAccruingLabel.setText("Accruing in " + period + " · " + n + " delivered order" + (n == 1 ? "" : "s"));
 
-        // The accrual is only payable while no bill exists for it. Once one does,
-        // the amount-due card below owns the payment flow and a second "pay" CTA
-        // here would be two buttons for one debt.
-        boolean payable = accruing.isPayableNow() && !hasUnpaidBillFor(accruing.getMonth(), accruing.getYear());
+        // The accrual is only payable while no OUTSTANDING bill exists for it.
+        // While one does, the amount-due card below owns the payment flow and a
+        // second "pay" CTA here would be two buttons for one debt. A bill that is
+        // already verified is not one of those: orders delivered after it was paid
+        // are new debt with no CTA of their own until the month closes, which is
+        // exactly the state this button exists for.
+        boolean payable = accruing.isPayableNow() && !hasOutstandingBillFor(accruing.getMonth(), accruing.getYear());
         binding.btnPayAccruingNow.setVisibility(payable ? View.VISIBLE : View.GONE);
+        binding.btnPayAccruingNow.setText(settleButtonLabel());
         binding.tvAccruingNote.setText(payable
                 ? "Pay it now, or leave it — it is billed automatically once this month closes."
                 : "Billed automatically once this month closes.");
     }
 
-    /** True when a bill already exists for that period (any status). */
-    private boolean hasUnpaidBillFor(int month, int year) {
+    /** True when a bill for that period exists and still owes money. */
+    private boolean hasOutstandingBillFor(int month, int year) {
         for (CommissionSettlement s : new CommissionSettlement[]{ currentMonthBill, current }) {
-            if (s != null && s.getMonth() == month && s.getYear() == year) return true;
+            if (s != null && s.getMonth() == month && s.getYear() == year && !s.isVerified()) return true;
         }
         return false;
+    }
+
+    /** Amount in the label: "Pay Now" alone hides which figure is being paid. */
+    private String settleButtonLabel() {
+        return accruing == null ? "Pay Now"
+                : "Pay " + CurrencyUtils.formatRupees(accruing.getAmount()) + " Now";
     }
 
     /**
@@ -299,13 +309,22 @@ public class CommissionSettlementActivity extends AppCompatActivity {
         String period = accruing.getMonth() >= 1 && accruing.getMonth() <= 12
                 ? MONTH_NAMES[accruing.getMonth() - 1] + " " + accruing.getYear() : "this month";
 
+        // A verified bill already exists for this period when the cook paid early and
+        // then delivered more — the unique (cook, month, year) key means this money
+        // is added to that bill, not billed as a second one. Say which it is.
+        boolean topUp = currentMonthBill != null && currentMonthBill.isVerified()
+                && currentMonthBill.getMonth() == accruing.getMonth()
+                && currentMonthBill.getYear() == accruing.getYear();
+        String amount = CurrencyUtils.formatRupees(accruing.getAmount());
+
         new AlertDialog.Builder(this)
-                .setTitle("Pay " + CurrencyUtils.formatRupees(accruing.getAmount()) + " now?")
-                .setMessage("This creates your " + period + " commission bill for "
-                        + CurrencyUtils.formatRupees(accruing.getAmount()) + " right away, so you can pay it "
+                .setTitle("Pay " + amount + " now?")
+                .setMessage((topUp
+                        ? "This adds " + amount + " to your " + period + " commission bill, so you can pay it "
+                        : "This creates your " + period + " commission bill for " + amount + " right away, so you can pay it ")
                         + "and upload your payment screenshot today.\n\nOrders you deliver after this are "
                         + "billed in the next cycle.")
-                .setPositiveButton("Create bill", (d, w) -> settleNow())
+                .setPositiveButton(topUp ? "Add to bill" : "Create bill", (d, w) -> settleNow())
                 .setNegativeButton("Not now", null)
                 .show();
     }
@@ -359,7 +378,7 @@ public class CommissionSettlementActivity extends AppCompatActivity {
 
     private void resetSettleButton() {
         binding.btnPayAccruingNow.setEnabled(true);
-        binding.btnPayAccruingNow.setText("Pay This Month Now");
+        binding.btnPayAccruingNow.setText(settleButtonLabel());
     }
 
     /**

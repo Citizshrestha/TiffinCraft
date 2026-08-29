@@ -86,6 +86,34 @@ export const notifyNewOrder = async (cookId, orderId, customerName, totalAmount)
 };
 
 /**
+ * Create notification for a new combo order (sent to cook).
+ * Uses type 'new_order' so the Android NotificationAdapter detects the word
+ * "combo" in the message and renders the purple ic_offers badge instead of the
+ * standard orange order icon.
+ */
+export const notifyNewComboOrder = async (cookId, orderId, customerName, comboName, totalAmount, mealSummary) => {
+    const message = `${customerName} requested combo "${comboName}" (${mealSummary}) — ₹${Number(totalAmount).toFixed(0)}`;
+    return createNotification(
+        cookId,
+        'New Combo Order Received! 🍱',
+        message,
+        'new_order',
+        orderId,
+        'order',
+        {
+            pushData: {
+                type: 'new_order',
+                orderId: String(orderId),
+                customerName: customerName || '',
+                totalAmount: String(totalAmount),
+                meals: mealSummary || '',
+                isCombo: 'true'
+            }
+        }
+    );
+};
+
+/**
  * Create notification for order status update (sent to customer)
  */
 export const notifyOrderStatusUpdate = async (customerId, orderId, status, cookName) => {
@@ -725,6 +753,7 @@ export const cleanupOldNotifications = async (daysOld = 30) => {
 export default {
     createNotification,
     notifyNewOrder,
+    notifyNewComboOrder,
     notifyOrderStatusUpdate,
     notifyOrderCancelled,
     notifyNewReview,

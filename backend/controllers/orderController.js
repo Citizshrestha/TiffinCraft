@@ -12,6 +12,8 @@ export const placeOrder = async (req, res) => {
             meal_id,
             quantity,
             delivery_address,
+            delivery_latitude,
+            delivery_longitude,
             subscription_type,
             payment_method,
             special_instructions
@@ -57,13 +59,16 @@ export const placeOrder = async (req, res) => {
         const [result] = await connection.query(
             `INSERT INTO orders
              (customer_id, cook_id, total_amount, delivery_address,
+              delivery_latitude, delivery_longitude,
               status, payment_method, payment_status, special_instructions)
-             VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`,
             [
                 customerId,
                 cook_id,
                 total_amount,
                 delivery_address,
+                delivery_latitude || null,
+                delivery_longitude || null,
                 selectedPaymentMethod,
                 initialPaymentStatus,
                 special_instructions || null
@@ -157,6 +162,7 @@ export const getOrderById = async (req, res) => {
                     u.profile_image as customer_profile_image,
                     cu.full_name as cook_name,
                     cu.phone as cook_phone,
+                    cu.address AS cook_address,
                     cp.kitchen_name,
                     cp.bank_details AS cook_bank_details,
                     cu.latitude  AS cook_latitude,

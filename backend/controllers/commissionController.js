@@ -737,6 +737,26 @@ export const verifySettlement = async (req, res) => {
     }
 };
 
+/**
+ * Live, not-yet-billed commission for one cook in one month: delivered, non-
+ * refunded orders that no settlement has stamped yet. Shared by the cook's
+ * current-status endpoint and settle-now so "what you still owe this month"
+ * can never be computed two different ways. Same refund exclusion and NPT
+ * timezone rule as getCommissionByCook.
+ */
+const getUnbilledAccrual = async (cookId, month, year) => {
+    const [[row]] = await db.promise().query(
+        `SELECT COUNT(*) AS order_count, COALESCE(SUM(commission_amount), 0) AS amount
+         FROM orders
+         WHERE cook_id = ? AND status = 'delivered' AND commission_amount IS NOT NULL
+           AND (refund_status IS NULL OR refund_status != 'refunded')
+           AND commission_settlement_id IS NULL
+           AND MONTH(${toNpt("delivered_at")}) = ? AND YEAR(${toNpt("delivered_at")}) = ?`,
+        [cookId, month, year]
+    );
+    return { amount: parseFloat(row.amount) || 0, order_count: row.order_count };
+};
+
 // GET /api/commission/settlements/current — cook only. The cook's own
 // settlement for the current month/year, or null if it hasn't been
 // generated yet (happens on the 1st of next month, once this month closes).
@@ -768,31 +788,21 @@ export const getMyCurrentSettlement = async (req, res) => {
             [cookId, year, year, month]
         );
 
-        // Live, not-yet-due accrual for the current (open) month. Same
-        // refund exclusion and NPT timezone rule as getCommissionByCook.
-        const [[accruing]] = await db.promise().query(
-            `SELECT COUNT(*) AS order_count, COALESCE(SUM(commission_amount), 0) AS amount
-             FROM orders
-             WHERE cook_id = ? AND status = 'delivered' AND commission_amount IS NOT NULL
-               AND (refund_status IS NULL OR refund_status != 'refunded')
-               AND commission_settlement_id IS NULL
-               AND MONTH(${toNpt("delivered_at")}) = ? AND YEAR(${toNpt("delivered_at")}) = ?`,
-            [cookId, month, year]
-        );
+        const accruing = await getUnbilledAccrual(cookId, month, year);
 
         return res.status(200).json({
             success: true,
             current: withCalendarDueDate(settlement) || null,
             past_due: withCalendarDueDate(pastDue) || null,
             accruing: {
-                amount: parseFloat(accruing.amount) || 0,
+                amount: accruing.amount,
                 order_count: accruing.order_count,
                 month,
                 year,
                 // Cooks asked to clear this before the month closes rather than
                 // carry a growing balance. settle-now turns the accrual into a
                 // real settlement they can pay and upload proof for today.
-                payable_now: (parseFloat(accruing.amount) || 0) > 0,
+                payable_now: accruing.amount > 0,
                 note: "Payable now, or billed automatically once this month closes."
             }
         });
@@ -854,25 +864,59 @@ export const settleAccruedNow = async (req, res) => {
                     settlement: withCalendarDueDate(existing)
                 });
             }
-            return res.status(409).json({
-                success: false,
-                message: existing.status === "submitted"
-                    ? "Your payment for this month is already awaiting admin verification."
-                    : "This month's commission is already settled. Anything you deliver from now on is billed in the next cycle."
+            if (existing.status === "submitted") {
+                return res.status(409).json({
+                    success: false,
+                    message: "Your payment for this month is already awaiting admin verification."
+                });
+            }
+
+            // A settled bill for this month does NOT mean the month is done: orders
+            // delivered after it was paid are still unbilled, and the
+            // (cook_id, month, year) unique key means they cannot get a bill of
+            // their own until the month-close cron runs. Cooks asked to clear that
+            // remainder now rather than carry it, so top the SAME bill up:
+            // amount_due grows by the new accrual, amount_paid keeps the already-
+            // verified receipt, and the row drops back to 'pending' as a part-paid
+            // bill — precisely the state the partial-payment flow (EC3) already
+            // handles end to end, for the cook and for the admin.
+            const topUp = await getUnbilledAccrual(cookId, month, year);
+            if (topUp.amount <= 0) {
+                return res.status(409).json({
+                    success: false,
+                    message: "This month's commission is already settled. Anything you deliver from now on is billed in the next cycle."
+                });
+            }
+
+            // The old proof was verified against the old amount. Leaving it
+            // attached would let it be verified a second time, crediting money
+            // that never arrived — so the cook uploads fresh proof for the
+            // balance. verified_by/verified_at stay: that verification did happen.
+            await db.promise().query(
+                `UPDATE commission_settlements
+                 SET amount_due = amount_due + ?, order_count = order_count + ?,
+                     status = 'pending', payment_screenshot_url = NULL,
+                     payment_screenshot_hash = NULL, submitted_at = NULL
+                 WHERE id = ?`,
+                [topUp.amount.toFixed(2), topUp.order_count, existing.id]
+            );
+            await stampBilledOrders(cookId, existing.id, month, year);
+            await notifyCommissionDue(cookId, topUp.amount, month, year, existing.id);
+
+            const [[toppedUp]] = await db.promise().query(
+                "SELECT * FROM commission_settlements WHERE id = ?",
+                [existing.id]
+            );
+            return res.status(200).json({
+                success: true,
+                message: `₹${topUp.amount.toFixed(2)} added to this month's bill. Pay it and upload your payment screenshot.`,
+                settlement: withCalendarDueDate(toppedUp)
             });
         }
 
-        const [[accrued]] = await db.promise().query(
-            `SELECT COUNT(*) AS order_count, COALESCE(SUM(commission_amount), 0) AS amount
-             FROM orders
-             WHERE cook_id = ? AND status = 'delivered' AND commission_amount IS NOT NULL
-               AND (refund_status IS NULL OR refund_status != 'refunded')
-               AND commission_settlement_id IS NULL
-               AND MONTH(${toNpt("delivered_at")}) = ? AND YEAR(${toNpt("delivered_at")}) = ?`,
-            [cookId, month, year]
-        );
+        const accrued = await getUnbilledAccrual(cookId, month, year);
 
-        const amount = parseFloat(accrued.amount) || 0;
+        const amount = accrued.amount;
         // EC7's rule, applied early: no ₹0 bill. Silence is the correct answer.
         if (amount <= 0) {
             return res.status(400).json({

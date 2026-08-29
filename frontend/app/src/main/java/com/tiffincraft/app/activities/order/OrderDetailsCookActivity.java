@@ -165,6 +165,25 @@ public class OrderDetailsCookActivity extends AppCompatActivity {
         if (binding.tvYouEarn != null) binding.tvYouEarn.setText(amountStr);
 
         bindPaymentSection(order);
+        bindTrackButton(order.getStatus());
+    }
+
+    private void bindTrackButton(String status) {
+        if (binding.btnTrackDelivery == null) return;
+        String s = status != null ? status.toLowerCase(Locale.ROOT) : "";
+        boolean show = s.equals("preparing")
+                || s.equals("ready")
+                || s.equals("prepared")
+                || s.equals("out_for_delivery")
+                || s.equals("out for delivery")
+                || s.equals("delivered")
+                || s.equals("completed");
+        binding.btnTrackDelivery.setVisibility(show ? View.VISIBLE : View.GONE);
+        binding.btnTrackDelivery.setOnClickListener(v -> {
+            Intent intent = new Intent(this, TrackOrderActivity.class);
+            intent.putExtra("order_id", orderId);
+            startActivity(intent);
+        });
     }
 
     private void bindStatusChip(String status) {
