@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Savings/value tag behind the blue "Save ₹X" text for combo deals.
+     Small radius (not a full pill) so it reads as a price tag. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/sub_info_bg" />
+    <corners android:radius="6dp" />
+</shape>

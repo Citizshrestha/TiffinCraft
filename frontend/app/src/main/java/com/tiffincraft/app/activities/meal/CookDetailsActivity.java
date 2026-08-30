@@ -265,7 +265,15 @@ public class CookDetailsActivity extends AppCompatActivity {
         tvKitchenName.setText(cookDisplayName);
         tvRating.setText(String.format(Locale.getDefault(), "%.1f", cook.getRating()));
         tvReviewCount.setText(String.format(Locale.getDefault(), "(%d reviews)", cook.getTotalReviews()));
-        tvFoodType.setText(cook.getFoodType() != null ? cook.getFoodType() : "Home-cooked meals");
+        
+        // Hide food type if it's empty, null, or just "all"
+        String foodType = cook.getFoodType();
+        if (foodType != null && !foodType.isEmpty() && !foodType.equalsIgnoreCase("all")) {
+            tvFoodType.setText(foodType);
+            tvFoodType.setVisibility(View.VISIBLE);
+        } else {
+            tvFoodType.setVisibility(View.GONE);
+        }
 
         tvDishesStat.setText(String.valueOf(cook.getDishCount()));
         tvOrdersStat.setText(String.valueOf(cook.getTotalOrders()));
