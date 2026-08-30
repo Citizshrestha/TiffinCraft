@@ -65,9 +65,14 @@ public class OrderDetailsCookActivity extends AppCompatActivity {
 
         if (binding.btnUpdateOrderStatus != null) {
             binding.btnUpdateOrderStatus.setOnClickListener(v -> {
-                if (isPaymentSectionVisible && isPaymentNotVerified()) {
+                // Only block "delivered" status if payment is not verified for online payments
+                // Allow confirming, preparing, and ready statuses without payment verification
+                String currentStatus = currentOrder != null ? currentOrder.getStatus() : "";
+                boolean isReadyToDeliver = "ready".equals(currentStatus);
+                
+                if (isReadyToDeliver && isPaymentSectionVisible && isPaymentNotVerified()) {
                     Snackbar.make(binding.getRoot(),
-                            "Payment not verified yet! Verify payment screenshot before marking complete.",
+                            "Payment not verified yet! Verify payment screenshot before marking delivered.",
                             Snackbar.LENGTH_LONG).show();
                     return;
                 }
