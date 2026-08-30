@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS meals (
     category VARCHAR(100),
     cuisine_type VARCHAR(100),
     is_available BOOLEAN DEFAULT TRUE,
+    in_subscription BOOLEAN DEFAULT FALSE COMMENT 'True if meal can be added to subscription plans',
     preparation_time INT COMMENT 'in minutes',
     spice_level ENUM('mild', 'medium', 'hot', 'very_hot') DEFAULT 'medium',
     is_vegetarian BOOLEAN DEFAULT FALSE,
@@ -81,7 +82,8 @@ CREATE TABLE IF NOT EXISTS meals (
     INDEX idx_cook_id (cook_id),
     INDEX idx_category (category),
     INDEX idx_available (is_available),
-    INDEX idx_cuisine (cuisine_type)
+    INDEX idx_cuisine (cuisine_type),
+    INDEX idx_in_subscription (in_subscription)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
