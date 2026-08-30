@@ -9,7 +9,8 @@ import {
     getMealById,
     updateMeal,
     deleteMeal,
-    uploadMealImage as uploadMealImageController
+    uploadMealImage as uploadMealImageController,
+    addMealToSubscription
 } from "../controllers/mealController.js";
 
 const router = Router();
@@ -18,6 +19,7 @@ router.post("/", protect, roleOnly("cook"), addMeal);
 router.get("/my", protect, roleOnly("cook"), getMyMeals);
 router.put("/:mealId", protect, roleOnly("cook"), updateMeal);
 router.delete("/:mealId", protect, roleOnly("cook"), deleteMeal);
+router.post("/:mealId/subscription", protect, roleOnly("cook"), addMealToSubscription);
 
 router.post(
     "/:mealId/image",

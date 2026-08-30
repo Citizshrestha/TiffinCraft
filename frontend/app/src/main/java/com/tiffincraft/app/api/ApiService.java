@@ -429,6 +429,9 @@ public interface ApiService {
     @DELETE("subscription-plans/meal/{mealId}")
     Call<RegisterResponse> removeMealFromSubscriptionPlans(@Header("Authorization") String token, @Path("mealId") int mealId);
 
+    @POST("meals/{mealId}/subscription")
+    Call<RegisterResponse> addMealToSubscription(@Header("Authorization") String token, @Path("mealId") int mealId);
+
     @GET("subscriptions/cook/my")
     Call<com.tiffincraft.app.models.CookSubscribersResponse> getCookSubscribers(@Header("Authorization") String token);
 

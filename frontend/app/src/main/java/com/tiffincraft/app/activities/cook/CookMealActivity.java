@@ -530,9 +530,38 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
             // Show dialog to remove from subscriptions
             showRemoveFromSubscriptionDialog(meal);
         } else {
-            // Navigate to add to subscription
-            startActivity(new Intent(this, CookSubscriptionsActivity.class));
+            // Add meal to subscription availability
+            addMealToSubscription(meal);
         }
+    }
+    
+    private void addMealToSubscription(Meal meal) {
+        String token = "Bearer " + sessionManager.getToken();
+        
+        apiService.addMealToSubscription(token, meal.getId()).enqueue(new Callback<com.tiffincraft.app.models.RegisterResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<com.tiffincraft.app.models.RegisterResponse> call, 
+                                   @NonNull Response<com.tiffincraft.app.models.RegisterResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    Toast.makeText(CookMealActivity.this, 
+                        "Meal added to subscription availability", 
+                        Toast.LENGTH_SHORT).show();
+                    loadMyMeals(); // Refresh the list
+                } else {
+                    Toast.makeText(CookMealActivity.this, 
+                        "Failed to add meal to subscription", 
+                        Toast.LENGTH_SHORT).show();
+                }
+            }
+            
+            @Override
+            public void onFailure(@NonNull Call<com.tiffincraft.app.models.RegisterResponse> call, 
+                                  @NonNull Throwable t) {
+                Toast.makeText(CookMealActivity.this, 
+                    "Network error: " + t.getMessage(), 
+                    Toast.LENGTH_SHORT).show();
+            }
+        });
     }
     
     private void showRemoveFromSubscriptionDialog(Meal meal) {

@@ -510,3 +510,46 @@ export const deleteMeal = async (req, res) => {
         });
     }
 };
+
+
+export const addMealToSubscription = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+        const { mealId } = req.params;
+
+        console.log("=== addMealToSubscription called ===");
+        console.log("Cook ID:", cookId);
+        console.log("Meal ID:", mealId);
+
+        // Verify the meal belongs to this cook
+        const [meals] = await db.promise().query(
+            `SELECT id FROM meals WHERE id = ? AND cook_id = ?`,
+            [mealId, cookId]
+        );
+
+        if (meals.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Meal not found or you don't have permission to modify it."
+            });
+        }
+
+        // Update the meal to mark it as available for subscriptions
+        await db.promise().query(
+            `UPDATE meals SET in_subscription = true WHERE id = ?`,
+            [mealId]
+        );
+
+        res.json({
+            success: true,
+            message: "Meal successfully added to subscription availability"
+        });
+    } catch (error) {
+        console.error("Error adding meal to subscription:", error);
+        res.status(500).json({
+            success: false,
+            message: "Server error while adding meal to subscription",
+            error: error.message
+        });
+    }
+};
