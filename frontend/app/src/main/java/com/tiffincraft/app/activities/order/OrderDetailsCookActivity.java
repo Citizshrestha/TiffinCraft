@@ -5,6 +5,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
+import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -14,9 +16,11 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.gson.JsonObject;
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.common.MediaViewerActivity;
 import com.tiffincraft.app.activities.cook.UpdateStatusActivity;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
@@ -41,6 +45,8 @@ public class OrderDetailsCookActivity extends AppCompatActivity {
     private int orderId = -1;
     private boolean isPaymentSectionVisible = false;
     private Order currentOrder;
+    /** Guards a double-tap from sending two payment decisions for the same order. */
+    private boolean actionInFlight = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -309,7 +315,11 @@ public class OrderDetailsCookActivity extends AppCompatActivity {
             case "refunded":
                 label = "🔄 Refunded"; bgRes = R.drawable.status_chip_out_for_delivery; break;
             default:
-                label = "⏳ Payment Pending"; bgRes = R.drawable.status_chip_pending;
+                // 'pending' means either "never paid" or "you rejected the proof
+                // and they haven't sent a new one" — those need different labels.
+                boolean wasRejected = order.getPaymentRejectedAt() != null;
+                label = wasRejected ? "❌ You rejected the proof" : "⏳ Payment Pending";
+                bgRes = wasRejected ? R.drawable.status_chip_sold_out : R.drawable.status_chip_pending;
         }
         if (binding.tvPaymentStatus != null) {
             binding.tvPaymentStatus.setText(label);
@@ -317,51 +327,157 @@ public class OrderDetailsCookActivity extends AppCompatActivity {
         }
 
         if (binding.imgPaymentScreenshot != null) {
-            String url = order.getPaymentScreenshotUrl();
-            if (url != null && !url.isEmpty()) {
-                binding.imgPaymentScreenshot.setVisibility(View.VISIBLE);
+            final String url = order.getPaymentScreenshotUrl();
+            boolean hasProof = url != null && !url.isEmpty();
+            binding.imgPaymentScreenshot.setVisibility(hasProof ? View.VISIBLE : View.GONE);
+            if (binding.tvTapToZoomHint != null) {
+                binding.tvTapToZoomHint.setVisibility(hasProof ? View.VISIBLE : View.GONE);
+            }
+            if (hasProof) {
                 Glide.with(this)
                         .load(url)
                         .placeholder(R.drawable.ic_image_placeholder)
                         .error(R.drawable.ic_image_placeholder)
                         .into(binding.imgPaymentScreenshot);
-            } else {
-                binding.imgPaymentScreenshot.setVisibility(View.GONE);
+                // Pinch-zoom lives in the existing full-screen viewer; a
+                // transaction ID is unreadable in a 180dp centerCrop preview.
+                binding.imgPaymentScreenshot.setOnClickListener(v -> {
+                    Intent viewer = new Intent(this, MediaViewerActivity.class);
+                    viewer.putExtra(MediaViewerActivity.EXTRA_MEDIA_URL, url);
+                    viewer.putExtra(MediaViewerActivity.EXTRA_IS_VIDEO, false);
+                    startActivity(viewer);
+                });
             }
         }
 
+        renderRetryWarning(order);
+
+        // Both buttons appear and disappear together: a proof awaiting a manual
+        // decision is exactly the state in which either answer is valid.
+        boolean canDecide = "paid".equals(status) && !esewaConfirmed;
+        if (binding.layoutPaymentActions != null) {
+            binding.layoutPaymentActions.setVisibility(canDecide ? View.VISIBLE : View.GONE);
+        }
         if (binding.btnVerifyPayment != null) {
-            boolean canVerify = "paid".equals(status) && !esewaConfirmed;
-            binding.btnVerifyPayment.setVisibility(canVerify ? View.VISIBLE : View.GONE);
-            binding.btnVerifyPayment.setOnClickListener(v -> verifyPayment());
+            binding.btnVerifyPayment.setOnClickListener(v -> confirmVerify());
+        }
+        if (binding.btnRejectPayment != null) {
+            binding.btnRejectPayment.setOnClickListener(v -> promptReject());
+        }
+        setPaymentButtonsEnabled(!actionInFlight);
+    }
+
+    /**
+     * A rising attempt count is a dispute signal, and the reason the cook gave
+     * last time is the context for judging this screenshot.
+     */
+    private void renderRetryWarning(Order order) {
+        if (binding.tvPaymentRetryWarning == null) return;
+        if (order.getPaymentProofAttempts() > 1) {
+            String reason = order.getPaymentRejectionReason();
+            binding.tvPaymentRetryWarning.setText("This is attempt " + order.getPaymentProofAttempts() + "."
+                    + (reason != null && !reason.trim().isEmpty()
+                        ? " You rejected the previous one: \"" + reason + "\""
+                        : " An earlier screenshot was rejected."));
+            binding.tvPaymentRetryWarning.setVisibility(View.VISIBLE);
+        } else {
+            binding.tvPaymentRetryWarning.setVisibility(View.GONE);
         }
     }
 
-    private void verifyPayment() {
+    /**
+     * Verify. The dialog restates the amount because this is the step the
+     * customer feels as irreversible — it confirms the order.
+     */
+    private void confirmVerify() {
+        if (currentOrder == null) return;
+        String amount = String.format(Locale.getDefault(), "₹%.0f", currentOrder.getTotalAmount());
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Confirm you received the payment?")
+                .setMessage("Only do this if " + amount + " has actually landed in your account — check the "
+                        + "amount, the date and the sender name on the screenshot against your own records.\n\n"
+                        + "Verifying confirms the order.")
+                .setPositiveButton("Yes, payment received", (d, w) -> sendDecision(true, null))
+                .setNegativeButton("Not yet", null)
+                .show();
+    }
+
+    /**
+     * Reject, with a mandatory reason.
+     *
+     * The reason is what the customer sees and what they have to act on to send
+     * a usable screenshot, so an empty one is refused rather than defaulted.
+     */
+    private void promptReject() {
+        final EditText input = new EditText(this);
+        input.setHint("e.g. amount is short, or this is an old transfer");
+        input.setMinLines(2);
+
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        FrameLayout wrapper = new FrameLayout(this);
+        wrapper.setPadding(pad, pad / 2, pad, 0);
+        wrapper.addView(input);
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Reject this screenshot?")
+                .setMessage("The customer is told why and can upload a new one. Nothing is deleted — "
+                        + "this image stays on the record in case the payment is disputed later.")
+                .setView(wrapper)
+                .setPositiveButton("Reject payment", (d, w) -> {
+                    String reason = input.getText().toString().trim();
+                    if (reason.isEmpty()) {
+                        Toast.makeText(this,
+                                "Give a reason — it's what the customer has to fix.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    sendDecision(false, reason);
+                })
+                .setNegativeButton("Back", null)
+                .show();
+    }
+
+    private void sendDecision(boolean verified, String reason) {
+        if (actionInFlight) return;
+        actionInFlight = true;
+        setPaymentButtonsEnabled(false);
+
         String token = "Bearer " + sessionManager.getToken();
         JsonObject body = new JsonObject();
-        body.addProperty("verified", true);
+        body.addProperty("verified", verified);
+        if (reason != null) body.addProperty("reason", reason);
 
-        binding.btnVerifyPayment.setEnabled(false);
         apiService.verifyPayment(token, orderId, body).enqueue(new Callback<RegisterResponse>() {
             @Override
             public void onResponse(@NonNull Call<RegisterResponse> call, @NonNull Response<RegisterResponse> response) {
-                binding.btnVerifyPayment.setEnabled(true);
-                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                    Toast.makeText(OrderDetailsCookActivity.this, "Payment verified!", Toast.LENGTH_SHORT).show();
-                    loadOrderDetails();
-                } else {
-                    String msg = response.body() != null ? response.body().getMessage() : "Failed to verify payment";
-                    Toast.makeText(OrderDetailsCookActivity.this, msg, Toast.LENGTH_SHORT).show();
-                }
+                actionInFlight = false;
+                setPaymentButtonsEnabled(true);
+
+                RegisterResponse b = response.body();
+                boolean ok = response.isSuccessful() && b != null && b.isSuccess();
+                Toast.makeText(OrderDetailsCookActivity.this,
+                        b != null && b.getMessage() != null
+                                ? b.getMessage()
+                                : (ok ? "Done." : "Couldn't record that. Please try again."),
+                        Toast.LENGTH_LONG).show();
+
+                // Re-read either way: on success to pick up the new state, on
+                // failure because whatever state actually won is what matters.
+                loadOrderDetails();
             }
 
             @Override
             public void onFailure(@NonNull Call<RegisterResponse> call, @NonNull Throwable t) {
-                binding.btnVerifyPayment.setEnabled(true);
+                actionInFlight = false;
+                setPaymentButtonsEnabled(true);
                 Toast.makeText(OrderDetailsCookActivity.this, "Network error", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void setPaymentButtonsEnabled(boolean enabled) {
+        if (binding.btnVerifyPayment != null) binding.btnVerifyPayment.setEnabled(enabled);
+        if (binding.btnRejectPayment != null) binding.btnRejectPayment.setEnabled(enabled);
     }
 
     /**

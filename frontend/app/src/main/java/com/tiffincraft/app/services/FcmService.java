@@ -17,6 +17,7 @@ import com.tiffincraft.app.activities.common.ChatActivity;
 import com.tiffincraft.app.activities.common.NotificationActivity;
 import com.tiffincraft.app.activities.cook.CookHomeActivity;
 import com.tiffincraft.app.activities.cook.ManageOrdersActivity;
+import com.tiffincraft.app.activities.cook.SubscriptionRequestsActivity;
 import com.tiffincraft.app.activities.order.OrderDetailsCookActivity;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.SocketManager;
@@ -55,6 +56,7 @@ public class FcmService extends FirebaseMessagingService {
         String type = null;
         String orderIdStr = null;
         String conversationIdStr = null;
+        String subscriptionIdStr = null;
 
         // Extract from data payload first (server-sent), fall back to notification payload
         if (data != null && !data.isEmpty()) {
@@ -63,6 +65,10 @@ public class FcmService extends FirebaseMessagingService {
             type = data.get("type");
             orderIdStr = data.get("orderId");
             conversationIdStr = data.get("conversationId");
+            // announceSubscriptionEvent puts this on every subscription push
+            // (utils/subscriptionEvents.js) — without reading it, every
+            // subscription alert fell through to the generic list.
+            subscriptionIdStr = data.get("subscriptionId");
         }
 
         if (title == null && remoteMessage.getNotification() != null) {
@@ -74,7 +80,7 @@ public class FcmService extends FirebaseMessagingService {
         if (title == null) title = "TiffinCraft";
         if (body == null) body = "";
 
-        showNotification(title, body, type, orderIdStr, conversationIdStr);
+        showNotification(title, body, type, orderIdStr, conversationIdStr, subscriptionIdStr);
     }
 
     /**
@@ -83,10 +89,12 @@ public class FcmService extends FirebaseMessagingService {
      * - "new_order" → OrderDetailsCookActivity
      * - "cook_approval" → CookHomeActivity (shows celebratory dialog)
      * - "chat_message" → ChatActivity (specific conversation)
+     * - "subscription_request" / proof types → SubscriptionRequestsActivity (cook)
      * - default → ManageOrdersActivity
      */
     private void showNotification(String title, String body, String type,
-                                  String orderIdStr, String conversationIdStr) {
+                                  String orderIdStr, String conversationIdStr,
+                                  String subscriptionIdStr) {
         if (title == null) title = "TiffinCraft";
         if (body == null) body = "";
 
@@ -101,6 +109,18 @@ public class FcmService extends FirebaseMessagingService {
                 requestCode = orderId;
             } catch (NumberFormatException e) {
                 intent = new Intent(this, ManageOrdersActivity.class);
+            }
+
+        } else if (isCookSubscriptionInbox(type)
+                && subscriptionIdStr != null && !subscriptionIdStr.isEmpty()) {
+            // Cook-facing subscription work: land on the request itself, scrolled
+            // to and highlighted, instead of the flat notification list.
+            try {
+                int subscriptionId = Integer.parseInt(subscriptionIdStr);
+                intent = SubscriptionRequestsActivity.intentFor(this, subscriptionId);
+                requestCode = 20000 + subscriptionId;
+            } catch (NumberFormatException e) {
+                intent = new Intent(this, NotificationActivity.class);
             }
 
         } else if ("cook_approval".equals(type)) {
@@ -170,6 +190,23 @@ public class FcmService extends FirebaseMessagingService {
             try {
                 NotificationManagerCompat.from(this).notify(requestCode, builder.build());
             } catch (SecurityException ignored) { }
+        }
+    }
+
+    /**
+     * Types whose recipient is the cook and whose next step lives in the
+     * subscription requests inbox. Deliberately narrow: customer-facing
+     * subscription types (verified/rejected/paid) belong on the customer's own
+     * screens, and NotificationActivity routes those correctly once tapped.
+     */
+    private static boolean isCookSubscriptionInbox(String type) {
+        if (type == null) return false;
+        switch (type) {
+            case "subscription_request":
+            case "subscription_payment_submitted":
+                return true;
+            default:
+                return false;
         }
     }
 }

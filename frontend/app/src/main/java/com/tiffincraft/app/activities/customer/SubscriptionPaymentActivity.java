@@ -12,12 +12,11 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
 import com.google.gson.JsonObject;
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.common.MediaViewerActivity;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.databinding.ActivitySubscriptionPaymentBinding;
@@ -51,7 +50,6 @@ public class SubscriptionPaymentActivity extends AppCompatActivity {
     public static final String EXTRA_VERIFICATION_NOTES = "verification_notes";
 
     private static final String ESEWA_PACKAGE = "com.f1soft.esewa";
-    private static final int REQUEST_STORAGE_PERMISSION = 2201;
 
     private ActivitySubscriptionPaymentBinding binding;
     private ApiService apiService;
@@ -123,7 +121,8 @@ public class SubscriptionPaymentActivity extends AppCompatActivity {
 
         binding.btnBack.setOnClickListener(v -> finish());
         binding.btnPayWithEsewa.setOnClickListener(v -> openEsewaApp());
-        binding.ivCookQr.setOnClickListener(v -> saveQrToGallery());
+        binding.ivCookQr.setOnClickListener(v -> openQrFullScreen());
+        binding.btnSaveQr.setOnClickListener(v -> saveQrToGallery());
         binding.btnUploadProof.setOnClickListener(v -> openImagePicker());
 
         // A new subscription has no state extras and starts pending. Reopening it
@@ -187,37 +186,20 @@ public class SubscriptionPaymentActivity extends AppCompatActivity {
     private void hideCookQrBlock() {
         binding.tvScanToPay.setVisibility(View.GONE);
         binding.ivCookQr.setVisibility(View.GONE);
+        binding.btnSaveQr.setVisibility(View.GONE);
+    }
+
+    private void openQrFullScreen() {
+        if (cookEsewaQrUrl == null || cookEsewaQrUrl.isEmpty()) return;
+        Intent viewer = new Intent(this, MediaViewerActivity.class);
+        viewer.putExtra(MediaViewerActivity.EXTRA_MEDIA_URL, cookEsewaQrUrl);
+        viewer.putExtra(MediaViewerActivity.EXTRA_IS_VIDEO, false);
+        startActivity(viewer);
     }
 
     private void saveQrToGallery() {
-        if (cookEsewaQrUrl == null || cookEsewaQrUrl.isEmpty()) return;
-
-        if (android.os.Build.VERSION.SDK_INT <= android.os.Build.VERSION_CODES.P
-                && ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_STORAGE_PERMISSION);
-            Toast.makeText(this, "Storage permission needed — tap the QR again after allowing.", Toast.LENGTH_LONG).show();
-            return;
-        }
-
-        Glide.with(this).asBitmap().load(cookEsewaQrUrl).into(new com.bumptech.glide.request.target.CustomTarget<android.graphics.Bitmap>() {
-            @Override
-            public void onResourceReady(@NonNull android.graphics.Bitmap bitmap, com.bumptech.glide.request.transition.Transition<? super android.graphics.Bitmap> transition) {
-                boolean saved = com.tiffincraft.app.utils.ImageUtils.saveBitmapToGallery(
-                        SubscriptionPaymentActivity.this, bitmap, "esewa_qr_subscription_" + subscriptionId);
-                Toast.makeText(SubscriptionPaymentActivity.this,
-                        saved ? "QR saved to gallery" : "Could not save QR", Toast.LENGTH_SHORT).show();
-            }
-
-            @Override
-            public void onLoadCleared(android.graphics.drawable.Drawable placeholder) {}
-
-            @Override
-            public void onLoadFailed(android.graphics.drawable.Drawable errorDrawable) {
-                Toast.makeText(SubscriptionPaymentActivity.this, "Could not load QR", Toast.LENGTH_SHORT).show();
-            }
-        });
+        com.tiffincraft.app.utils.ImageUtils.saveQrUrlToGallery(
+                this, cookEsewaQrUrl, "esewa_qr_subscription_" + subscriptionId);
     }
 
     private void openImagePicker() {

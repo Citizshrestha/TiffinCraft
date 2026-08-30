@@ -250,37 +250,38 @@ public class TrackOrderActivity extends AppCompatActivity implements OnMapReadyC
     // ==================== Route map ====================
 
     /**
-     * Draws the cook → customer route. When coordinates are missing from the
-     * server, resolves delivery and kitchen addresses via Geocoder before
-     * rendering. Partial geocoding still shows whatever point(s) are available.
+     * Renders the map for the order's current stage: the kitchen alone while the
+     * food is still being prepared, the cook → customer trace line once it is out
+     * for delivery. When coordinates are missing from the server, resolves the
+     * delivery and kitchen addresses via Geocoder first; partial geocoding still
+     * shows whatever point(s) are available.
      */
     private void drawRoute(Order order) {
         if (map == null) return; // onMapReady will re-invoke this
 
-        if (order.hasMapCoordinates()) {
-            renderRouteOnMap(order);
-            return;
-        }
+        boolean needsGeocoding = !order.hasMapCoordinates()
+                && !geocodingAttempted && !geocodingInProgress;
 
         if (order.hasAnyMapCoordinates()) {
+            // Render the point(s) we do have straight away — never a blank map
+            // while the other side is still being geocoded.
             renderRouteOnMap(order);
-            return;
-        }
-
-        if (!geocodingAttempted && !geocodingInProgress) {
-            tryGeocodeAndDrawRoute(order);
-            return;
-        }
-
-        if (geocodingInProgress) {
+        } else if (needsGeocoding || geocodingInProgress) {
             binding.layoutMapUnavailable.setVisibility(View.GONE);
             binding.tvRouteStage.setVisibility(View.VISIBLE);
             binding.tvRouteStage.setText("Locating addresses…");
-            return;
+        } else {
+            binding.layoutMapUnavailable.setVisibility(View.VISIBLE);
+            binding.tvRouteStage.setVisibility(View.GONE);
         }
 
-        binding.layoutMapUnavailable.setVisibility(View.VISIBLE);
-        binding.tvRouteStage.setVisibility(View.GONE);
+        // Fill in whichever side is missing from its address. This used to run
+        // only when BOTH points were missing, so an order that had a kitchen
+        // coord but no delivery coord never geocoded — and the cook → customer
+        // line could never be drawn once it went out for delivery.
+        if (needsGeocoding) {
+            tryGeocodeAndDrawRoute(order);
+        }
     }
 
     private void tryGeocodeAndDrawRoute(Order order) {
@@ -377,6 +378,11 @@ public class TrackOrderActivity extends AppCompatActivity implements OnMapReadyC
         LatLng customer = hasCustomerCoordinates(order)
                 ? new LatLng(order.getCustomerLatitude(), order.getCustomerLongitude()) : null;
 
+        // Confirmed / cooking: the food hasn't left the kitchen, so there is no
+        // journey to draw — show the kitchen alone. The customer pin and the
+        // cook → customer line only appear from "Out For Delivery" onwards.
+        boolean routePhase = isDeliveryPhase(order.getStatus());
+
         map.clear();
 
         if (cook != null) {
@@ -387,7 +393,7 @@ public class TrackOrderActivity extends AppCompatActivity implements OnMapReadyC
                     .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)));
         }
 
-        if (customer != null) {
+        if (routePhase && customer != null) {
             map.addMarker(new MarkerOptions()
                     .position(customer)
                     .title("Delivery address")
@@ -395,8 +401,8 @@ public class TrackOrderActivity extends AppCompatActivity implements OnMapReadyC
                     .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
         }
 
-        if (cook != null && customer != null) {
-            applyRouteStyle(order.getStatus(), cook, customer);
+        if (routePhase && cook != null && customer != null) {
+            drawRouteLine(order.getStatus(), cook, customer);
             try {
                 LatLngBounds bounds = new LatLngBounds.Builder().include(cook).include(customer).build();
                 map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
@@ -406,9 +412,30 @@ public class TrackOrderActivity extends AppCompatActivity implements OnMapReadyC
         } else {
             LatLng center = cook != null ? cook : customer;
             binding.tvRouteStage.setVisibility(View.VISIBLE);
-            binding.tvRouteStage.setText(cook != null ? "Kitchen location" : "Delivery location");
+            binding.tvRouteStage.setText(singlePointLabel(order.getStatus(), cook != null, routePhase));
             map.animateCamera(CameraUpdateFactory.newLatLngZoom(center, 14f));
         }
+    }
+
+    /**
+     * Label for the map pill when only one end of the journey can be shown —
+     * either because the order is still in the kitchen, or because a coordinate
+     * could not be resolved at all.
+     */
+    private String singlePointLabel(String status, boolean haveCook, boolean routePhase) {
+        String s = status != null ? status.toLowerCase(Locale.ROOT) : "";
+        if (s.contains("cancel")) return "Order cancelled";
+        if (!haveCook) return "Delivery location";
+        // Out for delivery but the customer point is unresolvable — say so
+        // rather than implying the order is still being prepared.
+        if (routePhase) return "Delivery location unavailable";
+        return "Kitchen location";
+    }
+
+    /** Steps 2 (Out For Delivery) and 3 (Delivered) are the only ones with a journey to draw. */
+    private boolean isDeliveryPhase(String status) {
+        String s = status != null ? status.toLowerCase(Locale.ROOT) : "";
+        return !s.contains("cancel") && mapToDisplayStep(s) >= 2;
     }
 
     private boolean hasCookCoordinates(Order order) {
@@ -419,34 +446,14 @@ public class TrackOrderActivity extends AppCompatActivity implements OnMapReadyC
         return order.getCustomerLatitude() != null && order.getCustomerLongitude() != null;
     }
 
-    private void applyRouteStyle(String status, LatLng cook, LatLng customer) {
+    /**
+     * Traces the cook → customer line. Only called once the order is out for
+     * delivery, so the phase checks live in {@link #isDeliveryPhase(String)}
+     * rather than being re-listed here.
+     */
+    private void drawRouteLine(String status, LatLng cook, LatLng customer) {
         String s = status != null ? status.toLowerCase(Locale.ROOT) : "";
-
-        if (s.contains("cancel")) {
-            binding.tvRouteStage.setVisibility(View.VISIBLE);
-            binding.tvRouteStage.setText("Order cancelled");
-            return; // no route line for a journey that never happened
-        }
-
-        // Still in the kitchen — deliberately no line yet.
-        if (s.equals("pending") || s.equals("placed") || s.equals("confirmed")
-                || s.equals("accepted") || s.equals("preparing") || s.equals("in_progress")
-                || s.equals("cooking")) {
-            binding.tvRouteStage.setVisibility(View.VISIBLE);
-            binding.tvRouteStage.setText("Preparing your order");
-            return;
-        }
-
-        boolean outForDelivery = s.equals("ready") || s.equals("prepared")
-                || s.equals("out_for_delivery") || s.equals("shipped")
-                || s.contains("out for delivery");
-        boolean delivered = s.equals("delivered") || s.equals("completed");
-
-        if (!outForDelivery && !delivered) {
-            binding.tvRouteStage.setVisibility(View.VISIBLE);
-            binding.tvRouteStage.setText("Preparing your order");
-            return;
-        }
+        boolean delivered = mapToDisplayStep(s) == 3;
 
         PolylineOptions line = new PolylineOptions()
                 .add(cook, customer)

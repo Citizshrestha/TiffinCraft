@@ -83,6 +83,19 @@ public class Order {
     @SerializedName("payment_verified_at")
     private String paymentVerifiedAt;
 
+    // Set when the cook refused the screenshot. payment_status goes back to
+    // 'pending' so the customer can upload a new one, and the reason is what
+    // tells them what to fix. The old screenshot is deliberately kept on the
+    // record server-side in case the payment is later disputed.
+    @SerializedName("payment_rejection_reason")
+    private String paymentRejectionReason;
+
+    @SerializedName("payment_rejected_at")
+    private String paymentRejectedAt;
+
+    @SerializedName("payment_proof_attempts")
+    private int paymentProofAttempts;
+
     // Cancellation + refund fields (feature 1.5)
     @SerializedName("cancelled_by")
     private String cancelledBy;
@@ -204,6 +217,9 @@ public class Order {
     public String getPaymentStatus() { return paymentStatus; }
     public String getPaymentScreenshotUrl() { return paymentScreenshotUrl; }
     public String getPaymentVerifiedAt() { return paymentVerifiedAt; }
+    public String getPaymentRejectionReason() { return paymentRejectionReason; }
+    public String getPaymentRejectedAt() { return paymentRejectedAt; }
+    public int getPaymentProofAttempts() { return paymentProofAttempts; }
     public String getCancelledBy() { return cancelledBy; }
     public String getCancellationReason() { return cancellationReason; }
     public String getRefundStatus() { return refundStatus; }

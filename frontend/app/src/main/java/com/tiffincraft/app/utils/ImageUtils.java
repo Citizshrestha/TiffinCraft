@@ -1,16 +1,28 @@
 package com.tiffincraft.app.utils;
 
+import android.Manifest;
+import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.FutureTarget;
 import com.bumptech.glide.request.RequestOptions;
+import com.bumptech.glide.request.target.CustomTarget;
+import com.bumptech.glide.request.transition.Transition;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -23,6 +35,9 @@ import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
 
 public class ImageUtils {
+
+    /** Request code used when {@link #saveQrUrlToGallery} asks for the pre-API-29 storage grant. */
+    public static final int REQUEST_STORAGE_PERMISSION = 2201;
 
     /**
      * Compress image from Uri to a temporary File.
@@ -150,6 +165,43 @@ public class ImageUtils {
             }
             return false;
         }
+    }
+
+    /**
+     * Downloads a remote QR at full resolution and writes it to the gallery,
+     * handling the pre-API-29 WRITE_EXTERNAL_STORAGE grant and reporting the
+     * outcome by toast. Callers only supply the URL and a file name.
+     */
+    public static void saveQrUrlToGallery(Activity activity, String url, String displayName) {
+        if (url == null || url.trim().isEmpty()) return;
+
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P
+                && ContextCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(activity,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_STORAGE_PERMISSION);
+            Toast.makeText(activity, "Storage permission needed — tap Save QR again after allowing.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        Glide.with(activity).asBitmap().load(url).into(new CustomTarget<Bitmap>() {
+            @Override
+            public void onResourceReady(@NonNull Bitmap bitmap, @Nullable Transition<? super Bitmap> transition) {
+                Toast.makeText(activity,
+                        saveBitmapToGallery(activity, bitmap, displayName)
+                                ? "QR saved to gallery" : "Could not save QR",
+                        Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onLoadCleared(@Nullable Drawable placeholder) {}
+
+            @Override
+            public void onLoadFailed(@Nullable Drawable errorDrawable) {
+                Toast.makeText(activity, "Could not load QR", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     /**

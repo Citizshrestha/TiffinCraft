@@ -42,6 +42,14 @@ public class SubscriptionCalendarResponse {
     @SerializedName("window")
     private Window window;
 
+    /**
+     * The subscription's own first/last delivery date. The month grid uses these
+     * to disable ‹ › at the ends, so it can't page into months the subscription
+     * never covered.
+     */
+    @SerializedName("bounds")
+    private Bounds bounds;
+
     @SerializedName("days")
     private List<Day> days;
 
@@ -53,7 +61,19 @@ public class SubscriptionCalendarResponse {
     public Info getSubscription() { return subscription; }
     public Cutoff getCutoff() { return cutoff; }
     public Window getWindow() { return window; }
+    public Bounds getBounds() { return bounds; }
     public List<Day> getDays() { return days; }
+
+    public static class Bounds {
+        @SerializedName("min")
+        private String min;
+
+        @SerializedName("max")
+        private String max;
+
+        public String getMin() { return min; }
+        public String getMax() { return max; }
+    }
 
     /** Subscription-level context, so the calendar screen needs only this one call. */
     public static class Info {
@@ -185,6 +205,16 @@ public class SubscriptionCalendarResponse {
         @SerializedName("is_today")
         private boolean isToday;
 
+        /**
+         * Server-computed against Nepal time. A past day with no log row and no
+         * closure still reports status 'scheduled' — the DB genuinely has no row,
+         * so the server won't upgrade it to 'missed'. The month grid uses this to
+         * render such a cell as neutral "no record" instead of a green promise
+         * that day never kept.
+         */
+        @SerializedName("is_past")
+        private boolean isPast;
+
         @SerializedName("is_locked")
         private boolean isLocked;
 
@@ -238,6 +268,7 @@ public class SubscriptionCalendarResponse {
         public boolean isCreditDeducted() { return creditDeducted; }
         public Integer getOrderId() { return orderId; }
         public boolean isToday() { return isToday; }
+        public boolean isPast() { return isPast; }
         public boolean isLocked() { return isLocked; }
         public boolean canSkip() { return canSkip; }
         public String getLockedMessage() { return lockedMessage; }

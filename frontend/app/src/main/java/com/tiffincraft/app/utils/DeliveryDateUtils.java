@@ -33,6 +33,58 @@ public final class DeliveryDateUtils {
     /** "—" rather than an empty gap, so a missing date is visibly missing. */
     public static final String EMPTY = "—";
 
+    // ---------------------------------------------------------------------
+    // Month-grid helpers.
+    //
+    // java.time is native at this app's minSdk (26), so LocalDate/YearMonth are
+    // used directly here rather than bending the SimpleDateFormat helpers above
+    // into calendar arithmetic they were never meant for.
+    // ---------------------------------------------------------------------
+
+    /** ISO 'YYYY-MM' for a month, the key the calendar screen pages on. */
+    public static String monthKey(java.time.YearMonth month) {
+        return month.toString();
+    }
+
+    /** "September 2026" — the month grid's header. */
+    public static String formatMonthLabel(java.time.YearMonth month) {
+        return month.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US));
+    }
+
+    public static String firstOfMonth(java.time.YearMonth month) {
+        return month.atDay(1).toString();
+    }
+
+    public static String lastOfMonth(java.time.YearMonth month) {
+        return month.atEndOfMonth().toString();
+    }
+
+    /**
+     * Sunday-first column index (0-6) for a month's first day.
+     *
+     * Sunday-first because the weekday header row on the grid is fixed to
+     * Sun–Sat; DayOfWeek.getValue() is Monday=1, hence the modulo.
+     */
+    public static int firstWeekdayOffset(java.time.YearMonth month) {
+        return month.atDay(1).getDayOfWeek().getValue() % 7;
+    }
+
+    /** Parses an ISO date to a LocalDate, or null if it isn't one. */
+    public static java.time.LocalDate toLocalDate(String isoDate) {
+        if (isoDate == null || isoDate.length() < 10) return null;
+        try {
+            return java.time.LocalDate.parse(isoDate.substring(0, 10));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** The month an ISO date falls in, or null if it isn't parseable. */
+    public static java.time.YearMonth monthOf(String isoDate) {
+        java.time.LocalDate date = toLocalDate(isoDate);
+        return date == null ? null : java.time.YearMonth.from(date);
+    }
+
     private static Date parse(String isoDate) {
         if (isoDate == null || isoDate.length() < 10) return null;
         try {

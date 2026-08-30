@@ -438,16 +438,22 @@ public interface ApiService {
     // "/api/cook" (SINGULAR). "cooks/..." 404s.
 
     /**
-     * The next ~14 delivery days for one subscription, each with its real logged
-     * status and whether it can still be changed. Served to the owning customer
-     * AND to the cook of that subscription; anyone else gets 403.
+     * The delivery days for one subscription, each with its real logged status and
+     * whether it can still be changed. Served to the owning customer AND to the
+     * cook of that subscription; anyone else gets 403.
      *
      * Replaces the flat "Active" label — that showed a single on/off flag and a
      * raw ISO timestamp for the next delivery.
+     *
+     * `from`/`to` are optional and must be sent together (ISO 'YYYY-MM-DD'). Pass
+     * null for both to get the server's default ~14-day window from today; pass a
+     * month's first/last day to drive the month grid. The server clamps the range
+     * to the subscription's own start/end dates and rejects spans over 62 days.
      */
     @GET("subscriptions/{id}/calendar")
     Call<com.tiffincraft.app.models.SubscriptionCalendarResponse> getSubscriptionCalendar(
-            @Header("Authorization") String token, @Path("id") int subscriptionId);
+            @Header("Authorization") String token, @Path("id") int subscriptionId,
+            @Query("from") String from, @Query("to") String to);
 
     /**
      * Customer skips one day. Body is {date: 'YYYY-MM-DD', reason?}.

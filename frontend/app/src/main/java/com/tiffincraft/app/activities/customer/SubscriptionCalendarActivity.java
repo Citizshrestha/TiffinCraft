@@ -52,6 +52,12 @@ import retrofit2.Response;
  * Opened by both sides. A cook arrives here read-only: the response's `viewer`
  * field decides, not the local session role, so the UI can't offer an action
  * the server would refuse.
+ *
+ * The month grid is hand-built (7-column GridLayout): there is no calendar
+ * library in Gradle and adding one costs more than the offset arithmetic does.
+ * Only the month on screen is fetched — the server clamps the requested range to
+ * the subscription's own start/end dates and caps the span, so paging can't ask
+ * for a window the subscription never covered.
  */
 public class SubscriptionCalendarActivity extends AppCompatActivity {
 
@@ -64,7 +70,9 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
 
     private int subscriptionId;
 
-    private LinearLayout layoutDays;
+    private android.widget.GridLayout gridDays;
+    private TextView tvMonthLabel;
+    private View btnPrevMonth, btnNextMonth;
     private View cardSummary;
     private View progressLoading;
     private TextView tvHeaderPlan, tvSummaryTitle, tvSummaryStatusChip, tvSummaryDetail,
@@ -74,10 +82,20 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
     private View cardCutoffBanner;
 
     private final List<SubscriptionCalendarResponse.Day> days = new ArrayList<>();
+    /** ISO date → day, so a grid cell can find its day in one lookup. */
+    private final java.util.Map<String, SubscriptionCalendarResponse.Day> dayByDate = new java.util.HashMap<>();
     private String todayNpt;
     private boolean isCustomerView = true;
     /** Guards against a double-tap firing two skips for the same date. */
     private boolean actionInFlight = false;
+
+    /** The month on screen. Drives the fetch window and the grid. */
+    private java.time.YearMonth currentMonth = java.time.YearMonth.now();
+    /** The subscription's own first/last delivery date, from the response. */
+    private java.time.LocalDate boundsMin, boundsMax;
+    /** Re-bound on every load so the open sheet reflects a refresh. */
+    private com.google.android.material.bottomsheet.BottomSheetDialog daySheet;
+    private String openSheetDate;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -94,7 +112,10 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         sessionManager = new SessionManager(this);
         apiService = RetrofitClient.getInstance(this).getApiService();
 
-        layoutDays = findViewById(R.id.layoutDays);
+        gridDays = findViewById(R.id.gridDays);
+        tvMonthLabel = findViewById(R.id.tvMonthLabel);
+        btnPrevMonth = findViewById(R.id.btnPrevMonth);
+        btnNextMonth = findViewById(R.id.btnNextMonth);
         cardSummary = findViewById(R.id.cardSummary);
         cardCutoffBanner = findViewById(R.id.cardCutoffBanner);
         progressLoading = findViewById(R.id.progressLoading);
@@ -116,6 +137,27 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
         swipeRefresh.setOnRefreshListener(this::loadCalendar);
 
+        btnPrevMonth.setOnClickListener(v -> stepMonth(-1));
+        btnNextMonth.setOnClickListener(v -> stepMonth(1));
+
+        tvMonthLabel.setText(DeliveryDateUtils.formatMonthLabel(currentMonth));
+        loadCalendar();
+    }
+
+    /**
+     * Page a month. Refuses to leave the subscription's own window — bounds come
+     * from the response, so before the first load this is a no-op in both
+     * directions except forward/back within the device's month.
+     */
+    private void stepMonth(int delta) {
+        java.time.YearMonth target = currentMonth.plusMonths(delta);
+        if (boundsMin != null && target.isBefore(java.time.YearMonth.from(boundsMin))) return;
+        if (boundsMax != null && target.isAfter(java.time.YearMonth.from(boundsMax))) return;
+        currentMonth = target;
+        tvMonthLabel.setText(DeliveryDateUtils.formatMonthLabel(currentMonth));
+        days.clear();
+        dayByDate.clear();
+        renderMonth();
         loadCalendar();
     }
 
@@ -123,7 +165,13 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         progressLoading.setVisibility(days.isEmpty() ? View.VISIBLE : View.GONE);
         String token = "Bearer " + sessionManager.getToken();
 
-        apiService.getSubscriptionCalendar(token, subscriptionId).enqueue(new Callback<SubscriptionCalendarResponse>() {
+        // Only the visible month. The server clamps this to the subscription's
+        // start/end dates, so an out-of-range edge month comes back trimmed rather
+        // than as an error.
+        String from = DeliveryDateUtils.firstOfMonth(currentMonth);
+        String to = DeliveryDateUtils.lastOfMonth(currentMonth);
+
+        apiService.getSubscriptionCalendar(token, subscriptionId, from, to).enqueue(new Callback<SubscriptionCalendarResponse>() {
             @Override
             public void onResponse(@NonNull Call<SubscriptionCalendarResponse> call,
                                    @NonNull Response<SubscriptionCalendarResponse> response) {
@@ -145,13 +193,25 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
                 todayNpt = body.getToday();
                 isCustomerView = body.isCustomerView();
 
+                if (body.getBounds() != null) {
+                    boundsMin = DeliveryDateUtils.toLocalDate(body.getBounds().getMin());
+                    boundsMax = DeliveryDateUtils.toLocalDate(body.getBounds().getMax());
+                }
+
                 days.clear();
-                if (body.getDays() != null) days.addAll(body.getDays());
+                dayByDate.clear();
+                if (body.getDays() != null) {
+                    days.addAll(body.getDays());
+                    for (SubscriptionCalendarResponse.Day d : days) {
+                        if (d.getDate() != null) dayByDate.put(d.getDate(), d);
+                    }
+                }
 
                 renderSummary(body);
                 // Cutoff banner removed - confusing for users
                 // renderCutoff(body.getCutoff());
-                renderDays();
+                renderMonth();
+                refreshOpenSheet();
             }
 
             @Override
@@ -258,50 +318,198 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         cardCutoffBanner.setVisibility(View.VISIBLE);
     }
 
-    private void renderDays() {
-        layoutDays.removeAllViews();
-        tvEmptyDays.setVisibility(days.isEmpty() ? View.VISIBLE : View.GONE);
+    /**
+     * Lays out the month on screen.
+     *
+     * Leading blanks put the 1st under its real weekday; days outside the
+     * subscription's window render dimmed and unclickable rather than being left
+     * out, so the shape of the month stays readable.
+     */
+    private void renderMonth() {
+        gridDays.removeAllViews();
+        tvEmptyDays.setVisibility(dayByDate.isEmpty() ? View.VISIBLE : View.GONE);
+        tintLegend();
+
+        btnPrevMonth.setAlpha(canStep(-1) ? 1f : 0.25f);
+        btnNextMonth.setAlpha(canStep(1) ? 1f : 0.25f);
 
         LayoutInflater inflater = LayoutInflater.from(this);
-        for (SubscriptionCalendarResponse.Day day : days) {
-            View row = inflater.inflate(R.layout.item_subscription_day, layoutDays, false);
+        int offset = DeliveryDateUtils.firstWeekdayOffset(currentMonth);
+        int length = currentMonth.lengthOfMonth();
 
-            TextView tvDate = row.findViewById(R.id.tvDayDate);
-            TextView tvRelative = row.findViewById(R.id.tvDayRelative);
-            TextView tvChip = row.findViewById(R.id.tvDayStatusChip);
-            LinearLayout layoutReason = row.findViewById(R.id.layoutDayReason);
-            TextView tvReason = row.findViewById(R.id.tvDayReason);
-            LinearLayout layoutLocked = row.findViewById(R.id.layoutDayLocked);
-            TextView tvLocked = row.findViewById(R.id.tvDayLockedNote);
-            MaterialButton btnAction = row.findViewById(R.id.btnDayAction);
-            MaterialButton btnHandshake = row.findViewById(R.id.btnDayHandshake);
-            View accent = row.findViewById(R.id.viewDayAccent);
+        for (int i = 0; i < offset; i++) {
+            addCell(inflater.inflate(R.layout.item_calendar_day_cell, gridDays, false));
+        }
 
-            tvDate.setText(DeliveryDateUtils.formatDayHeading(day.getDate()));
+        for (int dayOfMonth = 1; dayOfMonth <= length; dayOfMonth++) {
+            java.time.LocalDate date = currentMonth.atDay(dayOfMonth);
+            String iso = date.toString();
+            SubscriptionCalendarResponse.Day day = dayByDate.get(iso);
 
-            String relative = DeliveryDateUtils.describeRelative(day.getDate(), todayNpt);
-            tvRelative.setText(relative);
-            tvRelative.setVisibility(relative == null ? View.GONE : View.VISIBLE);
+            View cell = inflater.inflate(R.layout.item_calendar_day_cell, gridDays, false);
+            TextView tvDay = cell.findViewById(R.id.tvCellDay);
+            View dot = cell.findViewById(R.id.viewCellDot);
+            TextView tvSwap = cell.findViewById(R.id.tvCellSwap);
+            View body = cell.findViewById(R.id.layoutCellBody);
 
-            applyDayChip(day, tvChip, accent);
+            tvDay.setText(String.valueOf(dayOfMonth));
 
-            if (day.getReason() != null && !day.getReason().trim().isEmpty()) {
-                tvReason.setText("cook".equals(day.getToggledBy())
-                        ? "Cook's note: " + day.getReason()
-                        : "Your note: " + day.getReason());
-                layoutReason.setVisibility(View.VISIBLE);
-            } else {
-                layoutReason.setVisibility(View.GONE);
+            if (day == null) {
+                // Outside the subscription's window, or a date the server didn't
+                // send. Either way there is nothing to open.
+                tvDay.setTextColor(0xFFD1D5DB);
+                dot.setVisibility(View.INVISIBLE);
+                tvSwap.setVisibility(View.GONE);
+                cell.setClickable(false);
+                cell.setBackground(null);
+                addCell(cell);
+                continue;
             }
 
-            // Handshake first: whether it took the row's action slot decides
-            // whether applyDayAction has a note to add underneath.
-            boolean handshakeShown = applyDayHandshake(day, btnHandshake);
-            applyDayAction(day, btnAction, layoutLocked, tvLocked, handshakeShown);
-            applyCustomMeal(day, row);
+            dot.setVisibility(View.VISIBLE);
+            // mutate() first: inflated drawables share constant state, so an
+            // untinted copy would repaint every other cell's dot too.
+            dot.getBackground().mutate().setTint(dotColorFor(day));
+            tvSwap.setVisibility(day.getCustomMeal() != null ? View.VISIBLE : View.GONE);
+            tvDay.setTextColor(day.isPast() ? 0xFF9CA3AF : 0xFF1F2937);
 
-            layoutDays.addView(row);
+            if (day.isToday()) {
+                body.setBackgroundResource(R.drawable.bg_calendar_today);
+                tvDay.setTextColor(getColor(R.color.green_primary_dark));
+            }
+
+            cell.setContentDescription(DeliveryDateUtils.formatLongDate(iso) + " — "
+                    + (day.getLabel() != null ? day.getLabel() : day.getStatus()));
+            cell.setOnClickListener(v -> openDaySheet(iso));
+            addCell(cell);
         }
+    }
+
+    /** Adds one cell in the next grid slot, taking an equal share of the width. */
+    private void addCell(View cell) {
+        int index = gridDays.getChildCount();
+        android.widget.GridLayout.LayoutParams lp = new android.widget.GridLayout.LayoutParams();
+        lp.width = 0;
+        lp.height = (int) (46 * getResources().getDisplayMetrics().density);
+        lp.columnSpec = android.widget.GridLayout.spec(index % 7, 1, 1f);
+        lp.rowSpec = android.widget.GridLayout.spec(index / 7, 1);
+        gridDays.addView(cell, lp);
+    }
+
+    private boolean canStep(int delta) {
+        java.time.YearMonth target = currentMonth.plusMonths(delta);
+        if (boundsMin != null && target.isBefore(java.time.YearMonth.from(boundsMin))) return false;
+        return boundsMax == null || !target.isAfter(java.time.YearMonth.from(boundsMax));
+    }
+
+    /**
+     * One colour per day state, matching the legend and the chip colours below.
+     *
+     * A past day that is still 'scheduled' gets the neutral grey, not the
+     * scheduled green: the server left it scheduled because no log row exists, and
+     * painting it green would promise a delivery that never happened.
+     */
+    private int dotColorFor(SubscriptionCalendarResponse.Day day) {
+        if (day.isDelivered()) return getColor(R.color.status_delivered_text);
+        if (day.isSent()) return getColor(R.color.blue);
+        if (day.isCustomerSkipped()) return 0xFF9CA3AF;
+        if (day.isCookUnavailable() || day.isMissed()) return getColor(R.color.sub_error);
+        if (day.isPast()) return 0xFFD1D5DB;
+        return getColor(R.color.green_primary_dark);
+    }
+
+    private void tintLegend() {
+        tintLegendDot(R.id.tvLegendScheduled, getColor(R.color.green_primary_dark));
+        tintLegendDot(R.id.tvLegendSent, getColor(R.color.blue));
+        tintLegendDot(R.id.tvLegendDelivered, getColor(R.color.status_delivered_text));
+        tintLegendDot(R.id.tvLegendSkipped, 0xFF9CA3AF);
+        tintLegendDot(R.id.tvLegendClosed, getColor(R.color.sub_error));
+        tintLegendDot(R.id.tvLegendNoRecord, 0xFFD1D5DB);
+    }
+
+    private void tintLegendDot(int viewId, int color) {
+        TextView tv = findViewById(viewId);
+        if (tv != null) tv.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(color));
+    }
+
+    /**
+     * The whole story for one day, in a sheet.
+     *
+     * Reuses item_subscription_day and the same binding logic the old vertical
+     * list used, so every server-driven rule (locked-but-visible controls, the
+     * handshake split, swap requests) behaves identically — the grid changed how
+     * days are reached, not what a day can do.
+     */
+    private void openDaySheet(String iso) {
+        SubscriptionCalendarResponse.Day day = dayByDate.get(iso);
+        if (day == null) return;
+
+        View content = LayoutInflater.from(this).inflate(R.layout.sheet_subscription_day, null, false);
+        bindDayView(content, day);
+
+        daySheet = new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+        daySheet.setContentView(content);
+        openSheetDate = iso;
+        daySheet.setOnDismissListener(d -> {
+            openSheetDate = null;
+            daySheet = null;
+        });
+        daySheet.show();
+    }
+
+    /**
+     * Re-binds the open sheet after a reload.
+     *
+     * Every action reloads the calendar, so without this the sheet would keep
+     * showing the state that action just changed — and the sheet is where the
+     * customer is standing when they press the button.
+     */
+    private void refreshOpenSheet() {
+        if (daySheet == null || openSheetDate == null) return;
+        SubscriptionCalendarResponse.Day day = dayByDate.get(openSheetDate);
+        if (day == null) {
+            daySheet.dismiss();
+            return;
+        }
+        View content = daySheet.findViewById(R.id.includeDay);
+        if (content != null) bindDayView(content, day);
+    }
+
+    /** Fills one inflated item_subscription_day with one day's server-decided state. */
+    private void bindDayView(View row, SubscriptionCalendarResponse.Day day) {
+        TextView tvDate = row.findViewById(R.id.tvDayDate);
+        TextView tvRelative = row.findViewById(R.id.tvDayRelative);
+        TextView tvChip = row.findViewById(R.id.tvDayStatusChip);
+        LinearLayout layoutReason = row.findViewById(R.id.layoutDayReason);
+        TextView tvReason = row.findViewById(R.id.tvDayReason);
+        LinearLayout layoutLocked = row.findViewById(R.id.layoutDayLocked);
+        TextView tvLocked = row.findViewById(R.id.tvDayLockedNote);
+        MaterialButton btnAction = row.findViewById(R.id.btnDayAction);
+        MaterialButton btnHandshake = row.findViewById(R.id.btnDayHandshake);
+        View accent = row.findViewById(R.id.viewDayAccent);
+
+        tvDate.setText(DeliveryDateUtils.formatDayHeading(day.getDate()));
+
+        String relative = DeliveryDateUtils.describeRelative(day.getDate(), todayNpt);
+        tvRelative.setText(relative);
+        tvRelative.setVisibility(relative == null ? View.GONE : View.VISIBLE);
+
+        applyDayChip(day, tvChip, accent);
+
+        if (day.getReason() != null && !day.getReason().trim().isEmpty()) {
+            tvReason.setText("cook".equals(day.getToggledBy())
+                    ? "Cook's note: " + day.getReason()
+                    : "Your note: " + day.getReason());
+            layoutReason.setVisibility(View.VISIBLE);
+        } else {
+            layoutReason.setVisibility(View.GONE);
+        }
+
+        // Handshake first: whether it took the row's action slot decides
+        // whether applyDayAction has a note to add underneath.
+        boolean handshakeShown = applyDayHandshake(day, btnHandshake);
+        applyDayAction(day, btnAction, layoutLocked, tvLocked, handshakeShown);
+        applyCustomMeal(day, row);
     }
 
     /** Colour and wording for one day. The label text is the server's, not ours. */

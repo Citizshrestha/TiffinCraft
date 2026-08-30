@@ -76,7 +76,7 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
             tvAmountBreakdown, tvWindow, tvWindowNote, tvAddress, tvMealsTitle, tvMeals,
             tvScanToPay;
     private ImageView imgCookQr, imgProof, btnRemoveProof;
-    private MaterialButton btnPayWithEsewa, btnUploadProof, btnOpenSchedule, btnMessageCook;
+    private MaterialButton btnPayWithEsewa, btnUploadProof, btnOpenSchedule, btnMessageCook, btnSaveQr;
 
     private SubscriptionDetailResponse.Subscription current;
     private ActivityResultLauncher<Intent> imagePickerLauncher;
@@ -153,6 +153,7 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
         btnUploadProof = findViewById(R.id.btnUploadProof);
         btnOpenSchedule = findViewById(R.id.btnOpenSchedule);
         btnMessageCook = findViewById(R.id.btnMessageCook);
+        btnSaveQr = findViewById(R.id.btnSaveQr);
     }
 
     @Override
@@ -380,6 +381,7 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
         // just reads as a broken screen. "Open eSewa" is still the route.
         tvScanToPay.setVisibility(hasQr ? View.VISIBLE : View.GONE);
         imgCookQr.setVisibility(hasQr ? View.VISIBLE : View.GONE);
+        btnSaveQr.setVisibility(hasQr ? View.VISIBLE : View.GONE);
         if (hasQr) {
             Glide.with(this).load(qr).into(imgCookQr);
             imgCookQr.setOnClickListener(v -> {
@@ -388,6 +390,8 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
                 viewer.putExtra(MediaViewerActivity.EXTRA_IS_VIDEO, false);
                 startActivity(viewer);
             });
+            btnSaveQr.setOnClickListener(v -> com.tiffincraft.app.utils.ImageUtils.saveQrUrlToGallery(
+                    this, qr, "esewa_qr_subscription_" + subscriptionId));
         }
 
         // Update button text based on whether proof has been uploaded

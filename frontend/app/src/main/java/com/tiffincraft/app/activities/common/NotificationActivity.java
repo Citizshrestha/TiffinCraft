@@ -95,6 +95,7 @@ public class NotificationActivity extends AppCompatActivity {
             case "payment_verified":
             case "payment_verification":
             case "payment_rejected":
+            case "payment_success":
                 if (refId != null) {
                     intent = new Intent(this, isCook ? OrderDetailsCookActivity.class : OrderDetailsCustomerActivity.class);
                     intent.putExtra("order_id", refId);
@@ -149,11 +150,50 @@ public class NotificationActivity extends AppCompatActivity {
                 break;
             case "subscription_verified":
             case "subscription_rejected":
+            case "subscription_accepted":
+            case "subscription_paid":
+            case "subscription_payment_rejected":
+            case "subscription_scheduled":
+            case "subscription_completed":
+            case "subscription_update":
+            case "custom_meal_accepted":
+            case "custom_meal_declined":
                 // Customer: their profile's subscription card already reflects the
                 // live status and re-opens SubscriptionPaymentActivity via "Manage"
                 // if action is still needed — reuses that flow instead of trying to
                 // reconstruct plan/price/QR details from just a notification.
+                // The custom_meal_* replies land here too: their referenceId is a
+                // custom_meal_requests row, so there is no subscription id to open
+                // a calendar with (see the trap noted below).
                 intent = new Intent(this, com.tiffincraft.app.activities.customer.CustomerProfileActivity.class);
+                break;
+            case "subscription_request":
+                // Cook: the request that needs answering. The inbox scrolls to and
+                // flashes this subscription's card rather than dumping a list.
+                if (refId != null) {
+                    intent = com.tiffincraft.app.activities.cook.SubscriptionRequestsActivity
+                            .intentFor(this, refId);
+                }
+                break;
+            case "subscription_meal_sent":
+            case "subscription_meal_received":
+            case "subscription_day_skipped":
+            case "subscription_delivery_skipped":
+            case "cook_unavailable":
+                // Day-level events belong on the calendar, and it works for both
+                // roles (the response's `viewer` field drives read-only mode).
+                // Guarded on reference_type: some subscription-family types carry a
+                // request id rather than a subscription id, and a calendar keyed on
+                // the wrong id opens somebody else's schedule.
+                if (refId != null && "subscription".equals(notification.getReferenceType())) {
+                    intent = com.tiffincraft.app.activities.customer.SubscriptionCalendarActivity
+                            .intentFor(this, refId, null);
+                }
+                break;
+            case "custom_meal_request":
+                // referenceId here is a custom_meal_requests row id, NOT a
+                // subscription id — must not go to the calendar.
+                intent = new Intent(this, com.tiffincraft.app.activities.cook.CookSubscribersActivity.class);
                 break;
             default:
                 break; // system/unrecognized (e.g. admin-only refund_requested) — nothing to navigate to

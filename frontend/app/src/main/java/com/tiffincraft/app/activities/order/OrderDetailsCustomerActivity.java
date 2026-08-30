@@ -192,12 +192,32 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
             if (isOnline) {
                 // Payment status badge
                 if (binding.tvPaymentStatusBadge != null) {
-                    binding.tvPaymentStatusBadge.setText(getPaymentStatusText(paymentStatus, esewaConfirmed));
-                    binding.tvPaymentStatusBadge.setBackgroundResource(getPaymentStatusBg(paymentStatus, esewaConfirmed));
-                    binding.tvPaymentStatusBadge.setTextColor(getColor(getPaymentStatusTextColor(paymentStatus, esewaConfirmed)));
+                    boolean wasRejected = order.getPaymentRejectedAt() != null;
+                    binding.tvPaymentStatusBadge.setText(
+                            getPaymentStatusText(paymentStatus, esewaConfirmed, wasRejected));
+                    binding.tvPaymentStatusBadge.setBackgroundResource(
+                            getPaymentStatusBg(paymentStatus, esewaConfirmed, wasRejected));
+                    binding.tvPaymentStatusBadge.setTextColor(getColor(
+                            getPaymentStatusTextColor(paymentStatus, esewaConfirmed, wasRejected)));
                 }
 
-                // Show uploaded screenshot
+                // The cook's reason for refusing the last screenshot. Only while
+                // it is still the live state — once a new proof is in, the old
+                // reason describes an image that has been replaced.
+                if (binding.tvPaymentRejectionReason != null) {
+                    String reason = order.getPaymentRejectionReason();
+                    boolean showReason = "pending".equals(paymentStatus)
+                            && reason != null && !reason.trim().isEmpty();
+                    binding.tvPaymentRejectionReason.setVisibility(
+                            showReason ? android.view.View.VISIBLE : android.view.View.GONE);
+                    if (showReason) {
+                        binding.tvPaymentRejectionReason.setText(
+                                "The cook couldn't verify your last screenshot: \"" + reason.trim()
+                                        + "\"\n\nSend the payment again if needed, then upload a new screenshot.");
+                    }
+                }
+
+                // Show uploaded screenshot — tappable, opens the full-screen viewer.
                 if (paymentScreenshotUrl != null && !paymentScreenshotUrl.isEmpty() && binding.ivPaymentScreenshot != null) {
                     binding.ivPaymentScreenshot.setVisibility(android.view.View.VISIBLE);
                     Glide.with(this)
@@ -205,6 +225,14 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
                             .placeholder(R.drawable.ic_image_placeholder)
                             .error(R.drawable.ic_image_placeholder)
                             .into(binding.ivPaymentScreenshot);
+                    binding.ivPaymentScreenshot.setOnClickListener(v -> {
+                        android.content.Intent viewer = new android.content.Intent(
+                                this, com.tiffincraft.app.activities.common.MediaViewerActivity.class);
+                        viewer.putExtra(com.tiffincraft.app.activities.common.MediaViewerActivity.EXTRA_MEDIA_URL,
+                                paymentScreenshotUrl);
+                        viewer.putExtra(com.tiffincraft.app.activities.common.MediaViewerActivity.EXTRA_IS_VIDEO, false);
+                        startActivity(viewer);
+                    });
                 } else if (binding.ivPaymentScreenshot != null) {
                     binding.ivPaymentScreenshot.setVisibility(android.view.View.GONE);
                 }
@@ -593,32 +621,35 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
     // "paid" is reached by two different paths: an eSewa auto-confirmation
     // (esewaConfirmed=true, nothing left to do) or the manual screenshot flow
     // (still awaiting the cook's verification) — the label must say which.
-    private String getPaymentStatusText(String status, boolean esewaConfirmed) {
+    private String getPaymentStatusText(String status, boolean esewaConfirmed, boolean wasRejected) {
         if (status == null) return "Pending";
         switch (status) {
             case "verified": return "✅ Payment Verified";
             case "paid": return esewaConfirmed ? "✅ Paid via eSewa" : "⏳ Awaiting Verification";
-            case "pending": return "⏳ Payment Pending";
+            // 'pending' after a rejection is a different situation from never
+            // having paid: the customer has to act on the cook's reason.
+            case "pending": return wasRejected ? "❌ Not Verified — Upload Again" : "⏳ Payment Pending";
             case "refunded": return "🔄 Refunded";
             default: return status;
         }
     }
 
-    private int getPaymentStatusBg(String status, boolean esewaConfirmed) {
+    private int getPaymentStatusBg(String status, boolean esewaConfirmed, boolean wasRejected) {
         if (status == null) return R.drawable.status_chip_pending;
         switch (status) {
             case "verified": return R.drawable.status_chip_delivered;
             case "paid": return esewaConfirmed ? R.drawable.status_chip_delivered : R.drawable.status_chip_preparing;
-            case "pending": return R.drawable.status_chip_pending;
+            case "pending": return wasRejected ? R.drawable.status_chip_sold_out : R.drawable.status_chip_pending;
             default: return R.drawable.status_chip_pending;
         }
     }
 
-    private int getPaymentStatusTextColor(String status, boolean esewaConfirmed) {
+    private int getPaymentStatusTextColor(String status, boolean esewaConfirmed, boolean wasRejected) {
         if (status == null) return R.color.status_pending_text;
         switch (status) {
             case "verified": return R.color.status_delivered_text;
             case "paid": return esewaConfirmed ? R.color.status_delivered_text : R.color.status_preparing_text;
+            case "pending": return wasRejected ? R.color.sub_error : R.color.status_pending_text;
             default: return R.color.status_pending_text;
         }
     }

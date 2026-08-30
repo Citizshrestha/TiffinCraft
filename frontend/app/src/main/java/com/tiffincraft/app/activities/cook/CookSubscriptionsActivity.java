@@ -121,7 +121,7 @@ public class CookSubscriptionsActivity extends AppCompatActivity {
             @Override
             public void onResponse(@NonNull Call<CookSubscribersResponse> call, @NonNull Response<CookSubscribersResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                    tvSubscribersCount.setText(String.valueOf(response.body().getActiveSubscriberCount()));
+                    tvSubscribersCount.setText(String.valueOf(response.body().getPaidSubscriberCount()));
                 }
             }
 

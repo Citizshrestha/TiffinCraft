@@ -52,6 +52,19 @@ import retrofit2.Response;
  */
 public class SubscriptionRequestsActivity extends AppCompatActivity {
 
+    /**
+     * Subscription to scroll to and highlight on open. Set by a notification tap
+     * (in-app row or push) so the cook lands on the request the alert was about
+     * instead of a list they then have to search.
+     */
+    public static final String EXTRA_FOCUS_SUBSCRIPTION_ID = "focus_subscription_id";
+
+    public static Intent intentFor(android.content.Context context, int subscriptionId) {
+        Intent intent = new Intent(context, SubscriptionRequestsActivity.class);
+        intent.putExtra(EXTRA_FOCUS_SUBSCRIPTION_ID, subscriptionId);
+        return intent;
+    }
+
     /** Server filter keys, in chip order. */
     private static final String FILTER_PENDING = "pending";
     private static final String FILTER_REQUESTED = "requested";
@@ -66,12 +79,18 @@ public class SubscriptionRequestsActivity extends AppCompatActivity {
     private TextView tvHeaderSubtitle, tvEmpty;
     private TextView chipPending, chipRequested, chipProofCheck, chipAwaitingPayment, chipAll;
     private View progressLoading, cardTrustNote;
+    private androidx.core.widget.NestedScrollView scrollRequests;
     private androidx.swiperefreshlayout.widget.SwipeRefreshLayout swipeRefresh;
 
     private final List<SubscriptionRequestsResponse.Item> items = new ArrayList<>();
     private String activeFilter = FILTER_PENDING;
     /** Guards a double-tap from sending two decisions for the same subscription. */
     private boolean actionInFlight = false;
+    /** Cleared once used, so a rotate or resume doesn't re-flash the card. */
+    private int focusSubscriptionId = 0;
+    /** "Needs you" hides already-answered subscriptions — widen to All, but once. */
+    private boolean focusFallbackTried = false;
+    private boolean firstResume = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,6 +105,7 @@ public class SubscriptionRequestsActivity extends AppCompatActivity {
         tvEmpty = findViewById(R.id.tvEmpty);
         progressLoading = findViewById(R.id.progressLoading);
         cardTrustNote = findViewById(R.id.cardTrustNote);
+        scrollRequests = findViewById(R.id.scrollRequests);
         swipeRefresh = findViewById(R.id.swipeRefresh);
 
         chipPending = findViewById(R.id.chipPending);
@@ -103,18 +123,34 @@ public class SubscriptionRequestsActivity extends AppCompatActivity {
         chipAwaitingPayment.setOnClickListener(v -> selectFilter(FILTER_AWAITING_PAYMENT));
         chipAll.setOnClickListener(v -> selectFilter(FILTER_ALL));
 
+        focusSubscriptionId = getIntent().getIntExtra(EXTRA_FOCUS_SUBSCRIPTION_ID, 0);
+
         loadRequests();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        // Coming back from the verify screen, this list is stale by definition.
-        if (!items.isEmpty()) loadRequests();
+        // onCreate already loaded — skip the first resume so a cold start doesn't
+        // fire two identical requests. After that, refresh unconditionally:
+        // coming back from the verify screen this list is stale by definition,
+        // and an empty list is exactly the case that needs refreshing (the old
+        // `if (!items.isEmpty())` guard left a deep link into an empty filter
+        // permanently empty).
+        if (firstResume) {
+            firstResume = false;
+            return;
+        }
+        loadRequests();
     }
 
     private void selectFilter(String filter) {
         if (filter.equals(activeFilter)) return;
+        switchFilter(filter);
+    }
+
+    /** The filter change itself, without selectFilter's same-filter early return. */
+    private void switchFilter(String filter) {
         activeFilter = filter;
         applyChipStyles();
         items.clear();
@@ -204,9 +240,44 @@ public class SubscriptionRequestsActivity extends AppCompatActivity {
                 : "Nothing waiting on you in this filter.");
 
         LayoutInflater inflater = LayoutInflater.from(this);
+        View focusCard = null;
         for (SubscriptionRequestsResponse.Item item : items) {
-            layoutRequests.addView(buildCard(inflater, item));
+            View card = buildCard(inflater, item);
+            layoutRequests.addView(card);
+            if (focusSubscriptionId != 0 && item.getId() == focusSubscriptionId) focusCard = card;
         }
+
+        if (focusSubscriptionId == 0) return;
+
+        if (focusCard == null) {
+            // The cook already answered it, so it isn't in "Needs you". Widen the
+            // filter once rather than showing an unrelated list — that silent
+            // mismatch is what makes the notification tap feel broken.
+            if (!focusFallbackTried && !FILTER_ALL.equals(activeFilter)) {
+                focusFallbackTried = true;
+                switchFilter(FILTER_ALL);
+            } else {
+                focusSubscriptionId = 0;
+            }
+            return;
+        }
+
+        highlightCard(focusCard);
+        focusSubscriptionId = 0;
+    }
+
+    /** Scroll the deep-linked card into view and flash it, so the tap clearly landed. */
+    private void highlightCard(View card) {
+        card.post(() -> {
+            if (scrollRequests != null) {
+                // card.getTop() is relative to layoutRequests, which itself sits
+                // below the trust note inside the scroll view's child column.
+                int y = layoutRequests.getTop() + card.getTop() - 24;
+                scrollRequests.smoothScrollTo(0, Math.max(0, y));
+            }
+            card.setAlpha(0.35f);
+            card.animate().alpha(1f).setDuration(650).start();
+        });
     }
 
     private View buildCard(LayoutInflater inflater, SubscriptionRequestsResponse.Item item) {
