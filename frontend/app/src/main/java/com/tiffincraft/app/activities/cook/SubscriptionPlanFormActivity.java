@@ -152,6 +152,7 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
                     renderSelectableMeals();
                 } else {
                     tvNoMeals.setVisibility(View.VISIBLE);
+                    tvNoMeals.setText("You don't have any meals yet. Please add meals from the Meals screen first.");
                     btnSavePlan.setEnabled(false);
                 }
             }
@@ -159,6 +160,9 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
             @Override
             public void onFailure(@NonNull Call<MealResponse> call, @NonNull Throwable t) {
                 Toast.makeText(SubscriptionPlanFormActivity.this, "Failed to load your meals: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                tvNoMeals.setVisibility(View.VISIBLE);
+                tvNoMeals.setText("Failed to load meals. Please try again.");
+                btnSavePlan.setEnabled(false);
             }
         });
     }
@@ -168,7 +172,15 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
         rowsByMealId.clear();
         LayoutInflater inflater = LayoutInflater.from(this);
 
+        // Filter to only show meals that are marked for subscription
+        int subscriptionMealCount = 0;
         for (Meal meal : myMeals) {
+            // Skip meals that are not added to subscription
+            if (!meal.isInSubscription()) {
+                continue;
+            }
+            
+            subscriptionMealCount++;
             View row = inflater.inflate(R.layout.item_plan_meal_selectable, layoutSelectableMeals, false);
 
             CheckBox cbSelected = row.findViewById(R.id.cbSelected);
@@ -203,6 +215,15 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
             row.setTag(meal.getId());
             rowsByMealId.put(meal.getId(), row);
             layoutSelectableMeals.addView(row);
+        }
+
+        // Show message if no meals are marked for subscription
+        if (subscriptionMealCount == 0) {
+            tvNoMeals.setVisibility(View.VISIBLE);
+            tvNoMeals.setText("No meals added to subscription menu. Please add meals to subscription from the Meals screen first.");
+            btnSavePlan.setEnabled(false);
+        } else {
+            tvNoMeals.setVisibility(View.GONE);
         }
 
         applyPendingSelection();

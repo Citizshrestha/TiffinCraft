@@ -6,9 +6,14 @@
         android:title="Home" />
     
     <item
-        android:id="@+id/nav_search"
-        android:icon="@drawable/ic_search"
-        android:title="Search" />
+        android:id="@+id/nav_menu"
+        android:icon="@drawable/ic_restaurant"
+        android:title="Menu" />
+    
+    <item
+        android:id="@+id/nav_cart"
+        android:icon="@drawable/ic_shopping_cart"
+        android:title="Cart" />
     
     <item
         android:id="@+id/nav_orders"

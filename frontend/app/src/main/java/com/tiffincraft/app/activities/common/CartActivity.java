@@ -204,6 +204,9 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartA
 
     private void setupBottomNavigation() {
         if (bottomNavigation != null) {
+            // Set Cart as selected since we're on the cart screen
+            bottomNavigation.setSelectedItemId(R.id.nav_cart);
+            
             bottomNavigation.setOnItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
                 @Override
                 public boolean onNavigationItemSelected(@NonNull MenuItem item) {
@@ -213,9 +216,12 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartA
                         startActivity(new Intent(CartActivity.this, com.tiffincraft.app.activities.customer.CustomerHomeActivity.class));
                         finish();
                         return true;
-                    } else if (itemId == R.id.nav_search) {
+                    } else if (itemId == R.id.nav_menu) {
                         startActivity(new Intent(CartActivity.this, com.tiffincraft.app.activities.customer.CustomerMenuActivity.class));
                         finish();
+                        return true;
+                    } else if (itemId == R.id.nav_cart) {
+                        // Already on cart screen, do nothing
                         return true;
                     } else if (itemId == R.id.nav_orders) {
                         startActivity(new Intent(CartActivity.this, com.tiffincraft.app.activities.order.OrderHistoryActivity.class));

@@ -1,4 +1,5 @@
 import db from "../config/db.js";
+import { notifyNewReview } from "../utils/notificationHelper.js";
 
 export const addReview = async (req, res) => {
     const connection = await db.promise().getConnection();
@@ -23,7 +24,7 @@ export const addReview = async (req, res) => {
 
         const [orders] = await connection.query(
             `SELECT * FROM orders
-             WHERE id = ? AND customer_id = ? AND status = 'delivered'`,
+             WHERE id = ? AND customer_id = ? AND status IN ('delivered', 'completed')`,
             [order_id, customerId]
         );
 
@@ -48,11 +49,13 @@ export const addReview = async (req, res) => {
 
         await connection.beginTransaction();
 
-        await connection.query(
+        const [insertResult] = await connection.query(
             `INSERT INTO reviews (order_id, customer_id, cook_id, rating, comment)
              VALUES (?, ?, ?, ?, ?)`,
             [order_id, customerId, cook_id, rating, comment || null]
         );
+
+        const reviewId = insertResult.insertId;
 
         const [ratingResult] = await connection.query(
             `SELECT AVG(rating) as avg_rating
@@ -73,7 +76,30 @@ export const addReview = async (req, res) => {
             ]
         );
 
+        // Get customer name for notification
+        const [customer] = await connection.query(
+            "SELECT full_name FROM users WHERE id = ?",
+            [customerId]
+        );
+
         await connection.commit();
+
+        // Send notification to cook about the new review with feedback
+        const customerName = customer.length > 0 ? customer[0].full_name : "A customer";
+        await notifyNewReview(cook_id, reviewId, customerName, rating);
+
+        // Emit real-time socket event for the cook
+        const io = req.app.get("io");
+        if (io) {
+            io.to(`user_${cook_id}`).emit("newNotification", {
+                type: "review",
+                title: "New Review Received!",
+                message: `${customerName} gave you ${rating} stars${'⭐'.repeat(rating)}${comment ? `: "${comment}"` : ''}`,
+                reference_id: reviewId,
+                reference_type: "review",
+                created_at: new Date().toISOString()
+            });
+        }
 
         return res.status(201).json({
             success: true,
@@ -140,7 +166,31 @@ export const updateReview = async (req, res) => {
             [parseFloat(ratingResult[0].avg_rating).toFixed(2), cookId]
         );
 
+        // Get customer name for notification
+        const [customer] = await connection.query(
+            "SELECT full_name FROM users WHERE id = ?",
+            [customerId]
+        );
+
         await connection.commit();
+
+        // Notify cook about the updated review
+        const customerName = customer.length > 0 ? customer[0].full_name : "A customer";
+        const stars = '⭐'.repeat(rating);
+        await notifyNewReview(cookId, reviewId, customerName, rating);
+
+        // Emit real-time socket event for the cook
+        const io = req.app.get("io");
+        if (io) {
+            io.to(`user_${cookId}`).emit("newNotification", {
+                type: "review",
+                title: "Review Updated",
+                message: `${customerName} updated their review to ${rating} stars ${stars}${comment ? `: "${comment}"` : ''}`,
+                reference_id: reviewId,
+                reference_type: "review",
+                created_at: new Date().toISOString()
+            });
+        }
 
         return res.status(200).json({
             success: true,

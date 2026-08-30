@@ -72,7 +72,7 @@ public class CookSubscribersActivity extends AppCompatActivity {
         layoutSubscribers = findViewById(R.id.layoutSubscribers);
         tvEmptySubscribers = findViewById(R.id.tvEmptySubscribers);
         chipAll = findViewById(R.id.chipAll);
-        chipSubmitted = findViewById(R.id.chipSubmitted);
+        chipSubmitted = findViewById(R.id.chipPaymentProofs);
         chipActive = findViewById(R.id.chipActive);
         chipOther = findViewById(R.id.chipOther);
 
@@ -81,7 +81,7 @@ public class CookSubscribersActivity extends AppCompatActivity {
                 startActivityForResult(new Intent(this, SubscriptionPlanFormActivity.class), REQUEST_ADD_SUBSCRIPTION));
 
         chipAll.setOnClickListener(v -> setFilter("all"));
-        chipSubmitted.setOnClickListener(v -> setFilter("submitted"));
+        chipSubmitted.setOnClickListener(v -> setFilter("payment_proofs"));
         chipActive.setOnClickListener(v -> setFilter("active"));
         chipOther.setOnClickListener(v -> setFilter("other"));
 
@@ -116,7 +116,7 @@ public class CookSubscribersActivity extends AppCompatActivity {
 
     private void updateChipStyles() {
         TextView[] chips = { chipAll, chipSubmitted, chipActive, chipOther };
-        String[] keys = { "all", "submitted", "active", "other" };
+        String[] keys = { "all", "payment_proofs", "active", "other" };
         for (int i = 0; i < chips.length; i++) {
             boolean selected = keys[i].equals(currentFilter);
             chips[i].setBackground(ContextCompat.getDrawable(this, selected ? R.drawable.chip_selected_green : R.drawable.chip_unselected));
@@ -147,7 +147,7 @@ public class CookSubscribersActivity extends AppCompatActivity {
         List<SubscriptionResponse.Subscription> filtered = new ArrayList<>();
         for (SubscriptionResponse.Subscription sub : allSubscribers) {
             switch (currentFilter) {
-                case "submitted":
+                case "payment_proofs":
                     if ("submitted".equals(sub.getPaymentStatus())) filtered.add(sub);
                     break;
                 case "active":
@@ -168,11 +168,22 @@ public class CookSubscribersActivity extends AppCompatActivity {
 
         if (filtered.isEmpty()) {
             tvEmptySubscribers.setVisibility(View.VISIBLE);
+            tvEmptySubscribers.setText("payment_proofs".equals(currentFilter)
+                    ? "No payment proofs pending review."
+                    : "No subscribers in this filter yet.");
             return;
         }
         tvEmptySubscribers.setVisibility(View.GONE);
 
         LayoutInflater inflater = LayoutInflater.from(this);
+        
+        // Show payment proofs in a special visual grid layout
+        if ("payment_proofs".equals(currentFilter)) {
+            renderPaymentProofsGrid(filtered, inflater);
+            return;
+        }
+        
+        // Regular list layout for other tabs
         for (SubscriptionResponse.Subscription sub : filtered) {
             View card = inflater.inflate(R.layout.item_cook_subscriber, layoutSubscribers, false);
 
@@ -271,6 +282,95 @@ public class CookSubscribersActivity extends AppCompatActivity {
                 chip.setTextColor(getColor(R.color.status_pending_text));
                 break;
         }
+    }
+
+    /**
+     * Renders payment proofs in a visually appealing grid layout with images
+     */
+    private void renderPaymentProofsGrid(List<SubscriptionResponse.Subscription> subscriptions, LayoutInflater inflater) {
+        for (SubscriptionResponse.Subscription sub : subscriptions) {
+            View card = inflater.inflate(R.layout.item_payment_proof, layoutSubscribers, false);
+
+            ImageView ivPaymentProof = card.findViewById(R.id.ivPaymentProof);
+            TextView tvCustomerName = card.findViewById(R.id.tvCustomerName);
+            TextView tvPlanName = card.findViewById(R.id.tvPlanName);
+            TextView tvSubmittedDate = card.findViewById(R.id.tvSubmittedDate);
+            MaterialButton btnVerifyProof = card.findViewById(R.id.btnVerifyProof);
+            MaterialButton btnRejectProof = card.findViewById(R.id.btnRejectProof);
+
+            tvCustomerName.setText(sub.getCustomerName() != null ? sub.getCustomerName() : "Customer");
+            tvPlanName.setText((sub.getPlanName() != null ? sub.getPlanName() : "Plan")
+                    + " · " + sub.getDurationLabel());
+            
+            if (sub.getCreatedAt() != null) {
+                tvSubmittedDate.setText("Submitted: " + DeliveryDateUtils.formatLongDate(sub.getCreatedAt()));
+            }
+
+            // Load payment proof image
+            if (sub.getPaymentScreenshotUrl() != null && !sub.getPaymentScreenshotUrl().isEmpty()) {
+                Glide.with(this)
+                        .load(sub.getPaymentScreenshotUrl())
+                        .placeholder(R.drawable.ic_image_placeholder)
+                        .error(R.drawable.ic_image_placeholder)
+                        .centerCrop()
+                        .into(ivPaymentProof);
+                        
+                // Click to view full image
+                ivPaymentProof.setOnClickListener(v -> showFullImageDialog(sub));
+            }
+
+            btnVerifyProof.setOnClickListener(v -> submitVerification(sub.getId(), "verified", ""));
+            btnRejectProof.setOnClickListener(v -> showRejectDialog(sub));
+
+            layoutSubscribers.addView(card);
+        }
+    }
+    
+    /**
+     * Shows full-size payment proof image in dialog
+     */
+    private void showFullImageDialog(SubscriptionResponse.Subscription sub) {
+        Context ctx = this;
+        ImageView ivFullImage = new ImageView(ctx);
+        ivFullImage.setAdjustViewBounds(true);
+        ivFullImage.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        
+        if (sub.getPaymentScreenshotUrl() != null) {
+            Glide.with(this)
+                    .load(sub.getPaymentScreenshotUrl())
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .error(R.drawable.ic_image_placeholder)
+                    .into(ivFullImage);
+        }
+        
+        new AlertDialog.Builder(ctx)
+                .setTitle(sub.getCustomerName() + " - Payment Proof")
+                .setView(ivFullImage)
+                .setPositiveButton("Verify", (dialog, which) ->
+                        submitVerification(sub.getId(), "verified", ""))
+                .setNegativeButton("Reject", (dialog, which) ->
+                        showRejectDialog(sub))
+                .setNeutralButton("Close", null)
+                .show();
+    }
+    
+    /**
+     * Shows reject dialog with reason input
+     */
+    private void showRejectDialog(SubscriptionResponse.Subscription sub) {
+        EditText etReason = new EditText(this);
+        etReason.setHint("Reason for rejection (optional)");
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        etReason.setPadding(pad, pad, pad, pad);
+        
+        new AlertDialog.Builder(this)
+                .setTitle("Reject Payment - " + sub.getCustomerName())
+                .setMessage("Please provide a reason for rejecting this payment proof:")
+                .setView(etReason)
+                .setPositiveButton("Reject", (dialog, which) ->
+                        submitVerification(sub.getId(), "rejected", etReason.getText().toString().trim()))
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void showVerifyDialog(SubscriptionResponse.Subscription sub) {

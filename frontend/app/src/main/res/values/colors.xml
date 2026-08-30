@@ -135,4 +135,16 @@
     <color name="commission_review_bg">#F4F8FF</color>
     <color name="commission_review_stroke">#D6E4FA</color>
     <color name="commission_review_accent">#1B62C4</color>
+
+    <!-- Combo Deals enhanced palette -->
+    <color name="combo_gradient_start">#43A047</color>
+    <color name="combo_gradient_end">#2E7D32</color>
+    <color name="combo_card_bg">#FFFFFF</color>
+    <color name="combo_card_stroke">#E8F5E9</color>
+    <color name="combo_badge_bg">#FEF3C7</color>
+    <color name="combo_badge_text">#D97706</color>
+    <color name="combo_text_light">#DCEDC8</color>
+    <color name="combo_edit_btn">#4CAF50</color>
+    <color name="combo_delete_btn">#EF4444</color>
+    <color name="combo_fab_bg">#4CAF50</color>
 </resources>

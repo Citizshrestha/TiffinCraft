@@ -394,10 +394,13 @@ public class TrackOrderActivity extends AppCompatActivity implements OnMapReadyC
         }
 
         if (routePhase && customer != null) {
+            String deliveryAddress = order.getDeliveryAddress();
+            String markerTitle = (deliveryAddress != null && !deliveryAddress.trim().isEmpty()) 
+                    ? deliveryAddress : "Delivery address";
+            
             map.addMarker(new MarkerOptions()
                     .position(customer)
-                    .title("Delivery address")
-                    .snippet(order.getDeliveryAddress())
+                    .title(markerTitle)
                     .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
         }
 

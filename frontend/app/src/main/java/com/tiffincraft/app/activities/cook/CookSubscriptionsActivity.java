@@ -42,7 +42,7 @@ public class CookSubscriptionsActivity extends AppCompatActivity {
     private ApiService apiService;
     private SessionManager sessionManager;
 
-    private TextView tvPlansCount, tvSubscribersCount, tvEmptyPlans, tvRequestsBadge;
+    private TextView tvPlansCount, tvSubscribersCount, tvEmptyPlans;
     private android.widget.LinearLayout layoutPlans;
 
     @Override
@@ -56,7 +56,6 @@ public class CookSubscriptionsActivity extends AppCompatActivity {
         tvPlansCount = findViewById(R.id.tvPlansCount);
         tvSubscribersCount = findViewById(R.id.tvSubscribersCount);
         tvEmptyPlans = findViewById(R.id.tvEmptyPlans);
-        tvRequestsBadge = findViewById(R.id.tvRequestsBadge);
         layoutPlans = findViewById(R.id.layoutPlans);
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
@@ -69,8 +68,6 @@ public class CookSubscriptionsActivity extends AppCompatActivity {
         // No date extra — the server decides what "today" is in Nepal Time.
         findViewById(R.id.rowTodayDeliveries).setOnClickListener(v ->
                 startActivity(TodayDeliveriesActivity.intentFor(this, null)));
-        findViewById(R.id.rowSubscriptionRequests).setOnClickListener(v ->
-                startActivity(new Intent(this, SubscriptionRequestsActivity.class)));
 
         loadSubscriberCount();
     }
@@ -79,7 +76,6 @@ public class CookSubscriptionsActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         loadPlans();
-        loadRequestsBadge();
     }
 
     @Override
@@ -88,31 +84,6 @@ public class CookSubscriptionsActivity extends AppCompatActivity {
         if (requestCode == REQUEST_PLAN_FORM && resultCode == RESULT_OK) {
             loadPlans();
         }
-    }
-
-    /**
-     * The badge counts only what needs the cook: new requests plus payment
-     * proofs to check. "Awaiting payment" is deliberately excluded — the cook
-     * can't do anything about it, so badging it would train them to ignore this.
-     */
-    private void loadRequestsBadge() {
-        apiService.getCookSubscriptionRequests("Bearer " + sessionManager.getToken(), "pending")
-                .enqueue(new Callback<SubscriptionRequestsResponse>() {
-                    @Override
-                    public void onResponse(@NonNull Call<SubscriptionRequestsResponse> call,
-                                           @NonNull Response<SubscriptionRequestsResponse> response) {
-                        int actionable = response.isSuccessful() && response.body() != null
-                                && response.body().getCounts() != null
-                                ? response.body().getCounts().getActionable() : 0;
-                        tvRequestsBadge.setText(String.valueOf(actionable));
-                        tvRequestsBadge.setVisibility(actionable > 0 ? View.VISIBLE : View.GONE);
-                    }
-
-                    @Override
-                    public void onFailure(@NonNull Call<SubscriptionRequestsResponse> call, @NonNull Throwable t) {
-                        tvRequestsBadge.setVisibility(View.GONE);
-                    }
-                });
     }
 
     private void loadSubscriberCount() {

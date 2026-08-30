@@ -7,8 +7,8 @@
     android:layout_marginBottom="12dp"
     app:cardBackgroundColor="@color/white"
     app:cardCornerRadius="16dp"
-    app:cardElevation="0dp"
-    app:strokeColor="#FFE0B2"
+    app:cardElevation="2dp"
+    app:strokeColor="#E8F5E9"
     app:strokeWidth="1.5dp">
 
     <LinearLayout
@@ -49,13 +49,13 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
-                        android:background="@drawable/chip_unselected"
-                        android:paddingStart="8dp"
-                        android:paddingTop="2dp"
-                        android:paddingEnd="8dp"
-                        android:paddingBottom="2dp"
+                        android:background="@drawable/combo_badge_bg"
+                        android:paddingStart="10dp"
+                        android:paddingTop="4dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="4dp"
                         android:text="Combo Deal"
-                        android:textColor="#FF9800"
+                        android:textColor="#D97706"
                         android:textSize="10.5sp"
                         android:textStyle="bold" />
                 </LinearLayout>
@@ -73,7 +73,9 @@
             <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/switchActive"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                app:thumbTint="@color/switch_thumb_combo"
+                app:trackTint="@color/switch_track_combo" />
         </LinearLayout>
 
         <TextView
@@ -100,10 +102,10 @@
                 android:layout_weight="1"
                 android:text="Edit"
                 android:textAllCaps="false"
-                android:textColor="#FF9800"
+                android:textColor="#4CAF50"
                 android:textSize="13sp"
                 app:cornerRadius="10dp"
-                app:strokeColor="#FF9800" />
+                app:strokeColor="#4CAF50" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDeleteCombo"
@@ -114,10 +116,10 @@
                 android:layout_weight="1"
                 android:text="Delete"
                 android:textAllCaps="false"
-                android:textColor="#E53935"
+                android:textColor="#EF4444"
                 android:textSize="13sp"
                 app:cornerRadius="10dp"
-                app:strokeColor="#E53935" />
+                app:strokeColor="#EF4444" />
         </LinearLayout>
 
     </LinearLayout>
