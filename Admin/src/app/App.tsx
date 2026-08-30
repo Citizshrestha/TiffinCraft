@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Sidebar, Page } from "./components/Sidebar";
+import { Navigate, Route, Routes, useNavigate } from "react-router";
+import { Sidebar } from "./components/Sidebar";
 import { DashboardPage } from "./components/DashboardPage";
 import { ManageUsersPage } from "./components/ManageUsersPage";
 import { CooksPage } from "./components/CooksPage";
@@ -126,8 +127,8 @@ function LoginPage({ onLogin }: { onLogin: (admin: AdminUser) => void }) {
 export default function App() {
   const [admin, setAdmin] = useState<AdminUser | null>(null);
   const [checkedSession, setCheckedSession] = useState(false);
-  const [activePage, setActivePage] = useState<Page>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Restore session on refresh
   useEffect(() => {
@@ -142,47 +143,20 @@ export default function App() {
     return null;
   }
 
+  // Rendered over whatever URL the admin arrived at, so signing in drops them
+  // straight onto the page they deep-linked to instead of the dashboard.
   if (!admin) {
     return <LoginPage onLogin={setAdmin} />;
   }
 
-  function renderPage() {
-    switch (activePage) {
-      case "dashboard":
-        return <DashboardPage onNavigate={(p) => setActivePage(p as Page)} />;
-      case "users":
-        return <ManageUsersPage />;
-      case "cooks":
-        return <CooksPage />;
-      case "meals":
-        return <MealsPage />;
-      case "orders":
-        return <ManageOrdersPage />;
-      case "reviews":
-        return <ReviewsPage />;
-      case "payments":
-        return <PaymentsPage />;
-      case "refunds":
-        return <RefundsPage />;
-      case "earnings":
-        return <EarningsPage />;
-      case "settlements":
-        return <CommissionSettlementsPage />;
-      case "reports":
-        return <ReportsPage />;
-      case "settings":
-        return <SettingsPage onProfileUpdated={setAdmin} />;
-      case "support":
-        return <SupportPage />;
-      default:
-        return <DashboardPage onNavigate={(p) => setActivePage(p as Page)} />;
-    }
-  }
+  // Child pages take an onNavigate(page) callback. Keep that contract and turn
+  // it into a real URL change, so none of them need to know about the router.
+  const goToPage = (page: string) => navigate(`/${page}`);
 
   function handleLogout() {
     logoutAdmin();
     setAdmin(null);
-    setActivePage("dashboard");
+    navigate("/dashboard");
   }
 
   const today = new Date();
@@ -193,8 +167,6 @@ export default function App() {
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "#f2f2f5", fontFamily: "Inter, sans-serif" }}>
       <Sidebar
-        activePage={activePage}
-        onNavigate={setActivePage}
         onLogout={handleLogout}
         adminName={admin.full_name}
         adminRoleLabel={capitalizeRole(admin.role) === "Admin" ? "Super Admin" : capitalizeRole(admin.role)}
@@ -221,7 +193,7 @@ export default function App() {
           <p className="text-white text-[16px] flex-1" style={{ fontFamily: "Inter", fontWeight: 700 }}>
             TiffinCraft
           </p>
-          <NotificationBell dark onNavigate={setActivePage} />
+          <NotificationBell dark onNavigate={goToPage} />
         </header>
 
         {/* Desktop top bar — greeting + date range on the left, bell on the right.
@@ -243,12 +215,31 @@ export default function App() {
               style={{ border: "1px solid #e5e8ed", background: "white", fontFamily: "Inter", fontWeight: 400, fontSize: 13, color: "#9499a6" }}>
               📅 {dateRangeLabel}
             </div>
-            <NotificationBell onNavigate={setActivePage} />
+            <NotificationBell onNavigate={goToPage} />
           </div>
         </header>
 
         <main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          {renderPage()}
+          {/* Route slugs match the Sidebar's Page ids, so /settlements etc. are
+              bookmarkable and survive a refresh. Unknown paths fall back to the
+              dashboard, same as the old switch statement's default case. */}
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<DashboardPage onNavigate={goToPage} />} />
+            <Route path="/users" element={<ManageUsersPage />} />
+            <Route path="/cooks" element={<CooksPage />} />
+            <Route path="/meals" element={<MealsPage />} />
+            <Route path="/orders" element={<ManageOrdersPage />} />
+            <Route path="/reviews" element={<ReviewsPage />} />
+            <Route path="/payments" element={<PaymentsPage />} />
+            <Route path="/refunds" element={<RefundsPage />} />
+            <Route path="/earnings" element={<EarningsPage />} />
+            <Route path="/settlements" element={<CommissionSettlementsPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/settings" element={<SettingsPage onProfileUpdated={setAdmin} />} />
+            <Route path="/support" element={<SupportPage />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
         </main>
       </div>
     </div>

@@ -165,52 +165,57 @@
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipAll"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
                         android:layout_width="wrap_content"
                         android:layout_height="36dp"
                         android:text="All"
-                        android:textColor="#555555"
+                        android:textColor="@color/chip_text_color"
                         android:checked="true"
-                        app:chipBackgroundColor="@color/chip_background_selector"
+                        app:chipBackgroundColor="@color/chip_bg_color"
                         app:chipCornerRadius="10dp"
                         app:chipStrokeWidth="0dp" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipVeg"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
                         android:layout_width="wrap_content"
                         android:layout_height="36dp"
                         android:text="🌱 Veg"
-                        android:textColor="#555555"
-                        app:chipBackgroundColor="@color/chip_background_selector"
+                        android:textColor="@color/chip_text_color"
+                        app:chipBackgroundColor="@color/chip_bg_color"
                         app:chipCornerRadius="10dp"
                         app:chipStrokeWidth="0dp" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipNonVeg"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
                         android:layout_width="wrap_content"
                         android:layout_height="36dp"
                         android:text="🍖 Non-Veg"
-                        android:textColor="#555555"
-                        app:chipBackgroundColor="@color/chip_background_selector"
+                        android:textColor="@color/chip_text_color"
+                        app:chipBackgroundColor="@color/chip_bg_color"
                         app:chipCornerRadius="10dp"
                         app:chipStrokeWidth="0dp" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipPopular"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
                         android:layout_width="wrap_content"
                         android:layout_height="36dp"
                         android:text="⭐ Popular"
-                        android:textColor="#555555"
-                        app:chipBackgroundColor="@color/chip_background_selector"
+                        android:textColor="@color/chip_text_color"
+                        app:chipBackgroundColor="@color/chip_bg_color"
                         app:chipCornerRadius="10dp"
                         app:chipStrokeWidth="0dp" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipNearby"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
                         android:layout_width="wrap_content"
                         android:layout_height="36dp"
                         android:text="📍 Nearby"
-                        android:textColor="#555555"
-                        app:chipBackgroundColor="@color/chip_background_selector"
+                        android:textColor="@color/chip_text_color"
+                        app:chipBackgroundColor="@color/chip_bg_color"
                         app:chipCornerRadius="10dp"
                         app:chipStrokeWidth="0dp" />
                 </com.google.android.material.chip.ChipGroup>

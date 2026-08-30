@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  Tap-a-day sheet for the subscription month grid.
+
+  Deliberately just a scrolling wrapper around item_subscription_day: that layout
+  already carries every view the day-binding logic drives (chip, accent, reason,
+  locked note, action button, handshake button, swap row), so reusing it keeps ONE
+  definition of what a day looks like instead of a second one that drifts.
+-->
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/white"
+    android:clipToPadding="false"
+    android:paddingStart="14dp"
+    android:paddingTop="14dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="20dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <include
+            android:id="@+id/includeDay"
+            layout="@layout/item_subscription_day" />
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

@@ -281,29 +281,83 @@
                         android:textStyle="bold" />
                 </LinearLayout>
 
+                <!-- A second screenshot means the first was rejected, and the
+                     reason for that rejection is the context for this decision. -->
+                <TextView
+                    android:id="@+id/tvPaymentRetryWarning"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/status_chip_pending"
+                    android:lineSpacingExtra="2dp"
+                    android:padding="10dp"
+                    android:textColor="@color/status_pending_text"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+
                 <ImageView
                     android:id="@+id/imgPaymentScreenshot"
                     android:layout_width="match_parent"
                     android:layout_height="180dp"
                     android:layout_marginTop="10dp"
                     android:background="#F5F5F5"
-                    android:contentDescription="Payment screenshot"
+                    android:contentDescription="Payment screenshot — tap to view full screen"
                     android:scaleType="centerCrop"
                     android:visibility="gone" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnVerifyPayment"
+                <!-- A transaction ID is unreadable in a 180dp centerCrop preview,
+                     so say the full-screen viewer exists. -->
+                <TextView
+                    android:id="@+id/tvTapToZoomHint"
                     android:layout_width="match_parent"
-                    android:layout_height="42dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Tap the screenshot to zoom in and check the amount, date and sender."
+                    android:textColor="#777777"
+                    android:textSize="11.5sp"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/layoutPaymentActions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:backgroundTint="#4CAF50"
-                    android:text="Verify Payment"
-                    android:textAllCaps="false"
-                    android:textColor="#FFFFFF"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:visibility="gone"
-                    app:cornerRadius="10dp" />
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnRejectPayment"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="42dp"
+                        android:layout_weight="1"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:text="Reject"
+                        android:textAllCaps="false"
+                        android:textColor="@color/sub_error"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="10dp"
+                        app:strokeColor="@color/sub_error"
+                        app:strokeWidth="1.5dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnVerifyPayment"
+                        android:layout_width="0dp"
+                        android:layout_height="42dp"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:backgroundTint="#4CAF50"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:text="Verify Payment"
+                        android:textAllCaps="false"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="10dp" />
+                </LinearLayout>
             </LinearLayout>
 
             <!-- ============ CUSTOMER NOTE ============ -->

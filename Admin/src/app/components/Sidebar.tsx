@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { NavLink, useLocation } from "react-router";
 
 type Page =
   | "dashboard"
@@ -16,8 +17,6 @@ type Page =
   | "support";
 
 interface SidebarProps {
-  activePage: Page;
-  onNavigate: (page: Page) => void;
   onLogout: () => void;
   adminName?: string;
   adminRoleLabel?: string;
@@ -43,8 +42,6 @@ const navItems: { id: Page; icon: string; label: string }[] = [
 ];
 
 export function Sidebar({
-  activePage,
-  onNavigate,
   onLogout,
   adminName = "Admin User",
   adminRoleLabel = "Super Admin",
@@ -52,6 +49,7 @@ export function Sidebar({
   onCloseMobile,
 }: SidebarProps) {
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
+  const { pathname } = useLocation();
   const initials = adminName
     .split(" ")
     .filter(Boolean)
@@ -107,12 +105,16 @@ export function Sidebar({
         {/* Navigation */}
         <nav className="flex-1 px-4 pt-4 flex flex-col gap-2 overflow-y-auto">
           {navItems.map((item) => {
-            const isActive = activePage === item.id;
+            // Real <a href> so middle-click / open-in-new-tab / screen readers
+            // all behave. isActive is read off the URL rather than a prop, so the
+            // highlight stays correct after a refresh or a Back/Forward press.
+            const isActive = pathname === `/${item.id}`;
             return (
-              <button
+              <NavLink
                 key={item.id}
-                onClick={() => { onNavigate(item.id); onCloseMobile?.(); }}
-                className="flex items-center gap-3 h-11 px-[14px] rounded-[10px] w-full text-left transition-all duration-150 cursor-pointer"
+                to={`/${item.id}`}
+                onClick={() => onCloseMobile?.()}
+                className="flex items-center gap-3 h-11 px-[14px] rounded-[10px] w-full text-left no-underline transition-all duration-150 cursor-pointer"
                 style={
                   isActive
                     ? {
@@ -143,7 +145,7 @@ export function Sidebar({
                 >
                   {item.label}
                 </span>
-              </button>
+              </NavLink>
             );
           })}
         </nav>

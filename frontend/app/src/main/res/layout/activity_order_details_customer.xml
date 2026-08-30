@@ -380,11 +380,27 @@
                             tools:text="Payment Pending" />
                     </LinearLayout>
 
+                    <!-- Why the cook refused the last screenshot. Without this the
+                         customer is told "pending" again with nothing to fix. -->
+                    <TextView
+                        android:id="@+id/tvPaymentRejectionReason"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/status_chip_sold_out"
+                        android:lineSpacingExtra="2dp"
+                        android:padding="12dp"
+                        android:textColor="@color/sub_error"
+                        android:textSize="12.5sp"
+                        android:visibility="gone"
+                        tools:text="The cook couldn't verify this: &quot;amount is short&quot;" />
+
                     <ImageView
                         android:id="@+id/ivPaymentScreenshot"
                         android:layout_width="match_parent"
                         android:layout_height="200dp"
                         android:layout_marginTop="12dp"
+                        android:background="?attr/selectableItemBackground"
                         android:contentDescription="Payment Screenshot"
                         android:scaleType="fitCenter"
                         android:visibility="gone" />
