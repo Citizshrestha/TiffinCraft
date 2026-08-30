@@ -218,7 +218,7 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartA
                         finish();
                         return true;
                     } else if (itemId == R.id.nav_orders) {
-                        startActivity(new Intent(CartActivity.this, com.tiffincraft.app.activities.customer.OrderHistoryActivity.class));
+                        startActivity(new Intent(CartActivity.this, com.tiffincraft.app.activities.order.OrderHistoryActivity.class));
                         finish();
                         return true;
                     } else if (itemId == R.id.nav_profile) {
