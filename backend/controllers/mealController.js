@@ -86,14 +86,22 @@ export const getMyMeals = async (req, res) => {
         console.log("Cook ID:", cookId);
         console.log("User info:", req.user);
 
+        // is_in_subscription is derived from: meals.in_subscription flag
+        // (set by "Add to Subscription") OR active plan membership
         const [meals] = await db.promise().query(
-            `SELECT m.*,
-                    EXISTS(
-                        SELECT 1 FROM subscription_plan_items spi
-                        JOIN subscription_plans sp ON spi.plan_id = sp.id
-                        WHERE spi.meal_id = m.id
-                        AND sp.cook_id = ?
-                        AND sp.is_active = TRUE
+            `SELECT m.id, m.cook_id, m.name, m.description, m.price, m.category,
+                    m.cuisine_type, m.is_available, m.preparation_time, m.spice_level,
+                    m.is_vegetarian, m.is_vegan, m.allergens, m.image_url,
+                    m.created_at, m.updated_at,
+                    (
+                        m.in_subscription = TRUE
+                        OR EXISTS(
+                            SELECT 1 FROM subscription_plan_items spi
+                            JOIN subscription_plans sp ON spi.plan_id = sp.id
+                            WHERE spi.meal_id = m.id
+                            AND sp.cook_id = ?
+                            AND sp.is_active = TRUE
+                        )
                     ) AS is_in_subscription
              FROM meals m
              WHERE m.cook_id = ?
@@ -131,7 +139,11 @@ export const getMealsByCook = async (req, res) => {
         const { cookId } = req.params;
 
         const [meals] = await db.promise().query(
-            `SELECT m.*, u.full_name as cook_name
+            `SELECT m.id, m.cook_id, m.name, m.description, m.price, m.category,
+                    m.cuisine_type, m.is_available, m.preparation_time, m.spice_level,
+                    m.is_vegetarian, m.is_vegan, m.allergens, m.image_url,
+                    m.created_at, m.updated_at,
+                    u.full_name as cook_name
              FROM meals m
              JOIN users u ON m.cook_id = u.id
              WHERE m.cook_id = ? AND m.is_available = TRUE
@@ -233,7 +245,11 @@ export const getAllMeals = async (req, res) => {
     try {
         const { category, cuisine_type, is_vegetarian, is_vegan, max_price, search, sort } = req.query;
 
-        let query = `SELECT m.*, u.full_name as cook_name, u.profile_image as cook_image,
+        let query = `SELECT m.id, m.cook_id, m.name, m.description, m.price, m.category,
+                            m.cuisine_type, m.is_available, m.preparation_time, m.spice_level,
+                            m.is_vegetarian, m.is_vegan, m.allergens, m.image_url,
+                            m.created_at, m.updated_at,
+                            u.full_name as cook_name, u.profile_image as cook_image,
                             cp.rating as cook_rating, cp.kitchen_name as kitchen_name
                      FROM meals m
                      JOIN users u ON m.cook_id = u.id
@@ -311,7 +327,11 @@ export const getMealById = async (req, res) => {
         const { mealId } = req.params;
 
         const [meals] = await db.promise().query(
-            `SELECT m.*, u.full_name as cook_name, u.profile_image as cook_image,
+            `SELECT m.id, m.cook_id, m.name, m.description, m.price, m.category,
+                    m.cuisine_type, m.is_available, m.preparation_time, m.spice_level,
+                    m.is_vegetarian, m.is_vegan, m.allergens, m.image_url,
+                    m.created_at, m.updated_at,
+                    u.full_name as cook_name, u.profile_image as cook_image,
                     cp.rating as cook_rating, cp.total_orders as cook_total_orders
              FROM meals m
              JOIN users u ON m.cook_id = u.id
