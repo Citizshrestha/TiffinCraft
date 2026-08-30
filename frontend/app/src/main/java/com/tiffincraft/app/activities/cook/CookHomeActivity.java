@@ -101,6 +101,9 @@ public class CookHomeActivity extends AppCompatActivity {
             sessionManager = new SessionManager(this);
             socketManager = SocketManager.getInstance(this);
 
+            // Fetch and send FCM token for push notifications
+            fetchAndSendFcmToken();
+
             initViews();
             loadUserData();
             setupListeners();
@@ -1060,5 +1063,23 @@ public class CookHomeActivity extends AppCompatActivity {
         } catch (Exception e) {
             Log.e(TAG, "Error playing notification", e);
         }
+    }
+
+    /**
+     * Fetch FCM token and send it to server for push notifications.
+     */
+    private void fetchAndSendFcmToken() {
+        com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+            .addOnCompleteListener(task -> {
+                if (task.isSuccessful() && task.getResult() != null) {
+                    String token = task.getResult();
+                    Log.d(TAG, "🔥 FCM token fetched: " + token);
+                    
+                    // Send token to server via SocketManager
+                    socketManager.setFcmToken(token);
+                } else {
+                    Log.e(TAG, "❌ Failed to fetch FCM token", task.getException());
+                }
+            });
     }
 }

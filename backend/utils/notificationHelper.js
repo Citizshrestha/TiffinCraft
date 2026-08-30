@@ -44,16 +44,22 @@ export const createNotification = async (userId, title, message, type, reference
 
         // Also send an FCM push if the user has a device token
         const pushData = extra.pushData || {};
+        console.log(`🔍 Fetching FCM token for user ${userId}...`);
         const fcmToken = await getFcmToken(userId);
         if (fcmToken) {
+            console.log(`✅ FCM token found for user ${userId}: ${fcmToken.substring(0, 20)}...`);
             // Don't await — fire and forget so in-app notification creation is never blocked
             sendPush(fcmToken, title, message, pushData).then(result => {
                 if (result.success) {
                     console.log(`📲 Push sent to user ${userId}: ${title}`);
+                } else {
+                    console.log(`❌ Push failed for user ${userId}: ${result.error || 'Unknown error'}`);
                 }
             }).catch(err => {
                 console.error(`❌ Push failed for user ${userId}:`, err.message);
             });
+        } else {
+            console.log(`⚠️ No FCM token found for user ${userId} - push notification skipped`);
         }
 
         return { success: true };

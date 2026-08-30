@@ -452,6 +452,9 @@ public class LoginActivity extends AppCompatActivity {
     // ═══════════════════════════════════════════════════════════
 
     private void navigateToHome(String userRole) {
+        // Fetch and send FCM token to server
+        fetchAndSendFcmToken();
+        
         Intent intent;
         if ("cook".equals(userRole)) {
             intent = new Intent(LoginActivity.this, CookHomeActivity.class);
@@ -461,6 +464,26 @@ public class LoginActivity extends AppCompatActivity {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+    
+    /**
+     * Fetch FCM token and send it to server for push notifications.
+     */
+    private void fetchAndSendFcmToken() {
+        com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+            .addOnCompleteListener(task -> {
+                if (task.isSuccessful() && task.getResult() != null) {
+                    String token = task.getResult();
+                    Log.d(TAG, "🔥 FCM token fetched: " + token);
+                    
+                    // Send token to server via SocketManager
+                    com.tiffincraft.app.utils.SocketManager socketManager =
+                        com.tiffincraft.app.utils.SocketManager.getInstance(this);
+                    socketManager.setFcmToken(token);
+                } else {
+                    Log.e(TAG, "❌ Failed to fetch FCM token", task.getException());
+                }
+            });
     }
 
     private void handleErrorResponse(Response<LoginResponse> response) {

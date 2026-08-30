@@ -477,7 +477,9 @@ export const updateOrderStatus = async (req, res) => {
         );
 
         // Send notification to customer
+        console.log(`🔔 Calling notifyOrderStatusUpdate for customer ${order.customer_id}, order ${orderId}, status: ${status}`);
         await notifyOrderStatusUpdate(order.customer_id, orderId, status, cook[0].full_name);
+        console.log(`✅ notifyOrderStatusUpdate completed`);
 
         // Emit real-time update to customer
         const io = req.app.get("io");
@@ -774,6 +776,7 @@ export const uploadPaymentScreenshot = async (req, res) => {
             [customerId]
         );
 
+        console.log(`🔔 Calling createNotification for cook ${order.cook_id} about payment proof for order ${orderId}`);
         await createNotification(
             order.cook_id,
             order.combo_id ? 'Combo Payment Proof Submitted' : 'Payment Proof Submitted',
@@ -785,6 +788,7 @@ export const uploadPaymentScreenshot = async (req, res) => {
             'order',
             { pushData: { type: 'payment_verification', orderId: String(orderId) } }
         );
+        console.log(`✅ createNotification completed for payment proof`);
 
         return res.status(200).json({
             success: true,
