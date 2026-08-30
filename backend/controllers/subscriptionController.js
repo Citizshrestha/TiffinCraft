@@ -52,8 +52,17 @@ export function getDurationDays(duration) {
  */
 export const MAX_START_DATE_DAYS_AHEAD = 30;
 
-/** Days shown by the delivery calendar endpoint. */
+/** Days shown by the delivery calendar endpoint when no range is requested. */
 export const CALENDAR_WINDOW_DAYS = 14;
+
+/**
+ * Hard cap on an explicitly requested calendar range.
+ *
+ * The month grid asks for one calendar month at a time; 62 days leaves room for
+ * a two-month request without letting a hand-rolled call ask for a year of days
+ * and fan that out into three range queries plus a day-building loop.
+ */
+export const CALENDAR_MAX_RANGE_DAYS = 62;
 
 /**
  * Statuses in which a subscription is waiting on the cook's verification. Both
@@ -805,6 +814,7 @@ export const getSubscriptionCalendar = async (req, res) => {
     try {
         const userId = req.user.id;
         const { id } = req.params;
+        const { from, to } = req.query;
 
         const [subs] = await db.promise().query(
             `SELECT s.id, s.customer_id, s.cook_id, s.plan_id, s.status, s.payment_status,
@@ -838,12 +848,53 @@ export const getSubscriptionCalendar = async (req, res) => {
         const cutoffHour = await getCutoffHour();
         const today = getNptToday();
 
-        // A scheduled subscription's window starts on its first delivery day —
-        // showing 14 mostly-empty days before it starts tells the customer
-        // nothing. An active one starts today.
-        const windowStart = sub.start_date && daysBetween(today, sub.start_date) > 0 ? sub.start_date : today;
-        let windowEnd = addDays(windowStart, CALENDAR_WINDOW_DAYS - 1);
-        if (sub.end_date && daysBetween(sub.end_date, windowEnd) > 0) windowEnd = sub.end_date;
+        // ── The window shown ────────────────────────────────────────────────
+        //
+        // Without from/to this behaves exactly as it always has: a scheduled
+        // subscription's window starts on its first delivery day (showing 14
+        // mostly-empty days before it starts tells the customer nothing), an
+        // active one starts today.
+        //
+        // With from/to the caller is paging a month grid, so past days of the
+        // plan are legitimately in scope. Both ends are clamped to the
+        // subscription's own [start_date, end_date] — there is nothing to say
+        // about a date the plan never covered — and the span is capped.
+        const rangeRequested = from !== undefined || to !== undefined;
+        let windowStart;
+        let windowEnd;
+
+        if (rangeRequested) {
+            const reqFrom = dateOnly(from);
+            const reqTo = dateOnly(to);
+            if (!reqFrom || !reqTo || !isValidDateString(reqFrom) || !isValidDateString(reqTo)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "from and to must both be valid YYYY-MM-DD dates."
+                });
+            }
+            if (daysBetween(reqFrom, reqTo) < 0) {
+                return res.status(400).json({ success: false, message: "`to` cannot be before `from`." });
+            }
+            if (daysBetween(reqFrom, reqTo) + 1 > CALENDAR_MAX_RANGE_DAYS) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Range too wide — ask for at most ${CALENDAR_MAX_RANGE_DAYS} days.`
+                });
+            }
+
+            windowStart = reqFrom;
+            windowEnd = reqTo;
+            if (sub.start_date && daysBetween(windowStart, sub.start_date) > 0) windowStart = sub.start_date;
+            if (sub.end_date && daysBetween(sub.end_date, windowEnd) > 0) windowEnd = sub.end_date;
+        } else {
+            windowStart = sub.start_date && daysBetween(today, sub.start_date) > 0 ? sub.start_date : today;
+            windowEnd = addDays(windowStart, CALENDAR_WINDOW_DAYS - 1);
+            if (sub.end_date && daysBetween(sub.end_date, windowEnd) > 0) windowEnd = sub.end_date;
+        }
+
+        // A month entirely outside the plan clamps to an inverted range. Report
+        // it as an empty window rather than looping backwards over nothing.
+        const windowIsEmpty = daysBetween(windowStart, windowEnd) < 0;
 
         const [logRows, closures, swapRows] = await Promise.all([
             getDayRowsInRange(db.promise(), sub.id, windowStart, windowEnd),
@@ -908,6 +959,12 @@ export const getSubscriptionCalendar = async (req, res) => {
                 credit_deducted: creditDeducted,
                 order_id: orderId,
                 is_today: date === today,
+                // Set so a month grid can tell "nothing was ever logged for last
+                // Tuesday" apart from "next Tuesday is scheduled". Both fall
+                // through to status SCHEDULED above, which reads as a promise the
+                // past day never kept. The server deliberately does NOT upgrade
+                // it to `missed` — no row exists, so there is nothing to claim.
+                is_past: daysBetween(today, date) < 0,
                 is_locked: locked,
                 // A day is skippable only if a meal is actually still expected on
                 // it AND the cutoff hasn't passed. Days the cook already closed
@@ -998,7 +1055,13 @@ export const getSubscriptionCalendar = async (req, res) => {
                 next_editable_date: nextEditableDate,
                 ms_until_cutoff: msUntilCutoff(nextEditableDate, cutoffHour)
             },
-            window: { from: windowStart, to: windowEnd },
+            window: {
+                from: windowIsEmpty ? null : windowStart,
+                to: windowIsEmpty ? null : windowEnd
+            },
+            // The full span the client may page through. Everything outside it is
+            // a date the plan never covered, so the ‹ › controls stop here.
+            bounds: { min: sub.start_date, max: sub.end_date },
             days
         });
     } catch (error) {

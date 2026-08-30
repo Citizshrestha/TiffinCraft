@@ -750,12 +750,20 @@ export const uploadPaymentScreenshot = async (req, res) => {
             });
         }
 
-        // Update payment screenshot and mark as paid (waiting for verification)
+        // Update payment screenshot and mark as paid (waiting for verification).
+        //
+        // The attempt counter is bumped here rather than on rejection so the cook
+        // knows, when they open the proof, that this is the Nth one — and the
+        // previous rejection reason is cleared because it describes an image that
+        // has just been replaced.
         await db.promise().query(
-            `UPDATE orders 
-             SET payment_screenshot_url = ?, 
+            `UPDATE orders
+             SET payment_screenshot_url = ?,
                  payment_status = 'paid',
-                 updated_at = NOW() 
+                 payment_proof_attempts = payment_proof_attempts + 1,
+                 payment_rejection_reason = NULL,
+                 payment_rejected_at = NULL,
+                 updated_at = NOW()
              WHERE id = ?`,
             [payment_screenshot_url, orderId]
         );
@@ -799,12 +807,29 @@ export const verifyPayment = async (req, res) => {
     try {
         const cookId = req.user.id;
         const { orderId } = req.params;
-        const { verified } = req.body; // true or false
+        const { verified, reason } = req.body; // verified: true or false
 
         if (verified === undefined) {
             return res.status(400).json({
                 success: false,
                 message: "verified field is required (true/false)"
+            });
+        }
+
+        // A rejection the customer can't act on is worse than no rejection —
+        // they'd be told "not verified" with nothing to fix. Same rule the
+        // subscription proof flow enforces.
+        const rejectionReason = typeof reason === "string" ? reason.trim() : "";
+        if (!verified && !rejectionReason) {
+            return res.status(400).json({
+                success: false,
+                message: "Give a reason for rejecting — it's what the customer has to fix."
+            });
+        }
+        if (rejectionReason.length > 500) {
+            return res.status(400).json({
+                success: false,
+                message: "Reason is too long (max 500 characters)."
             });
         }
 
@@ -840,9 +865,11 @@ export const verifyPayment = async (req, res) => {
         if (verified) {
             // Payment verified - update status and confirm order
             await db.promise().query(
-                `UPDATE orders 
+                `UPDATE orders
                  SET payment_status = 'verified',
                      payment_verified_at = NOW(),
+                     payment_rejection_reason = NULL,
+                     payment_rejected_at = NULL,
                      status = CASE WHEN status = 'pending' THEN 'confirmed' ELSE status END,
                      updated_at = NOW()
                  WHERE id = ?`,
@@ -872,14 +899,22 @@ export const verifyPayment = async (req, res) => {
                 message: "Payment verified successfully. Order confirmed."
             });
         } else {
-            // Payment rejected - notify customer to resubmit
+            // Payment rejected — back to 'pending' so the customer's "Upload
+            // payment" button re-enables, with the reason recorded.
+            //
+            // payment_screenshot_url is deliberately LEFT IN PLACE. Rejecting is
+            // not deleting: the image is the only evidence either side has if the
+            // payment turns out to be real and gets disputed. The next upload
+            // overwrites it anyway.
             await db.promise().query(
-                `UPDATE orders 
+                `UPDATE orders
                  SET payment_status = 'pending',
-                     payment_screenshot_url = NULL,
+                     payment_rejection_reason = ?,
+                     payment_rejected_at = NOW(),
+                     payment_verified_at = NULL,
                      updated_at = NOW()
                  WHERE id = ?`,
-                [orderId]
+                [rejectionReason, orderId]
             );
 
             // Notify customer about rejected payment
@@ -888,22 +923,23 @@ export const verifyPayment = async (req, res) => {
                 [cookId]
             );
 
-            await db.promise().query(
-                `INSERT INTO notifications (user_id, title, message, type, reference_id, reference_type)
-                 VALUES (?, ?, ?, ?, ?, ?)`,
-                [
-                    order.customer_id,
-                    'Payment Verification Failed',
-                    `${cook[0].full_name} could not verify your payment for Order #${orderId}. Please resubmit payment proof.`,
-                    'payment_rejected',
-                    orderId,
-                    'order'
-                ]
+            // Goes through createNotification (not a raw INSERT) so this actually
+            // reaches the phone as a push — a customer who never opens the
+            // in-app list would otherwise never learn they have to re-upload.
+            await createNotification(
+                order.customer_id,
+                order.combo_id ? 'Combo Payment Not Accepted' : 'Payment Not Verified',
+                `${cook[0].full_name} couldn't verify your payment for Order #${orderId}: `
+                    + `"${rejectionReason}". Please upload a new payment screenshot.`,
+                'payment_rejected',
+                orderId,
+                'order',
+                { pushData: { type: 'payment_rejected', orderId: String(orderId) } }
             );
 
             return res.status(200).json({
                 success: true,
-                message: "Payment rejected. Customer notified to resubmit."
+                message: "Payment rejected. The customer has been told why and can upload a new screenshot."
             });
         }
 
