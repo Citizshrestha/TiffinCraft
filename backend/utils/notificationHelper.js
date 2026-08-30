@@ -115,20 +115,45 @@ export const notifyNewComboOrder = async (cookId, orderId, customerName, comboNa
 
 /**
  * Create notification for order status update (sent to customer)
+ * Enhanced with detailed, concise messages for each status
  */
 export const notifyOrderStatusUpdate = async (customerId, orderId, status, cookName) => {
-    const statusMessages = {
-        confirmed: `${cookName} confirmed your order`,
-        preparing: `${cookName} is preparing your order`,
-        ready: 'Your order is ready for pickup/delivery',
-        delivered: 'Your order has been delivered. Enjoy!',
-        cancelled: 'Your order has been cancelled'
+    const statusConfig = {
+        pending: {
+            title: 'Order Placed Successfully 📋',
+            message: `Your order #${orderId} has been placed. Waiting for ${cookName} to confirm.`
+        },
+        confirmed: {
+            title: 'Order Confirmed ✅',
+            message: `Great news! ${cookName} confirmed your order #${orderId}. They'll start preparing it soon.`
+        },
+        preparing: {
+            title: 'Order Being Prepared 👨‍🍳',
+            message: `${cookName} is now preparing your delicious meal. It'll be ready soon!`
+        },
+        ready: {
+            title: 'Order Ready for Pickup! 🎉',
+            message: `Your order #${orderId} is ready! You can pick it up from ${cookName} now.`
+        },
+        delivered: {
+            title: 'Order Delivered 🚚',
+            message: `Your order #${orderId} has been delivered. Enjoy your meal! Don't forget to leave a review.`
+        },
+        cancelled: {
+            title: 'Order Cancelled ❌',
+            message: `Your order #${orderId} has been cancelled by ${cookName}.`
+        }
+    };
+
+    const config = statusConfig[status] || {
+        title: 'Order Update',
+        message: `Your order #${orderId} status: ${status}`
     };
 
     return createNotification(
         customerId,
-        'Order Status Updated',
-        statusMessages[status] || `Your order status: ${status}`,
+        config.title,
+        config.message,
         'order_status',
         orderId,
         'order',
@@ -136,7 +161,10 @@ export const notifyOrderStatusUpdate = async (customerId, orderId, status, cookN
             pushData: {
                 type: 'order_status',
                 orderId: String(orderId),
-                status: status || ''
+                status: status || '',
+                cookName: cookName || '',
+                title: config.title,
+                message: config.message
             }
         }
     );
