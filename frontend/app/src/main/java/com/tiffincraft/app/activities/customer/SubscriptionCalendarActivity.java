@@ -496,12 +496,9 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
 
     private void confirmSkip(SubscriptionCalendarResponse.Day day) {
         String pretty = DeliveryDateUtils.formatLongDate(day.getDate());
-        new MaterialAlertDialogBuilder(this)
+        new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
                 .setTitle("Skip " + pretty + "?")
-                .setMessage("No meal will be delivered that day and you won't be charged for it.\n\n"
-                        + "Because you're skipping it in advance, your subscription runs one day "
-                        + "longer — that meal moves to the end of the window.\n\n"
-                        + "This can't be undone once the cutoff passes.")
+                .setMessage("Skipping extends your plan by one day—no charge for this delivery.")
                 .setPositiveButton("Skip this day", (d, w) -> skipDay(day))
                 .setNegativeButton("Keep it", null)
                 .show();
@@ -535,11 +532,10 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         });
     }
 
-    private void confirmMarkSent(SubscriptionCalendarResponse.Day day) {
-        new MaterialAlertDialogBuilder(this)
+    private void confirmMarkSent(SubscriptionCalendarActivity.Day day) {
+        new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
                 .setTitle("Mark " + DeliveryDateUtils.formatLongDate(day.getDate()) + " as sent?")
-                .setMessage("The customer will be notified straight away that their meal is on its way, "
-                        + "and they'll be asked to confirm when it arrives.\n\nOnly do this once the meal has actually left.")
+                .setMessage("Customer will be notified. Only confirm once the meal has left.")
                 .setPositiveButton("Yes, it's sent", (d, w) -> postDayHandshake(day, true))
                 .setNegativeButton("Not yet", null)
                 .show();

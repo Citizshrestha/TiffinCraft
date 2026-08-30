@@ -84,7 +84,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="34dp"
                     android:text="5 km"
-                    android:textColor="#555555"
+                    android:textColor="@color/chip_text_selector"
                     app:chipBackgroundColor="@color/chip_background_selector"
                     app:chipCornerRadius="10dp"
                     app:chipStrokeWidth="0dp" />
@@ -95,7 +95,7 @@
                     android:layout_height="34dp"
                     android:checked="true"
                     android:text="10 km"
-                    android:textColor="#555555"
+                    android:textColor="@color/chip_text_selector"
                     app:chipBackgroundColor="@color/chip_background_selector"
                     app:chipCornerRadius="10dp"
                     app:chipStrokeWidth="0dp" />
@@ -105,7 +105,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="34dp"
                     android:text="25 km"
-                    android:textColor="#555555"
+                    android:textColor="@color/chip_text_selector"
                     app:chipBackgroundColor="@color/chip_background_selector"
                     app:chipCornerRadius="10dp"
                     app:chipStrokeWidth="0dp" />
@@ -115,7 +115,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="34dp"
                     android:text="50 km"
-                    android:textColor="#555555"
+                    android:textColor="@color/chip_text_selector"
                     app:chipBackgroundColor="@color/chip_background_selector"
                     app:chipCornerRadius="10dp"
                     app:chipStrokeWidth="0dp" />

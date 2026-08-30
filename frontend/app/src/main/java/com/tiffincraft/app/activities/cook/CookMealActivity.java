@@ -576,9 +576,14 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
                     com.tiffincraft.app.models.SubscriptionPlanResponse planResponse = response.body();
                     
                     if (planResponse.getPlans() == null || planResponse.getPlans().isEmpty()) {
-                        Toast.makeText(CookMealActivity.this, 
-                            "This meal is not in any subscription plans", 
-                            Toast.LENGTH_SHORT).show();
+                        new MaterialAlertDialogBuilder(CookMealActivity.this, R.style.RoundedWhiteDialog)
+                            .setTitle("Remove from Subscriptions?")
+                            .setMessage("This meal will no longer show when you create a subscription plan.")
+                            .setPositiveButton("Remove", (dialog, which) -> {
+                                removeMealFromSubscriptions(meal);
+                            })
+                            .setNegativeButton("Cancel", null)
+                            .show();
                         return;
                     }
                     
@@ -592,10 +597,10 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
                     }
                     
                     // Show confirmation dialog
-                    new MaterialAlertDialogBuilder(CookMealActivity.this)
+                    new MaterialAlertDialogBuilder(CookMealActivity.this, R.style.RoundedWhiteDialog)
                         .setTitle("Remove from Subscriptions?")
-                        .setMessage("This meal is currently in:\n\n" + planNames + 
-                                    "\n\nRemoving it will update all these subscription plans.")
+                        .setMessage("Currently in:\n\n" + planNames + 
+                                    "\n\nAll these plans will be updated.")
                         .setPositiveButton("Remove", (dialog, which) -> {
                             removeMealFromSubscriptions(meal);
                         })
@@ -652,9 +657,9 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
     @Override
     public void onDeleteClick(Meal meal) {
         // Show confirmation dialog
-        new MaterialAlertDialogBuilder(this)
-            .setTitle("Delete Meal")
-            .setMessage("Are you sure you want to delete \"" + meal.getName() + "\"?\n\nThis action cannot be undone.")
+        new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
+            .setTitle("Delete \"" + meal.getName() + "\"?")
+            .setMessage("This will permanently remove this meal.")
             .setPositiveButton("Delete", (dialog, which) -> {
                 deleteMeal(meal);
             })

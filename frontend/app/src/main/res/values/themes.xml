@@ -84,4 +84,48 @@
         <item name="cornerSize">16dp</item>
     </style>
 
+    <!-- Rounded White Dialog Theme - Used for clean, modern dialogs -->
+    <style name="RoundedWhiteDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurface">@color/white</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorPrimary">@color/green_primary</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/DialogTitle</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/DialogBody</item>
+        <item name="buttonBarPositiveButtonStyle">@style/DialogPositiveButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/DialogNegativeButton</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.App.Dialog</item>
+    </style>
+
+    <!-- Dialog Title Style -->
+    <style name="DialogTitle" parent="MaterialAlertDialog.Material3.Title.Text">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <!-- Dialog Body Style -->
+    <style name="DialogBody" parent="MaterialAlertDialog.Material3.Body.Text">
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:lineSpacingExtra">4dp</item>
+    </style>
+
+    <!-- Dialog Positive Button (Primary Action) -->
+    <style name="DialogPositiveButton" parent="Widget.Material3.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/green_primary</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <!-- Dialog Negative Button (Secondary Action) -->
+    <style name="DialogNegativeButton" parent="Widget.Material3.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/text_secondary</item>
+    </style>
+
+    <!-- Dialog Shape - Rounded corners -->
+    <style name="ShapeAppearance.App.Dialog" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">20dp</item>
+    </style>
+
 </resources>
