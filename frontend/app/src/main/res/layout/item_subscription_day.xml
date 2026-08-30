@@ -8,15 +8,30 @@
     android:layout_marginBottom="10dp"
     app:cardBackgroundColor="@color/white"
     app:cardCornerRadius="16dp"
-    app:cardElevation="1dp"
-    app:strokeColor="@color/stroke_soft"
+    app:cardElevation="0dp"
+    app:cardPreventCornerOverlap="false"
+    app:strokeColor="#E5E7EB"
     app:strokeWidth="1dp">
 
-    <LinearLayout
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="14dp">
+        android:layout_height="wrap_content">
+
+        <View
+            android:id="@+id/viewDayAccent"
+            android:layout_width="4dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="start"
+            android:background="@drawable/bg_pill_green" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="18dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="14dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -24,13 +39,6 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <!-- Modern accent indicator -->
-            <View
-                android:id="@+id/viewDayAccent"
-                android:layout_width="4dp"
-                android:layout_height="40dp"
-                android:layout_marginEnd="14dp"
-                android:background="@drawable/bg_pill_green" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -65,7 +73,6 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/status_chip_delivered"
-                android:elevation="1dp"
                 android:fontFamily="sans-serif-medium"
                 android:paddingStart="14dp"
                 android:paddingTop="7dp"
@@ -82,9 +89,7 @@
             android:id="@+id/layoutDayReason"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="21dp"
             android:layout_marginTop="12dp"
-            android:layout_marginEnd="0dp"
             android:background="#F9FAFB"
             android:orientation="horizontal"
             android:padding="12dp"
@@ -113,7 +118,6 @@
             android:id="@+id/layoutDayCustomMeal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="21dp"
             android:layout_marginTop="12dp"
             android:background="#F0FDF4"
             android:orientation="horizontal"
@@ -173,7 +177,6 @@
             android:id="@+id/layoutDayLocked"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="21dp"
             android:layout_marginTop="10dp"
             android:gravity="center_vertical"
             android:orientation="horizontal"
@@ -209,7 +212,6 @@
             android:id="@+id/btnDayHandshake"
             android:layout_width="match_parent"
             android:layout_height="46dp"
-            android:layout_marginStart="21dp"
             android:layout_marginTop="14dp"
             android:fontFamily="sans-serif-medium"
             android:insetTop="0dp"
@@ -229,9 +231,7 @@
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
             android:layout_height="46dp"
-            android:layout_marginStart="21dp"
             android:layout_marginTop="14dp"
-            android:layout_marginEnd="0dp"
             android:fontFamily="sans-serif-medium"
             android:insetTop="0dp"
             android:insetBottom="0dp"
@@ -250,7 +250,6 @@
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="match_parent"
             android:layout_height="42dp"
-            android:layout_marginStart="21dp"
             android:layout_marginTop="6dp"
             android:fontFamily="sans-serif-medium"
             android:insetTop="0dp"
@@ -261,6 +260,7 @@
             android:textSize="13sp"
             android:visibility="gone"
             app:cornerRadius="12dp" />
-    </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
 
 </com.google.android.material.card.MaterialCardView>

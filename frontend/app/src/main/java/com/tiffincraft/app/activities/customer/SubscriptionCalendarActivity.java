@@ -34,35 +34,15 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 /**
- * The per-day delivery schedule for one subscription — this is what replaced the
- * flat "Active" chip with a raw ISO next-delivery date.
+ * Per-day delivery list for one subscription.
  *
- * Two rules this screen follows strictly:
- *
- *  1. It never decides for itself whether a day can be changed. `canSkip`,
- *     `isLocked` and `lockedMessage` come from the server, which computes the
- *     8pm-Nepal-Time cutoff against the configurable platform setting. Doing
- *     that arithmetic here as well would give us two implementations that
- *     disagree at the boundary — and the boundary is the only place it matters.
- *
- *  2. A locked day still shows its button, disabled and relabelled. Hiding the
- *     control looked like a bug; a greyed control plus the server's own
- *     explanation ("the cutoff was 8:00 PM on ...") tells the customer why.
- *
- * Opened by both sides. A cook arrives here read-only: the response's `viewer`
- * field decides, not the local session role, so the UI can't offer an action
- * the server would refuse.
- *
- * The month grid is hand-built (7-column GridLayout): there is no calendar
- * library in Gradle and adding one costs more than the offset arithmetic does.
- * Only the month on screen is fetched — the server clamps the requested range to
- * the subscription's own start/end dates and caps the span, so paging can't ask
- * for a window the subscription never covered.
+ * It never decides whether a day can be changed: {@code canSkip}, {@code isLocked}
+ * and {@code lockedMessage} come from the server (8pm Nepal Time cutoff). A cook
+ * arrives read-only except for the sent/received handshake the server offers.
  */
 public class SubscriptionCalendarActivity extends AppCompatActivity {
 
     public static final String EXTRA_SUBSCRIPTION_ID = "subscription_id";
-    /** Optional — shown in the header while the first load is in flight. */
     public static final String EXTRA_PLAN_NAME = "plan_name";
 
     private ApiService apiService;
@@ -70,32 +50,17 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
 
     private int subscriptionId;
 
-    private android.widget.GridLayout gridDays;
-    private TextView tvMonthLabel;
-    private View btnPrevMonth, btnNextMonth;
+    private LinearLayout layoutDays;
     private View cardSummary;
     private View progressLoading;
     private TextView tvHeaderPlan, tvSummaryTitle, tvSummaryStatusChip, tvSummaryDetail,
-            tvSummaryCredits, tvCutoffBanner, tvEmptyDays;
+            tvSummaryCredits, tvEmptyDays, tvUpcomingHeader;
     private androidx.swiperefreshlayout.widget.SwipeRefreshLayout swipeRefresh;
 
-    private View cardCutoffBanner;
-
     private final List<SubscriptionCalendarResponse.Day> days = new ArrayList<>();
-    /** ISO date → day, so a grid cell can find its day in one lookup. */
-    private final java.util.Map<String, SubscriptionCalendarResponse.Day> dayByDate = new java.util.HashMap<>();
     private String todayNpt;
     private boolean isCustomerView = true;
-    /** Guards against a double-tap firing two skips for the same date. */
     private boolean actionInFlight = false;
-
-    /** The month on screen. Drives the fetch window and the grid. */
-    private java.time.YearMonth currentMonth = java.time.YearMonth.now();
-    /** The subscription's own first/last delivery date, from the response. */
-    private java.time.LocalDate boundsMin, boundsMax;
-    /** Re-bound on every load so the open sheet reflects a refresh. */
-    private com.google.android.material.bottomsheet.BottomSheetDialog daySheet;
-    private String openSheetDate;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -112,20 +77,16 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         sessionManager = new SessionManager(this);
         apiService = RetrofitClient.getInstance(this).getApiService();
 
-        gridDays = findViewById(R.id.gridDays);
-        tvMonthLabel = findViewById(R.id.tvMonthLabel);
-        btnPrevMonth = findViewById(R.id.btnPrevMonth);
-        btnNextMonth = findViewById(R.id.btnNextMonth);
+        layoutDays = findViewById(R.id.layoutDays);
         cardSummary = findViewById(R.id.cardSummary);
-        cardCutoffBanner = findViewById(R.id.cardCutoffBanner);
         progressLoading = findViewById(R.id.progressLoading);
         tvHeaderPlan = findViewById(R.id.tvHeaderPlan);
         tvSummaryTitle = findViewById(R.id.tvSummaryTitle);
         tvSummaryStatusChip = findViewById(R.id.tvSummaryStatusChip);
         tvSummaryDetail = findViewById(R.id.tvSummaryDetail);
         tvSummaryCredits = findViewById(R.id.tvSummaryCredits);
-        tvCutoffBanner = findViewById(R.id.tvCutoffBanner);
         tvEmptyDays = findViewById(R.id.tvEmptyDays);
+        tvUpcomingHeader = findViewById(R.id.tvUpcomingHeader);
         swipeRefresh = findViewById(R.id.swipeRefresh);
 
         String planName = getIntent().getStringExtra(EXTRA_PLAN_NAME);
@@ -136,28 +97,6 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
         swipeRefresh.setOnRefreshListener(this::loadCalendar);
-
-        btnPrevMonth.setOnClickListener(v -> stepMonth(-1));
-        btnNextMonth.setOnClickListener(v -> stepMonth(1));
-
-        tvMonthLabel.setText(DeliveryDateUtils.formatMonthLabel(currentMonth));
-        loadCalendar();
-    }
-
-    /**
-     * Page a month. Refuses to leave the subscription's own window — bounds come
-     * from the response, so before the first load this is a no-op in both
-     * directions except forward/back within the device's month.
-     */
-    private void stepMonth(int delta) {
-        java.time.YearMonth target = currentMonth.plusMonths(delta);
-        if (boundsMin != null && target.isBefore(java.time.YearMonth.from(boundsMin))) return;
-        if (boundsMax != null && target.isAfter(java.time.YearMonth.from(boundsMax))) return;
-        currentMonth = target;
-        tvMonthLabel.setText(DeliveryDateUtils.formatMonthLabel(currentMonth));
-        days.clear();
-        dayByDate.clear();
-        renderMonth();
         loadCalendar();
     }
 
@@ -165,13 +104,11 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         progressLoading.setVisibility(days.isEmpty() ? View.VISIBLE : View.GONE);
         String token = "Bearer " + sessionManager.getToken();
 
-        // Only the visible month. The server clamps this to the subscription's
-        // start/end dates, so an out-of-range edge month comes back trimmed rather
-        // than as an error.
-        String from = DeliveryDateUtils.firstOfMonth(currentMonth);
-        String to = DeliveryDateUtils.lastOfMonth(currentMonth);
-
-        apiService.getSubscriptionCalendar(token, subscriptionId, from, to).enqueue(new Callback<SubscriptionCalendarResponse>() {
+        // Remaining plan, capped at 62 days (server max). Clamped to start/end.
+        java.time.LocalDate from = java.time.LocalDate.now();
+        java.time.LocalDate to = from.plusDays(61);
+        apiService.getSubscriptionCalendar(token, subscriptionId, from.toString(), to.toString())
+                .enqueue(new Callback<SubscriptionCalendarResponse>() {
             @Override
             public void onResponse(@NonNull Call<SubscriptionCalendarResponse> call,
                                    @NonNull Response<SubscriptionCalendarResponse> response) {
@@ -179,8 +116,6 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
                 swipeRefresh.setRefreshing(false);
 
                 if (!response.isSuccessful() || response.body() == null || !response.body().isSuccess()) {
-                    // 403 here means the logged-in user doesn't own this
-                    // subscription — worth saying plainly rather than "failed".
                     Toast.makeText(SubscriptionCalendarActivity.this,
                             response.code() == 403
                                     ? "This subscription isn't yours to view."
@@ -193,25 +128,11 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
                 todayNpt = body.getToday();
                 isCustomerView = body.isCustomerView();
 
-                if (body.getBounds() != null) {
-                    boundsMin = DeliveryDateUtils.toLocalDate(body.getBounds().getMin());
-                    boundsMax = DeliveryDateUtils.toLocalDate(body.getBounds().getMax());
-                }
-
                 days.clear();
-                dayByDate.clear();
-                if (body.getDays() != null) {
-                    days.addAll(body.getDays());
-                    for (SubscriptionCalendarResponse.Day d : days) {
-                        if (d.getDate() != null) dayByDate.put(d.getDate(), d);
-                    }
-                }
+                if (body.getDays() != null) days.addAll(body.getDays());
 
                 renderSummary(body);
-                // Cutoff banner removed - confusing for users
-                // renderCutoff(body.getCutoff());
-                renderMonth();
-                refreshOpenSheet();
+                renderDays();
             }
 
             @Override
@@ -234,10 +155,9 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         tvHeaderPlan.setVisibility(View.VISIBLE);
 
         if (info.isScheduled()) {
-            // If started (first delivery is today), show "Started" instead of "Starts soon"
             Integer until = info.getDaysUntilStart();
             boolean hasStarted = until != null && until == 0;
-            
+
             tvSummaryStatusChip.setText(hasStarted ? "Started" : "Starts soon");
             tvSummaryStatusChip.setBackgroundResource(R.drawable.status_chip_preparing);
             tvSummaryStatusChip.setTextColor(getColor(R.color.status_preparing_text));
@@ -273,22 +193,17 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             tvSummaryDetail.setText("This subscription isn't delivering right now.");
         }
 
-        // The window, not a meal count, is what the customer needs here:
-        // meals_remaining is bookkeeping only, and the window itself moves — an
-        // advance skip pushes end_date out by a day — so the live dates are the
-        // honest thing to lead with.
         if (info.getEndDate() != null) {
             String range = DeliveryDateUtils.formatShortDate(info.getStartDate())
                     + " – " + DeliveryDateUtils.formatLongDate(info.getEndDate());
-            
-            // Calculate skipped meals count from total days
+
             if (info.getMealsTotal() != null) {
-                Integer planDuration = info.getPlanDuration();  // Original plan duration
+                Integer planDuration = info.getPlanDuration();
                 int totalDays = info.getMealsTotal();
-                
+
                 if (planDuration != null && totalDays > planDuration) {
                     int skippedDays = totalDays - planDuration;
-                    tvSummaryCredits.setText(range + " · " + planDuration + " days + " 
+                    tvSummaryCredits.setText(range + " · " + planDuration + " days + "
                             + skippedDays + (skippedDays == 1 ? " day added (Skipped Meals)" : " days added (Skipped Meals)"));
                 } else {
                     tvSummaryCredits.setText(range + " · " + totalDays + " days");
@@ -302,180 +217,20 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         }
     }
 
-    private void renderCutoff(SubscriptionCalendarResponse.Cutoff cutoff) {
-        if (cutoff == null || !isCustomerView) {
-            cardCutoffBanner.setVisibility(View.GONE);
-            return;
-        }
-        String label = cutoff.getLabel() != null ? cutoff.getLabel() : "the daily cutoff";
-        String date = DeliveryDateUtils.formatShortDate(cutoff.getNextEditableDate());
-        String remaining = DeliveryDateUtils.formatDuration(cutoff.getMsUntilCutoff());
-
-        tvCutoffBanner.setText(cutoff.getMsUntilCutoff() > 0
-                ? "Changes to " + date + " close at " + label + " — " + remaining + " left."
-                : "Today's " + label + " cutoff has passed. The earliest day you can still change is the one after "
-                        + date + ".");
-        cardCutoffBanner.setVisibility(View.VISIBLE);
-    }
-
-    /**
-     * Lays out the month on screen.
-     *
-     * Leading blanks put the 1st under its real weekday; days outside the
-     * subscription's window render dimmed and unclickable rather than being left
-     * out, so the shape of the month stays readable.
-     */
-    private void renderMonth() {
-        gridDays.removeAllViews();
-        tvEmptyDays.setVisibility(dayByDate.isEmpty() ? View.VISIBLE : View.GONE);
-        tintLegend();
-
-        btnPrevMonth.setAlpha(canStep(-1) ? 1f : 0.25f);
-        btnNextMonth.setAlpha(canStep(1) ? 1f : 0.25f);
+    private void renderDays() {
+        layoutDays.removeAllViews();
+        boolean empty = days.isEmpty();
+        tvEmptyDays.setVisibility(empty ? View.VISIBLE : View.GONE);
+        tvUpcomingHeader.setVisibility(empty ? View.GONE : View.VISIBLE);
 
         LayoutInflater inflater = LayoutInflater.from(this);
-        int offset = DeliveryDateUtils.firstWeekdayOffset(currentMonth);
-        int length = currentMonth.lengthOfMonth();
-
-        for (int i = 0; i < offset; i++) {
-            addCell(inflater.inflate(R.layout.item_calendar_day_cell, gridDays, false));
-        }
-
-        for (int dayOfMonth = 1; dayOfMonth <= length; dayOfMonth++) {
-            java.time.LocalDate date = currentMonth.atDay(dayOfMonth);
-            String iso = date.toString();
-            SubscriptionCalendarResponse.Day day = dayByDate.get(iso);
-
-            View cell = inflater.inflate(R.layout.item_calendar_day_cell, gridDays, false);
-            TextView tvDay = cell.findViewById(R.id.tvCellDay);
-            View dot = cell.findViewById(R.id.viewCellDot);
-            TextView tvSwap = cell.findViewById(R.id.tvCellSwap);
-            View body = cell.findViewById(R.id.layoutCellBody);
-
-            tvDay.setText(String.valueOf(dayOfMonth));
-
-            if (day == null) {
-                // Outside the subscription's window, or a date the server didn't
-                // send. Either way there is nothing to open.
-                tvDay.setTextColor(0xFFD1D5DB);
-                dot.setVisibility(View.INVISIBLE);
-                tvSwap.setVisibility(View.GONE);
-                cell.setClickable(false);
-                cell.setBackground(null);
-                addCell(cell);
-                continue;
-            }
-
-            dot.setVisibility(View.VISIBLE);
-            // mutate() first: inflated drawables share constant state, so an
-            // untinted copy would repaint every other cell's dot too.
-            dot.getBackground().mutate().setTint(dotColorFor(day));
-            tvSwap.setVisibility(day.getCustomMeal() != null ? View.VISIBLE : View.GONE);
-            tvDay.setTextColor(day.isPast() ? 0xFF9CA3AF : 0xFF1F2937);
-
-            if (day.isToday()) {
-                body.setBackgroundResource(R.drawable.bg_calendar_today);
-                tvDay.setTextColor(getColor(R.color.green_primary_dark));
-            }
-
-            cell.setContentDescription(DeliveryDateUtils.formatLongDate(iso) + " — "
-                    + (day.getLabel() != null ? day.getLabel() : day.getStatus()));
-            cell.setOnClickListener(v -> openDaySheet(iso));
-            addCell(cell);
+        for (SubscriptionCalendarResponse.Day day : days) {
+            View row = inflater.inflate(R.layout.item_subscription_day, layoutDays, false);
+            bindDayView(row, day);
+            layoutDays.addView(row);
         }
     }
 
-    /** Adds one cell in the next grid slot, taking an equal share of the width. */
-    private void addCell(View cell) {
-        int index = gridDays.getChildCount();
-        android.widget.GridLayout.LayoutParams lp = new android.widget.GridLayout.LayoutParams();
-        lp.width = 0;
-        lp.height = (int) (46 * getResources().getDisplayMetrics().density);
-        lp.columnSpec = android.widget.GridLayout.spec(index % 7, 1, 1f);
-        lp.rowSpec = android.widget.GridLayout.spec(index / 7, 1);
-        gridDays.addView(cell, lp);
-    }
-
-    private boolean canStep(int delta) {
-        java.time.YearMonth target = currentMonth.plusMonths(delta);
-        if (boundsMin != null && target.isBefore(java.time.YearMonth.from(boundsMin))) return false;
-        return boundsMax == null || !target.isAfter(java.time.YearMonth.from(boundsMax));
-    }
-
-    /**
-     * One colour per day state, matching the legend and the chip colours below.
-     *
-     * A past day that is still 'scheduled' gets the neutral grey, not the
-     * scheduled green: the server left it scheduled because no log row exists, and
-     * painting it green would promise a delivery that never happened.
-     */
-    private int dotColorFor(SubscriptionCalendarResponse.Day day) {
-        if (day.isDelivered()) return getColor(R.color.status_delivered_text);
-        if (day.isSent()) return getColor(R.color.blue);
-        if (day.isCustomerSkipped()) return 0xFF9CA3AF;
-        if (day.isCookUnavailable() || day.isMissed()) return getColor(R.color.sub_error);
-        if (day.isPast()) return 0xFFD1D5DB;
-        return getColor(R.color.green_primary_dark);
-    }
-
-    private void tintLegend() {
-        tintLegendDot(R.id.tvLegendScheduled, getColor(R.color.green_primary_dark));
-        tintLegendDot(R.id.tvLegendSent, getColor(R.color.blue));
-        tintLegendDot(R.id.tvLegendDelivered, getColor(R.color.status_delivered_text));
-        tintLegendDot(R.id.tvLegendSkipped, 0xFF9CA3AF);
-        tintLegendDot(R.id.tvLegendClosed, getColor(R.color.sub_error));
-        tintLegendDot(R.id.tvLegendNoRecord, 0xFFD1D5DB);
-    }
-
-    private void tintLegendDot(int viewId, int color) {
-        TextView tv = findViewById(viewId);
-        if (tv != null) tv.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(color));
-    }
-
-    /**
-     * The whole story for one day, in a sheet.
-     *
-     * Reuses item_subscription_day and the same binding logic the old vertical
-     * list used, so every server-driven rule (locked-but-visible controls, the
-     * handshake split, swap requests) behaves identically — the grid changed how
-     * days are reached, not what a day can do.
-     */
-    private void openDaySheet(String iso) {
-        SubscriptionCalendarResponse.Day day = dayByDate.get(iso);
-        if (day == null) return;
-
-        View content = LayoutInflater.from(this).inflate(R.layout.sheet_subscription_day, null, false);
-        bindDayView(content, day);
-
-        daySheet = new com.google.android.material.bottomsheet.BottomSheetDialog(this);
-        daySheet.setContentView(content);
-        openSheetDate = iso;
-        daySheet.setOnDismissListener(d -> {
-            openSheetDate = null;
-            daySheet = null;
-        });
-        daySheet.show();
-    }
-
-    /**
-     * Re-binds the open sheet after a reload.
-     *
-     * Every action reloads the calendar, so without this the sheet would keep
-     * showing the state that action just changed — and the sheet is where the
-     * customer is standing when they press the button.
-     */
-    private void refreshOpenSheet() {
-        if (daySheet == null || openSheetDate == null) return;
-        SubscriptionCalendarResponse.Day day = dayByDate.get(openSheetDate);
-        if (day == null) {
-            daySheet.dismiss();
-            return;
-        }
-        View content = daySheet.findViewById(R.id.includeDay);
-        if (content != null) bindDayView(content, day);
-    }
-
-    /** Fills one inflated item_subscription_day with one day's server-decided state. */
     private void bindDayView(View row, SubscriptionCalendarResponse.Day day) {
         TextView tvDate = row.findViewById(R.id.tvDayDate);
         TextView tvRelative = row.findViewById(R.id.tvDayRelative);
@@ -505,14 +260,11 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             layoutReason.setVisibility(View.GONE);
         }
 
-        // Handshake first: whether it took the row's action slot decides
-        // whether applyDayAction has a note to add underneath.
         boolean handshakeShown = applyDayHandshake(day, btnHandshake);
         applyDayAction(day, btnAction, layoutLocked, tvLocked, handshakeShown);
         applyCustomMeal(day, row);
     }
 
-    /** Colour and wording for one day. The label text is the server's, not ours. */
     private void applyDayChip(SubscriptionCalendarResponse.Day day, TextView chip, View accent) {
         String label = day.getLabel() != null ? day.getLabel() : day.getStatus();
         chip.setText(label);
@@ -525,26 +277,18 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             chipText = getColor(R.color.status_delivered_text);
             accentColor = getColor(R.color.status_delivered_text);
         } else if (day.isSent()) {
-            // Blue, not green: the meal is in motion but the day isn't closed yet.
-            // Sharing the delivered colour would make a handed-over meal look
-            // confirmed on the cook's screen before the customer ever said so.
             chipBg = R.drawable.status_chip_out_for_delivery;
             chipText = getColor(R.color.blue);
             accentColor = getColor(R.color.blue);
         } else if (day.isCustomerSkipped()) {
             chipBg = R.drawable.status_chip_pending;
             chipText = getColor(R.color.status_pending_text);
-            accentColor = getColor(R.color.status_pending_text);
-        } else if (day.isCookUnavailable()) {
-            chipBg = R.drawable.status_chip_sold_out;
-            chipText = getColor(R.color.sub_error);
-            accentColor = getColor(R.color.sub_error);
-        } else if (day.isMissed()) {
+            accentColor = 0xFF9CA3AF;
+        } else if (day.isCookUnavailable() || day.isMissed()) {
             chipBg = R.drawable.status_chip_sold_out;
             chipText = getColor(R.color.sub_error);
             accentColor = getColor(R.color.sub_error);
         } else {
-            // scheduled
             chipBg = R.drawable.status_chip_preparing;
             chipText = getColor(R.color.status_preparing_text);
             accentColor = getColor(R.color.green_primary_dark);
@@ -554,18 +298,6 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         accent.setBackgroundColor(accentColor);
     }
 
-    /**
-     * The sent → received handshake button for one day. Returns true if it is
-     * showing, so the caller knows this row already has its primary action.
-     *
-     * One button serves both sides because it is one exchange seen from two ends:
-     * the cook marks the meal sent, the customer confirms it arrived. Which half
-     * appears is the server's decision, not ours — `canMarkSent` is only ever true
-     * for a cook and `canMarkReceived` only ever for a customer, and both mirror
-     * exactly what their endpoint will accept. Reading them instead of combining
-     * `isCustomerView` with a status guess is what keeps the two in step when the
-     * server's rules change.
-     */
     private boolean applyDayHandshake(SubscriptionCalendarResponse.Day day, MaterialButton btn) {
         btn.setOnClickListener(null);
 
@@ -585,23 +317,6 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         return true;
     }
 
-    /**
-     * Decides the row's button purely from the server's `canSkip`/`isLocked`.
-     *
-     * A day with nothing to do gets NO button — just a one-line note. A disabled
-     * full-width button saying "You already skipped this day" occupied a real
-     * action's worth of space to tell the customer they had nothing to press, and
-     * the chip on the same row already says the day's state.
-     *
-     * Skipping stays customer-only: closing a date is a bulk action on the cook's
-     * own Today's Deliveries screen, because it hits every subscriber rather than
-     * just this one. The cook's per-day action is the handshake button above,
-     * which is why this no longer means the cook sees nothing at all.
-     *
-     * `handshakeShown` suppresses the note. A day whose meal is on its way already
-     * has a button on it, and adding "🔒 this day can't be changed" under a live
-     * "Mark as received" reads as a contradiction.
-     */
     private void applyDayAction(SubscriptionCalendarResponse.Day day, MaterialButton btn,
                                 LinearLayout layoutLocked, TextView lockedNote,
                                 boolean handshakeShown) {
@@ -623,23 +338,20 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
 
         btn.setVisibility(View.GONE);
 
+        if (day.isCustomerSkipped()) {
+            return;
+        }
+
         String icon;
         String note;
         if (day.isSent()) {
-            // Ahead of the isLocked branch on purpose: today is always past its
-            // own cutoff, so the generic "too late to change this" would otherwise
-            // win and say nothing about the meal that is actually on its way.
             icon = "🛵";
             note = "Your cook has sent this meal. Confirm it once it reaches you.";
         } else if (day.isLocked()) {
             icon = "🔒";
-            // The server's own sentence when it sent one — it knows the cutoff hour.
             note = day.getLockedMessage() != null
                     ? day.getLockedMessage()
                     : "The cutoff for this day has passed, so it can't be changed.";
-        } else if (day.isCustomerSkipped()) {
-            icon = "⏭";
-            note = "You skipped this day, so your subscription runs one day longer.";
         } else if (day.isCookUnavailable()) {
             icon = "🚫";
             note = "The kitchen is closed on this day — nothing to skip.";
@@ -650,8 +362,7 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             icon = "⚠️";
             note = "Marked missed.";
         } else {
-            icon = "🔒";
-            note = "This day can't be changed.";
+            return;
         }
 
         TextView noteIcon = layoutLocked.findViewById(R.id.tvDayNoteIcon);
@@ -660,15 +371,6 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         layoutLocked.setVisibility(View.VISIBLE);
     }
 
-    /**
-     * The swap row and the "request a different meal" button for one day.
-     *
-     * Both are driven entirely by the server: `customMeal` is the request that
-     * already exists, and `canRequestCustom` is the server's own answer to
-     * "would I accept a request for this date right now" — same conditions the
-     * create endpoint enforces, so the button never appears for a day the server
-     * would refuse.
-     */
     private void applyCustomMeal(SubscriptionCalendarResponse.Day day, View row) {
         LinearLayout layout = row.findViewById(R.id.layoutDayCustomMeal);
         TextView tvMeal = row.findViewById(R.id.tvDayCustomMeal);
@@ -700,14 +402,6 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         btnRequest.setOnClickListener(canRequest ? v -> promptCustomMeal(day) : null);
     }
 
-    /**
-     * Asks for the swap as free text.
-     *
-     * A meal picker would be better, but it needs the plan's own meal list, and
-     * the note field is what the server already accepts on its own — meal_id is
-     * optional there. Sending a note keeps this one dialog honest instead of
-     * shipping a picker that can't be populated from this screen's payload.
-     */
     private void promptCustomMeal(SubscriptionCalendarResponse.Day day) {
         String pretty = DeliveryDateUtils.formatLongDate(day.getDate());
         final android.widget.EditText input = new android.widget.EditText(this);
@@ -750,8 +444,6 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
                     public void onResponse(@NonNull Call<SubscriptionActionResponse> call,
                                            @NonNull Response<SubscriptionActionResponse> response) {
                         actionInFlight = false;
-                        // Server wording verbatim: "that day is already skipped"
-                        // and "the cutoff has passed" call for different reactions.
                         SubscriptionActionResponse b = response.body();
                         Toast.makeText(SubscriptionCalendarActivity.this,
                                 b != null && b.getMessage() != null
@@ -828,17 +520,10 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             public void onResponse(@NonNull Call<DayActionResponse> call, @NonNull Response<DayActionResponse> response) {
                 actionInFlight = false;
                 DayActionResponse body = response.body();
-
-                // The server's message is shown verbatim: "too late" and "the
-                // kitchen is closed anyway" need completely different reactions
-                // from the customer, and a generic error teaches them to retry.
                 String message = body != null && body.getMessage() != null
                         ? body.getMessage()
                         : "Couldn't skip that day. Please try again.";
                 Toast.makeText(SubscriptionCalendarActivity.this, message, Toast.LENGTH_LONG).show();
-
-                // Reload either way — a rejection means our view of that day was
-                // already stale, which is exactly when a refresh matters most.
                 loadCalendar();
             }
 
@@ -850,11 +535,6 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * Cook's half of the handshake. Confirmed rather than fired on tap because it
-     * tells the customer their food is on the way and can't be taken back — and
-     * the button sits in a scrolling list where a mis-tap is easy.
-     */
     private void confirmMarkSent(SubscriptionCalendarResponse.Day day) {
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Mark " + DeliveryDateUtils.formatLongDate(day.getDate()) + " as sent?")
@@ -865,11 +545,6 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
                 .show();
     }
 
-    /**
-     * Customer's half. This closes the day permanently — 'delivered' is terminal,
-     * which is exactly why the confirmation is the customer's to give and not the
-     * cook's — so it asks first and says so.
-     */
     private void confirmMarkReceived(SubscriptionCalendarResponse.Day day) {
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Got " + DeliveryDateUtils.formatLongDate(day.getDate()) + "'s meal?")
@@ -880,16 +555,6 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
                 .show();
     }
 
-    /**
-     * Posts one half of the handshake. `sent` picks which endpoint — the two are
-     * separate routes with separate role guards on the server, so a customer
-     * cannot declare their own meal sent.
-     *
-     * Same shape as skipDay: single in-flight guard, the server's message shown
-     * verbatim, and a reload whether it succeeded or not. A rejection means this
-     * screen's idea of the day was already stale, which is precisely when a
-     * refresh matters most.
-     */
     private void postDayHandshake(SubscriptionCalendarResponse.Day day, boolean sent) {
         if (actionInFlight) return;
         actionInFlight = true;
@@ -923,7 +588,6 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         });
     }
 
-    /** Convenience for callers that only have the id and a name to show. */
     public static Intent intentFor(android.content.Context context, int subscriptionId, String planName) {
         Intent intent = new Intent(context, SubscriptionCalendarActivity.class);
         intent.putExtra(EXTRA_SUBSCRIPTION_ID, subscriptionId);

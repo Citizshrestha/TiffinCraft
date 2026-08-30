@@ -446,9 +446,9 @@ public interface ApiService {
      * raw ISO timestamp for the next delivery.
      *
      * `from`/`to` are optional and must be sent together (ISO 'YYYY-MM-DD'). Pass
-     * null for both to get the server's default ~14-day window from today; pass a
-     * month's first/last day to drive the month grid. The server clamps the range
-     * to the subscription's own start/end dates and rejects spans over 62 days.
+     * null for both to get the server's default ~14-day window from today. The
+     * server clamps the range to the subscription's own start/end dates and
+     * rejects spans over 62 days.
      */
     @GET("subscriptions/{id}/calendar")
     Call<com.tiffincraft.app.models.SubscriptionCalendarResponse> getSubscriptionCalendar(
