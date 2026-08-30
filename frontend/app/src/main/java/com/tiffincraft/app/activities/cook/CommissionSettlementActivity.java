@@ -269,7 +269,7 @@ public class CommissionSettlementActivity extends AppCompatActivity {
         int n = accruing.getOrderCount();
         String period = accruing.getMonth() >= 1 && accruing.getMonth() <= 12
                 ? MONTH_NAMES[accruing.getMonth() - 1] : "this month";
-        binding.tvAccruingLabel.setText("Accruing in " + period + " · " + n + " delivered order" + (n == 1 ? "" : "s"));
+        binding.tvAccruingLabel.setText("Remaining in " + period + " · " + n + " delivered order" + (n == 1 ? "" : "s"));
 
         // The accrual is only payable while no OUTSTANDING bill exists for it.
         // While one does, the amount-due card below owns the payment flow and a
