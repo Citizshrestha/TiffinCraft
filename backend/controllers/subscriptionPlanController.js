@@ -352,4 +352,133 @@ export const deletePlan = async (req, res) => {
     }
 };
 
+// GET /api/subscription-plans/by-meal/:mealId — get all plans containing a specific meal (cook only)
+export const getPlansByMeal = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+        const { mealId } = req.params;
+
+        // Verify the meal belongs to this cook
+        const [meals] = await db.promise().query(
+            "SELECT id, name FROM meals WHERE id = ? AND cook_id = ?",
+            [mealId, cookId]
+        );
+        if (meals.length === 0) {
+            return res.status(404).json({ success: false, message: "Meal not found or you don't have permission." });
+        }
+
+        // Get all plans containing this meal
+        const [planItems] = await db.promise().query(
+            `SELECT DISTINCT sp.id, sp.name, sp.duration, sp.is_active
+             FROM subscription_plan_items spi
+             JOIN subscription_plans sp ON spi.plan_id = sp.id
+             WHERE spi.meal_id = ? AND sp.cook_id = ?
+             ORDER BY sp.name ASC`,
+            [mealId, cookId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            meal_name: meals[0].name,
+            plans: planItems.map(p => ({
+                id: p.id,
+                name: p.name,
+                duration: p.duration,
+                is_active: !!p.is_active
+            }))
+        });
+    } catch (error) {
+        console.error("getPlansByMeal error:", error);
+        return res.status(500).json({ success: false, message: "Server error.", error: error.message });
+    }
+};
+
+// DELETE /api/subscription-plans/meal/:mealId — remove a meal from all subscription plans (cook only)
+export const removeMealFromPlans = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+        const { mealId } = req.params;
+
+        // Verify the meal belongs to this cook
+        const [meals] = await db.promise().query(
+            "SELECT id, name FROM meals WHERE id = ? AND cook_id = ?",
+            [mealId, cookId]
+        );
+        if (meals.length === 0) {
+            return res.status(404).json({ success: false, message: "Meal not found or you don't have permission." });
+        }
+
+        // Get plans that will be affected
+        const [affectedPlans] = await db.promise().query(
+            `SELECT DISTINCT sp.id, sp.name
+             FROM subscription_plan_items spi
+             JOIN subscription_plans sp ON spi.plan_id = sp.id
+             WHERE spi.meal_id = ? AND sp.cook_id = ?`,
+            [mealId, cookId]
+        );
+
+        if (affectedPlans.length === 0) {
+            return res.status(200).json({
+                success: true,
+                message: "This meal is not in any subscription plans.",
+                meal_name: meals[0].name,
+                removed_from_plans: []
+            });
+        }
+
+        const connection = await db.promise().getConnection();
+        try {
+            await connection.beginTransaction();
+
+            // Remove the meal from all plans
+            const [result] = await connection.query(
+                `DELETE spi FROM subscription_plan_items spi
+                 JOIN subscription_plans sp ON spi.plan_id = sp.id
+                 WHERE spi.meal_id = ? AND sp.cook_id = ?`,
+                [mealId, cookId]
+            );
+
+            // Check if any plans now have zero items and delete them
+            for (const plan of affectedPlans) {
+                const [[{ itemCount }]] = await connection.query(
+                    "SELECT COUNT(*) AS itemCount FROM subscription_plan_items WHERE plan_id = ?",
+                    [plan.id]
+                );
+                if (itemCount === 0) {
+                    // Check if plan has active subscribers
+                    const [[{ activeCount }]] = await connection.query(
+                        "SELECT COUNT(*) AS activeCount FROM subscriptions WHERE plan_id = ? AND status != 'cancelled'",
+                        [plan.id]
+                    );
+                    if (activeCount === 0) {
+                        // Delete the plan if it has no items and no active subscribers
+                        await connection.query("DELETE FROM subscription_plans WHERE id = ?", [plan.id]);
+                    } else {
+                        // Just deactivate if it has active subscribers
+                        await connection.query("UPDATE subscription_plans SET is_active = FALSE WHERE id = ?", [plan.id]);
+                    }
+                }
+            }
+
+            await connection.commit();
+
+            return res.status(200).json({
+                success: true,
+                message: `Removed "${meals[0].name}" from ${affectedPlans.length} subscription plan(s).`,
+                meal_name: meals[0].name,
+                removed_from_plans: affectedPlans.map(p => p.name),
+                affected_count: result.affectedRows
+            });
+        } catch (err) {
+            await connection.rollback();
+            throw err;
+        } finally {
+            connection.release();
+        }
+    } catch (error) {
+        console.error("removeMealFromPlans error:", error);
+        return res.status(500).json({ success: false, message: "Server error.", error: error.message });
+    }
+};
+
 export { fetchPlanWithItems };

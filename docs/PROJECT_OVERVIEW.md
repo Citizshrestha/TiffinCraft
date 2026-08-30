@@ -197,7 +197,7 @@ The system has three clients over one API:
 
 | Stream | Mechanism | Status |
 |---|---|---|
-| **Platform commission on cook earnings** | Admin-set percentage, applied per completed order/subscription cycle; tracked in `commission_settlements`, rate versioned in `commission_rate_history`, exposed to cooks as pending commission in the earnings screen | Implemented |
+| **Platform commission on cook earnings** | **5%** (admin-settable), snapshotted per order the moment it becomes `delivered` — including subscription days; billed monthly into `commission_settlements`, rate versioned in `commission_rate_history`, settled manually against an uploaded payment screenshot. See `docs/COMMISSION_SYSTEM.md` | Implemented |
 | **Subscription volume** | Weekly/monthly prepaid plans generate predictable, recurring commissionable GMV rather than lumpy per-order revenue | Implemented |
 | **Referral-driven growth** | `referrals` table; rewards lower customer acquisition cost, which is the main cost line in a low-ticket business | Implemented |
 

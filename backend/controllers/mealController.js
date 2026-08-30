@@ -87,19 +87,28 @@ export const getMyMeals = async (req, res) => {
         console.log("User info:", req.user);
 
         const [meals] = await db.promise().query(
-            `SELECT * FROM meals
-             WHERE cook_id = ?
-             ORDER BY created_at DESC`,
-            [cookId]
+            `SELECT m.*,
+                    EXISTS(
+                        SELECT 1 FROM subscription_plan_items spi
+                        JOIN subscription_plans sp ON spi.plan_id = sp.id
+                        WHERE spi.meal_id = m.id
+                        AND sp.cook_id = ?
+                        AND sp.is_active = TRUE
+                    ) AS is_in_subscription
+             FROM meals m
+             WHERE m.cook_id = ?
+             ORDER BY m.created_at DESC`,
+            [cookId, cookId]
         );
 
         console.log("Meals found:", meals.length);
         console.log("Meals data:", JSON.stringify(meals, null, 2));
 
-        // Convert DECIMAL price to real number
+        // Convert DECIMAL price to real number and boolean is_in_subscription
         const formattedMeals = meals.map(meal => ({
             ...meal,
-            price: parseFloat(meal.price)
+            price: parseFloat(meal.price),
+            is_in_subscription: !!meal.is_in_subscription
         }));
 
         return res.status(200).json({

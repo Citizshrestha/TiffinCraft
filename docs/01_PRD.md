@@ -158,8 +158,8 @@ SUCCESS METRICS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - 50+ cooks onboarded in first month
 - 200+ customer subscriptions in first month
-- Cook earns 90–92% of subscription amount
+- Cook earns 95% of subscription amount (5% platform commission)
 - Order tracking works under 2 seconds delay
 - App rating above 4.0 on Play Store
-- Zero platform commission on meals
-  (revenue from listing fees only at MVP)
+- 5% platform commission on delivered orders, billed monthly
+  and settled manually (see docs/COMMISSION_SYSTEM.md)

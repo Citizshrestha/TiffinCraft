@@ -67,6 +67,9 @@ public class Meal {
     @SerializedName("cook_rating")
     private Double cookRating;
 
+    @SerializedName("is_in_subscription")
+    private boolean isInSubscription;
+
     // Getters and setters
     public int getId() {
         return id;
@@ -233,5 +236,13 @@ public class Meal {
 
     public void setCookRating(Double cookRating) {
         this.cookRating = cookRating;
+    }
+
+    public boolean isInSubscription() {
+        return isInSubscription;
+    }
+
+    public void setInSubscription(boolean inSubscription) {
+        this.isInSubscription = inSubscription;
     }
 }

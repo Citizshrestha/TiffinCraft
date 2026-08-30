@@ -2,15 +2,18 @@ package com.tiffincraft.app.activities.common;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.adapters.CartAdapter;
@@ -32,6 +35,7 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartA
     private MaterialButton btnCheckout, btnBrowseCooks;
     private LinearLayout layoutEmptyCart, checkoutPanel;
     private View imgBack;
+    private BottomNavigationView bottomNavigation;
 
     private CartAdapter adapter;
     private SessionManager sessionManager;
@@ -54,6 +58,7 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartA
         layoutEmptyCart = findViewById(R.id.layoutEmptyCart);
         checkoutPanel   = findViewById(R.id.checkoutPanel);
         imgBack         = findViewById(R.id.imgBack);
+        bottomNavigation = findViewById(R.id.bottomNavigation);
 
         rvCart.setLayoutManager(new LinearLayoutManager(this));
 
@@ -70,6 +75,8 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartA
         if (tvClearCart != null) {
             tvClearCart.setOnClickListener(v -> clearEntireCart());
         }
+
+        setupBottomNavigation();
     }
 
     @Override
@@ -193,5 +200,35 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.CartA
     private void goToCheckout() {
         Intent intent = new Intent(this, com.tiffincraft.app.activities.order.OrderSummaryActivity.class);
         startActivity(intent);
+    }
+
+    private void setupBottomNavigation() {
+        if (bottomNavigation != null) {
+            bottomNavigation.setOnItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
+                @Override
+                public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+                    int itemId = item.getItemId();
+                    
+                    if (itemId == R.id.nav_home) {
+                        startActivity(new Intent(CartActivity.this, com.tiffincraft.app.activities.customer.CustomerHomeActivity.class));
+                        finish();
+                        return true;
+                    } else if (itemId == R.id.nav_search) {
+                        startActivity(new Intent(CartActivity.this, com.tiffincraft.app.activities.customer.CustomerMenuActivity.class));
+                        finish();
+                        return true;
+                    } else if (itemId == R.id.nav_orders) {
+                        startActivity(new Intent(CartActivity.this, com.tiffincraft.app.activities.customer.OrderHistoryActivity.class));
+                        finish();
+                        return true;
+                    } else if (itemId == R.id.nav_profile) {
+                        startActivity(new Intent(CartActivity.this, com.tiffincraft.app.activities.customer.CustomerProfileActivity.class));
+                        finish();
+                        return true;
+                    }
+                    return false;
+                }
+            });
+        }
     }
 }

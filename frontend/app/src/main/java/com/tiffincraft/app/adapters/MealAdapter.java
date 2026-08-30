@@ -105,7 +105,17 @@ public class MealAdapter extends RecyclerView.Adapter<MealAdapter.MealViewHolder
             }
         });
         
-        // Add to subscription button
+        // Add to subscription button - toggle based on subscription status
+        if (meal.isInSubscription()) {
+            holder.btnAddSubscription.setText("Added to Subscription");
+            holder.btnAddSubscription.setBackgroundResource(R.drawable.bg_pill_green);
+            holder.btnAddSubscription.setTextColor(context.getColor(R.color.white));
+        } else {
+            holder.btnAddSubscription.setText("Add to Subscription");
+            holder.btnAddSubscription.setBackgroundResource(R.drawable.bg_btn_outline_green);
+            holder.btnAddSubscription.setTextColor(context.getColor(R.color.green_primary_dark));
+        }
+        
         holder.btnAddSubscription.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onSubscriptionClick(meal);

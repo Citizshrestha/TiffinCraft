@@ -92,8 +92,10 @@ Both would be API-behaviour changes, which were out of scope for this task.
 
 | Issue | Detail |
 |---|---|
-| **`/api/config` returns a LAN address** | `server.js` serves a `lan.baseUrl` built from `getLanIp()`. On Render that is a meaningless internal IP. The Android app self-heals its `BASE_URL` from this endpoint, so **verify the app doesn't adopt the LAN value in production** before relying on it. |
-| **CORS is allow-all** | `server.js` uses `origin: true` and logs "Allowing all origins for development". `allowedOrigins` is computed from `CLIENT_URL` on the line above and then never used — dead code. Tighten before real launch. |
+| **`/api/config` returns a LAN address** | `server.js` serves a `lan.baseUrl` built from `getLanIp()`. On Render that is a meaningless internal IP (confirmed live: `10.27.232.60`). The endpoint is left as-is; the Android app was fixed instead — `ServerConfig.discoverAndCacheSync()` now refuses any address whose host differs from the one it queried, so it cannot adopt this value. See §9.4. |
+
+**CORS was previously listed here as unchanged — it has since been fixed.**
+See §9.2.
 
 ---
 
@@ -122,7 +124,12 @@ Full annotated checklist with where to obtain each value:
 
 Name traps that silently half-break the app:
 
-- `SMTP_PASS` — **not** `SMTP_PASSWORD` (`utils/emailService.js:13`)
+- `SMTP_PASS` — **not** `SMTP_PASSWORD` (`utils/emailService.js`)
+- `BREVO_API_KEY` — **required on Render**, and a different value from `SMTP_PASS`.
+  Free Render web services block outbound SMTP ports 25/465/587
+  ([changelog](https://render.com/changelog/free-web-services-will-no-longer-allow-outbound-traffic-to-smtp-ports)),
+  so without it every email — reset codes, registration OTP, cook approvals —
+  fails on connectionTimeout while the endpoint still returns 500 to the app.
 - `ESEWA_EPAY_*` and `ESEWA_*` are **two different eSewa integrations**.
   Checkout runs on ePay v2, so the `ESEWA_EPAY_*` set is the one that matters.
 
@@ -140,6 +147,15 @@ the explicit pin):
 git add backend/certs/isrgrootx1.pem
 ```
 
+**Run the commission hardening migration once against the deploy database.** It adds
+`orders.delivered_at` (every billing period groups on it), the settlement
+screenshot-hash unique key, and `last_reminder_at`; without it commission is
+never charged. It is idempotent — a second run prints only `SKIP`:
+
+```bash
+cd backend && node scripts/run_commission_hardening_migration.js
+```
+
 ---
 
 ## 6. What a successful deploy looks like
@@ -152,14 +168,18 @@ MySQL Connected Successfully (TiDB, SSL)
 ✅ Firebase Admin initialized (FIREBASE_SERVICE_ACCOUNT_JSON)
 ✅ Subscription cron job scheduled (daily at 06:00)
 ✅ eSewa booking cleanup cron job scheduled (every 5 minutes)
-✅ Commission settlement cron job scheduled (01:00 on the 1st of each month)
+✅ Commission crons scheduled (settlements 01:00 on the 1st, reminders daily 09:00)
 
 ✅ Server running on port 10000
 🌍 Public base:      https://<your-service>.onrender.com
 🔍 Health check:     https://<your-service>.onrender.com/api/health
 🔌 Socket.IO:        ready
-✅ SMTP ready — smtp-relay.brevo.com
+✅ Mail transport — Brevo HTTPS API (SMTP is fallback only)
 ```
+
+`✅ SMTP ready — smtp-relay.brevo.com` instead means `BREVO_API_KEY` is unset and
+mail is going out over port 587 — correct locally, broken on Render.
+
 
 Failure signatures:
 
@@ -170,20 +190,25 @@ Failure signatures:
 | `Access denied … #user-name-prefix` | `DB_USER` lacks the TiDB cluster prefix, or wrong password |
 | `⚠️  CA file not readable … falling back` | Cert not committed. Non-fatal |
 | `⚠️  Firebase not configured` | No FCM. API still works |
+| `⚠️  SMTP not ready: … ETIMEDOUT` / `Greeting never received` | Host blocks outbound SMTP. Set `BREVO_API_KEY` |
+| `⚠️  Brevo API send failed … 401 unauthorized` | `BREVO_API_KEY` wrong or revoked (it is not the SMTP key) |
+| `⚠️  Brevo API send failed … sender not valid` | `SMTP_FROM_EMAIL` is not a verified sender in Brevo |
 
 ---
 
 ## 7. Live URL
 
-**Not yet deployed** — fill in after the first successful deploy:
+Deployed **2026-08-24** (commit `a757584`), service `srv-da606nbncjis73aab9qg`.
 
 ```
-BASE URL:  https://__________________.onrender.com
-HEALTH:    https://__________________.onrender.com/api/health
+BASE URL:  https://tiffincraft-xsrh.onrender.com
+HEALTH:    https://tiffincraft-xsrh.onrender.com/api/health
+DB HEALTH: https://tiffincraft-xsrh.onrender.com/api/health/db
 ```
 
-Then set `PUBLIC_BASE_URL` to that base URL and redeploy, since eSewa
-redirect/callback URLs are built from it.
+**Still to do:** set `PUBLIC_BASE_URL=https://tiffincraft-xsrh.onrender.com`
+and redeploy — eSewa redirect/callback URLs are built from it, and without it
+`utils/publicUrl.js` falls back to Render's unroutable internal IP.
 
 ---
 
@@ -210,7 +235,127 @@ latter costs a TiDB Request Unit per hit.
 
 > Free-tier caveat this does not solve: Render free instances still restart
 > periodically, and the `node-cron` jobs (06:00 subscription generation, 5-min
-> eSewa cleanup, monthly commission) only fire while the process is alive. A
-> restart across 06:00 means that day's subscription orders are not generated.
+> eSewa cleanup, monthly commission settlements at 01:00 on the 1st, 09:00 daily
+> commission due-date reminders) only fire while the process is alive. A restart
+> across 06:00 means that day's subscription orders are not generated; a restart
+> across 01:00 on the 1st means no cook is billed that month — recover with
+> `POST /api/commission/settlements/generate?month=&year=`, which is idempotent.
 > Moving those to an external scheduler hitting a protected endpoint is the
 > durable fix.
+
+---
+
+## 9. Post-deploy verification — run 2026-08-24
+
+All checks run against the live service. Result: **the deploy is functionally
+sound.** Four issues found, none caused by the deployment changes.
+
+### Passed
+
+| Check | Result |
+|---|---|
+| `/api/health` | 200, `0.14s` / `0.16s` warm. First hit was `4.09s` — cold start, matches Render's free-tier spin-down banner |
+| `/api/health/db` | `{"status":"ok","database":"connected"}` in `0.19s` |
+| **Real DB read** | `GET /api/meals` → 200, 5 rows with full column sets. TiDB is genuinely serving production traffic, not just reachable |
+| TLS to TiDB | `MySQL Connected Successfully (TiDB, SSL)` with **no** CA-file warning — the committed cert is being read |
+| `NODE_ENV` | Banner printed the localhost/emulator lines, confirming it is *not* `production`. Correct for now (see §9.1) |
+| Auth rejection | no token → 401 `No token provided`; junk token → 401 `Invalid or expired token`; cook-only route unauthenticated → 401 |
+| Error-path leaks | 404 → `Route not found.`; malformed JSON → 400 `Unexpected end of JSON input`; bad param → 404 `Meal not found.` No stack traces, no absolute paths, no host/credential strings |
+
+### 9.1 `NODE_ENV` is not set to `production` — deliberate, but temporary
+
+Verified from the startup banner. This is currently **correct**: setting it
+without live `ESEWA_EPAY_*` credentials would null every sandbox default and
+sign payment forms with `null` (§1.4). It also means Express runs in dev mode,
+which is slower and more verbose. Flip it the same day the live eSewa keys land.
+
+### 9.2 CORS accepts any origin — pre-existing, now internet-facing
+
+```
+Origin: https://evil.example.com
+→ access-control-allow-origin: https://evil.example.com
+  access-control-allow-credentials: true
+```
+
+`origin: true` reflected whatever origin was sent, and paired with
+`credentials: true` that let any website script authenticated requests against
+a logged-in user's browser session. Harmless on a LAN, materially different on
+a public service. Socket.IO had a separate and also broken config
+(`origin: process.env.CLIENT_URL || "*"`, which compares against the literal
+string `"a,b"` when `CLIENT_URL` is a list, so it matched nothing).
+
+**Fixed.** Both now share one `corsOrigin()` allowlist function built from
+`CLIENT_URL`, defined above the Socket.IO server so the two cannot drift again:
+
+- Allowlisted origins get `Access-Control-Allow-Origin`; everything else gets
+  no header, so the browser blocks it.
+- Rejection uses `callback(null, false)`, **not** `callback(new Error(...))` —
+  the latter returns a 500 and makes a `CLIENT_URL` typo look like a crash.
+- Requests with **no** `Origin` header are allowed: that is the Android app,
+  curl, and eSewa's return trip. CORS is a browser protection and there is no
+  browser to protect. Verified still `HTTP 200`.
+- Loopback and `192.168.x` origins are allowed **only** when
+  `NODE_ENV !== "production"`, for Admin dashboard development.
+- Unknown origins are logged once each, not once per request.
+
+Verified locally in both modes: allowlisted origins pass (including the second
+entry of a comma-separated list, and with a trailing slash), `evil.example.com`
+is blocked on both `GET` and preflight `OPTIONS`, `localhost` is blocked under
+`NODE_ENV=production`, and no-Origin requests return 200.
+
+> **This takes effect only once `CLIENT_URL` is correct on Render.** If it is
+> unset or wrong, browser clients are blocked — look for
+> `⚠️  CORS rejected origin: …` in the logs, which names the origin to add.
+
+### 9.3 One meal's image 404s — pre-existing data, not a deploy fault
+
+Of 5 meals, 4 have Cloudinary URLs and 1 has `/uploads/meals/eb24d7d3-….jpg`,
+which returns **404** live. `uploads/` is gitignored (`.gitignore:14`), so that
+file was never deployed, and Render's filesystem is ephemeral regardless.
+
+**New uploads are fine:** every upload route (`authRoutes`, `cookRoutes`,
+`customerDashboardRoutes`, `mealRoutes`, `uploadRoutes`) uses
+`middleware/uploadMiddleware.js` → `multer.memoryStorage()` → Cloudinary.
+`config/multer.js` still defines a `diskStorage` engine, but **no route
+imports it** — dead code. So this is one stale legacy row, not an ongoing leak.
+Re-upload that meal's image through the app to fix it.
+
+### 9.4 `/api/config` returns Render's internal IP
+
+```json
+{"tunnel":null,"lan":{"baseUrl":"http://10.27.232.60:10000/api/"}}
+```
+
+`10.27.232.60` is inside Render's private network — unreachable from any phone.
+Flagged in §2 as the thing to verify; now confirmed live.
+
+**Fixed in the Android app**, not the backend (the endpoint still has legitimate
+local-dev uses). `ServerConfig.discoverAndCacheSync()` now:
+
+- returns immediately unless LAN discovery is explicitly enabled — it is **off
+  by default**, since a stable hosted address leaves nothing to discover;
+- refuses any discovered address whose **host differs from the host it just
+  queried**. That is the precise guard: it catches a server reporting its own
+  private address, without banning private ranges outright, so a developer
+  whose own LAN happens to be `10.x` still works.
+
+The failure mode this prevents is unrecoverable, which is why it is a hard
+refusal rather than a warning: the app would cache a dead host, and every later
+request — including the discovery call meant to repair it — would fail against
+that same dead host.
+
+Also in the same change: `PREFS_NAME` bumped to `TiffinCraftServerConfigV2`.
+The cached `active_base_url` **wins over** the compiled-in default, so without a
+new prefs file every already-installed device would have kept dialling the old
+`192.168.100.115:5000` no matter what the new default said.
+
+### 9.5 Open risk: cold start vs. OkHttp read timeout
+
+Render's own banner says a spun-down instance can delay a request by "50 seconds
+or more". `RetrofitClient` uses `readTimeout(40, SECONDS)`, so a full cold start
+could time out before the instance finishes waking. The UptimeRobot keep-alive
+(§8) is what makes this rare rather than routine, and `FailoverInterceptor`
+retries `502/503/504` once. Not changed, because raising the timeout makes every
+genuine failure hang 60s for a case the keep-alive already prevents. Revisit if
+cold-start timeouts show up in practice.
+

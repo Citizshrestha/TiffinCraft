@@ -6,7 +6,9 @@ import {
     getPlansByCook,
     getPlanById,
     updatePlan,
-    deletePlan
+    deletePlan,
+    getPlansByMeal,
+    removeMealFromPlans
 } from "../controllers/subscriptionPlanController.js";
 
 const router = Router();
@@ -17,5 +19,7 @@ router.get("/cook/:cookId", getPlansByCook); // public — powers the cook's pro
 router.get("/:id", getPlanById); // public — single plan detail (edit prefill / deep link)
 router.put("/:id", protect, roleOnly("cook"), updatePlan);
 router.delete("/:id", protect, roleOnly("cook"), deletePlan);
+router.get("/by-meal/:mealId", protect, roleOnly("cook"), getPlansByMeal); // get plans containing a meal
+router.delete("/meal/:mealId", protect, roleOnly("cook"), removeMealFromPlans); // remove meal from all plans
 
 export default router;

@@ -285,7 +285,8 @@ export const getCookById = async (req, res) => {
             `SELECT cp.*, u.full_name, u.profile_image, u.address, u.email, u.phone, u.id AS id,
                     (SELECT COUNT(*) FROM meals m WHERE m.cook_id = u.id AND m.is_available = TRUE) AS dish_count,
                     (SELECT COUNT(*) FROM reviews r WHERE r.cook_id = u.id) AS review_count,
-                    (SELECT COUNT(*) FROM reviews r WHERE r.cook_id = u.id) AS total_reviews
+                    (SELECT COUNT(*) FROM reviews r WHERE r.cook_id = u.id) AS total_reviews,
+                    (SELECT COUNT(*) FROM orders o WHERE o.cook_id = u.id AND o.status IN ('delivered', 'completed')) AS total_orders
              FROM cook_profiles cp
              JOIN users u ON cp.user_id = u.id
              WHERE u.id = ? AND u.is_active = TRUE`,

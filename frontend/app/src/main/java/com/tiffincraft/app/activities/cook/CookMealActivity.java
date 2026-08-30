@@ -526,7 +526,98 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
     
     @Override
     public void onSubscriptionClick(Meal meal) {
-        startActivity(new Intent(this, CookSubscriptionsActivity.class));
+        if (meal.isInSubscription()) {
+            // Show dialog to remove from subscriptions
+            showRemoveFromSubscriptionDialog(meal);
+        } else {
+            // Navigate to add to subscription
+            startActivity(new Intent(this, CookSubscriptionsActivity.class));
+        }
+    }
+    
+    private void showRemoveFromSubscriptionDialog(Meal meal) {
+        String token = "Bearer " + sessionManager.getToken();
+        
+        // First, get the list of subscription plans containing this meal
+        apiService.getSubscriptionPlansByMeal(token, meal.getId()).enqueue(new Callback<com.tiffincraft.app.models.SubscriptionPlanResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<com.tiffincraft.app.models.SubscriptionPlanResponse> call, 
+                                   @NonNull Response<com.tiffincraft.app.models.SubscriptionPlanResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    com.tiffincraft.app.models.SubscriptionPlanResponse planResponse = response.body();
+                    
+                    if (planResponse.getPlans() == null || planResponse.getPlans().isEmpty()) {
+                        Toast.makeText(CookMealActivity.this, 
+                            "This meal is not in any subscription plans", 
+                            Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    
+                    // Build the plan names list for the dialog
+                    StringBuilder planNames = new StringBuilder();
+                    for (com.tiffincraft.app.models.SubscriptionPlanResponse.Plan plan : planResponse.getPlans()) {
+                        if (planNames.length() > 0) {
+                            planNames.append("\n");
+                        }
+                        planNames.append("• ").append(plan.getName());
+                    }
+                    
+                    // Show confirmation dialog
+                    new MaterialAlertDialogBuilder(CookMealActivity.this)
+                        .setTitle("Remove from Subscriptions?")
+                        .setMessage("This meal is currently in:\n\n" + planNames + 
+                                    "\n\nRemoving it will update all these subscription plans.")
+                        .setPositiveButton("Remove", (dialog, which) -> {
+                            removeMealFromSubscriptions(meal);
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+                } else {
+                    Toast.makeText(CookMealActivity.this, 
+                        "Failed to load subscription plans", 
+                        Toast.LENGTH_SHORT).show();
+                }
+            }
+            
+            @Override
+            public void onFailure(@NonNull Call<com.tiffincraft.app.models.SubscriptionPlanResponse> call, 
+                                  @NonNull Throwable t) {
+                Toast.makeText(CookMealActivity.this, 
+                    "Network error: " + t.getMessage(), 
+                    Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+    
+    private void removeMealFromSubscriptions(Meal meal) {
+        String token = "Bearer " + sessionManager.getToken();
+        
+        apiService.removeMealFromSubscriptionPlans(token, meal.getId()).enqueue(new Callback<com.tiffincraft.app.models.RegisterResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<com.tiffincraft.app.models.RegisterResponse> call, 
+                                   @NonNull Response<com.tiffincraft.app.models.RegisterResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    Toast.makeText(CookMealActivity.this, 
+                        response.body().getMessage(), 
+                        Toast.LENGTH_LONG).show();
+                    loadMyMeals(); // Refresh the list to update the button state
+                } else {
+                    String errorMsg = "Failed to remove meal from subscriptions";
+                    if (response.body() != null && response.body().getMessage() != null) {
+                        errorMsg = response.body().getMessage();
+                    }
+                    Toast.makeText(CookMealActivity.this, errorMsg, Toast.LENGTH_LONG).show();
+                }
+            }
+            
+            @Override
+            public void onFailure(@NonNull Call<com.tiffincraft.app.models.RegisterResponse> call, 
+                                  @NonNull Throwable t) {
+                Toast.makeText(CookMealActivity.this, 
+                    "Network error: " + t.getMessage(), 
+                    Toast.LENGTH_SHORT).show();
+            }
+        });
     }
     
     @Override

@@ -423,6 +423,12 @@ public interface ApiService {
     @DELETE("subscription-plans/{id}")
     Call<RegisterResponse> deleteSubscriptionPlan(@Header("Authorization") String token, @Path("id") int planId);
 
+    @GET("subscription-plans/by-meal/{mealId}")
+    Call<SubscriptionPlanResponse> getSubscriptionPlansByMeal(@Header("Authorization") String token, @Path("mealId") int mealId);
+
+    @DELETE("subscription-plans/meal/{mealId}")
+    Call<RegisterResponse> removeMealFromSubscriptionPlans(@Header("Authorization") String token, @Path("mealId") int mealId);
+
     @GET("subscriptions/cook/my")
     Call<com.tiffincraft.app.models.CookSubscribersResponse> getCookSubscribers(@Header("Authorization") String token);
 
