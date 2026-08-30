@@ -32,8 +32,9 @@
                 android:scaleType="centerCrop"
                 android:src="@drawable/ic_image_placeholder" />
 
-            <!-- Overlay badge -->
+            <!-- Status badge overlay -->
             <TextView
+                android:id="@+id/tvStatusBadge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="top|end"
@@ -83,12 +84,14 @@
                 android:textSize="12sp"
                 tools:text="Submitted: 28 Aug 2026" />
 
-            <!-- Action Buttons -->
+            <!-- Action Buttons (shown only for pending/submitted status) -->
             <LinearLayout
+                android:id="@+id/layoutActionButtons"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:visibility="visible">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnVerifyProof"

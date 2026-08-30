@@ -148,7 +148,11 @@ public class CookSubscribersActivity extends AppCompatActivity {
         for (SubscriptionResponse.Subscription sub : allSubscribers) {
             switch (currentFilter) {
                 case "payment_proofs":
-                    if ("submitted".equals(sub.getPaymentStatus())) filtered.add(sub);
+                    // Show ALL subscriptions with payment screenshots, not just "submitted"
+                    // This includes: submitted (needs review), verified, and rejected
+                    if (sub.getPaymentScreenshotUrl() != null && !sub.getPaymentScreenshotUrl().isEmpty()) {
+                        filtered.add(sub);
+                    }
                     break;
                 case "active":
                     // `scheduled` belongs here, not in "other": the customer has
@@ -286,6 +290,7 @@ public class CookSubscribersActivity extends AppCompatActivity {
 
     /**
      * Renders payment proofs in a visually appealing grid layout with images
+     * Shows ALL payment screenshots: pending review, verified, and rejected
      */
     private void renderPaymentProofsGrid(List<SubscriptionResponse.Subscription> subscriptions, LayoutInflater inflater) {
         for (SubscriptionResponse.Subscription sub : subscriptions) {
@@ -295,6 +300,8 @@ public class CookSubscribersActivity extends AppCompatActivity {
             TextView tvCustomerName = card.findViewById(R.id.tvCustomerName);
             TextView tvPlanName = card.findViewById(R.id.tvPlanName);
             TextView tvSubmittedDate = card.findViewById(R.id.tvSubmittedDate);
+            TextView tvStatusBadge = card.findViewById(R.id.tvStatusBadge);
+            LinearLayout layoutActionButtons = card.findViewById(R.id.layoutActionButtons);
             MaterialButton btnVerifyProof = card.findViewById(R.id.btnVerifyProof);
             MaterialButton btnRejectProof = card.findViewById(R.id.btnRejectProof);
 
@@ -304,6 +311,26 @@ public class CookSubscribersActivity extends AppCompatActivity {
             
             if (sub.getCreatedAt() != null) {
                 tvSubmittedDate.setText("Submitted: " + DeliveryDateUtils.formatLongDate(sub.getCreatedAt()));
+            }
+
+            // Set status badge based on payment status
+            String paymentStatus = sub.getPaymentStatus();
+            if ("verified".equals(paymentStatus)) {
+                tvStatusBadge.setText("Verified");
+                tvStatusBadge.setBackgroundResource(R.drawable.status_chip_delivered);
+                tvStatusBadge.setTextColor(getColor(R.color.status_delivered_text));
+                layoutActionButtons.setVisibility(View.GONE); // Hide buttons for verified
+            } else if ("rejected".equals(paymentStatus)) {
+                tvStatusBadge.setText("Rejected");
+                tvStatusBadge.setBackgroundColor(0xFFEF4444); // Red background
+                tvStatusBadge.setTextColor(0xFFFFFFFF); // White text
+                layoutActionButtons.setVisibility(View.GONE); // Hide buttons for rejected
+            } else {
+                // submitted or pending review
+                tvStatusBadge.setText("Pending Review");
+                tvStatusBadge.setBackgroundResource(R.drawable.status_chip_preparing);
+                tvStatusBadge.setTextColor(getColor(R.color.status_preparing_text));
+                layoutActionButtons.setVisibility(View.VISIBLE); // Show buttons for pending
             }
 
             // Load payment proof image
