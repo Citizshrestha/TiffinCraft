@@ -36,4 +36,52 @@
         <item name="android:windowLightStatusBar">true</item>
     </style>
 
+    <!-- Material DatePicker Theme -->
+    <style name="ThemeOverlay.App.DatePicker" parent="ThemeOverlay.Material3.MaterialCalendar">
+        <!-- Header background color -->
+        <item name="colorPrimary">@color/green_primary</item>
+        <item name="colorOnPrimary">@color/white</item>
+        
+        <!-- Selected date color -->
+        <item name="colorSecondary">@color/green_primary</item>
+        <item name="colorOnSecondary">@color/white</item>
+        
+        <!-- Surface/dialog colors -->
+        <item name="colorSurface">@color/white</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        
+        <!-- Typography -->
+        <item name="textAppearanceHeadline4">@style/TextAppearance.App.DatePicker.Headline</item>
+        <item name="textAppearanceHeadline5">@style/TextAppearance.App.DatePicker.MonthYear</item>
+        <item name="textAppearanceBody1">@style/TextAppearance.App.DatePicker.Day</item>
+        
+        <!-- Shape -->
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.App.DatePicker</item>
+    </style>
+
+    <!-- DatePicker Text Styles -->
+    <style name="TextAppearance.App.DatePicker.Headline" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="android:textColor">@color/white</item>
+        <item name="android:textSize">32sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.App.DatePicker.MonthYear" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.App.DatePicker.Day" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <!-- DatePicker Shape -->
+    <style name="ShapeAppearance.App.DatePicker" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+
 </resources>

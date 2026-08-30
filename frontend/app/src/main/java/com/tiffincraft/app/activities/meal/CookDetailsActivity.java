@@ -841,20 +841,39 @@ public class CookDetailsActivity extends AppCompatActivity {
         java.util.Calendar initial = java.util.Calendar.getInstance();
         initial.setTimeInMillis(tomorrowMillis);
 
-        android.app.DatePickerDialog picker = new android.app.DatePickerDialog(
-                this,
-                (view, year, month, dayOfMonth) -> {
-                    String chosen = String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, dayOfMonth);
-                    submitSubscription(plan, deliveryAddress, chosen);
-                },
-                initial.get(java.util.Calendar.YEAR),
-                initial.get(java.util.Calendar.MONTH),
-                initial.get(java.util.Calendar.DAY_OF_MONTH));
+        // Use Material Design 3 DatePicker for better UI/UX
+        com.google.android.material.datepicker.CalendarConstraints.Builder constraintsBuilder =
+                new com.google.android.material.datepicker.CalendarConstraints.Builder();
+        
+        // Set min date to tomorrow
+        constraintsBuilder.setStart(tomorrowMillis);
+        constraintsBuilder.setEnd(com.tiffincraft.app.utils.DeliveryDateUtils.deviceMillisPlusDays(30));
+        constraintsBuilder.setOpenAt(tomorrowMillis);
+        
+        // Validator to only allow dates from tomorrow to 30 days ahead
+        com.google.android.material.datepicker.CalendarConstraints.DateValidator validator =
+                com.google.android.material.datepicker.DateValidatorPointForward.from(tomorrowMillis);
+        constraintsBuilder.setValidator(validator);
 
-        picker.setTitle("First delivery day");
-        picker.getDatePicker().setMinDate(todayMillis);
-        picker.getDatePicker().setMaxDate(com.tiffincraft.app.utils.DeliveryDateUtils.deviceMillisPlusDays(30));
-        picker.show();
+        com.google.android.material.datepicker.MaterialDatePicker<Long> picker =
+                com.google.android.material.datepicker.MaterialDatePicker.Builder.datePicker()
+                        .setTitleText("Select First Delivery Day")
+                        .setSelection(tomorrowMillis)
+                        .setCalendarConstraints(constraintsBuilder.build())
+                        .setTheme(R.style.ThemeOverlay_App_DatePicker)
+                        .build();
+
+        picker.addOnPositiveButtonClickListener(selection -> {
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            cal.setTimeInMillis(selection);
+            String chosen = String.format(Locale.US, "%04d-%02d-%02d",
+                    cal.get(java.util.Calendar.YEAR),
+                    cal.get(java.util.Calendar.MONTH) + 1,
+                    cal.get(java.util.Calendar.DAY_OF_MONTH));
+            submitSubscription(plan, deliveryAddress, chosen);
+        });
+
+        picker.show(getSupportFragmentManager(), "DATE_PICKER");
     }
 
     /**
