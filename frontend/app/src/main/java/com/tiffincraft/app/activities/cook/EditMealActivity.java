@@ -148,7 +148,7 @@ public class EditMealActivity extends AppCompatActivity {
         binding.btnSelectMealCategory.setOnClickListener(v -> showCategoryDialog());
 
         binding.chipVeg.setOnClickListener(v -> {
-            isVeg = true;
+            isVeg = !isVeg;  // Toggle between Veg and Non-Veg
             updateChipSelection();
         });
         binding.chipSpicy.setOnClickListener(v -> {
@@ -164,9 +164,18 @@ public class EditMealActivity extends AppCompatActivity {
 
     // ── Chip visuals ──────────────────────────────────────────────────────────
     private void updateChipSelection() {
-        binding.chipVeg.setBackground(ContextCompat.getDrawable(this, R.drawable.chip_selected_green));
-        binding.chipVeg.setTextColor(ContextCompat.getColor(this, R.color.dark_green));
+        // Veg chip
+        if (isVeg) {
+            binding.chipVeg.setText("Veg");
+            binding.chipVeg.setBackground(ContextCompat.getDrawable(this, R.drawable.chip_selected_green));
+            binding.chipVeg.setTextColor(ContextCompat.getColor(this, R.color.dark_green));
+        } else {
+            binding.chipVeg.setText("Non-Veg");
+            binding.chipVeg.setBackground(ContextCompat.getDrawable(this, R.drawable.chip_selected_red));
+            binding.chipVeg.setTextColor(ContextCompat.getColor(this, R.color.error));
+        }
 
+        // Spicy chip
         if (isSpicy) {
             binding.chipSpicy.setBackground(ContextCompat.getDrawable(this, R.drawable.chip_selected_green));
             binding.chipSpicy.setTextColor(ContextCompat.getColor(this, R.color.dark_green));

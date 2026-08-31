@@ -389,18 +389,34 @@ public class CustomerProfileActivity extends AppCompatActivity {
         }
 
         boolean isPaused = "paused".equals(activeSubscription.getStatus());
-        String[] options = { isPaused ? "Resume subscription" : "Pause subscription", "Cancel subscription" };
+        String[] options = {
+                "View & skip delivery days",
+                isPaused ? "Resume subscription" : "Pause subscription",
+                "Cancel subscription"
+        };
 
         new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
                 .setTitle("Manage Subscription")
                 .setItems(options, (dialog, which) -> {
                     if (which == 0) {
+                        openSubscriptionCalendar();
+                    } else if (which == 1) {
                         if (isPaused) resumeSubscription(); else pauseSubscription();
                     } else {
                         confirmCancelSubscription();
                     }
                 })
                 .show();
+    }
+
+    /** Same per-day schedule screen the My Subscriptions list opens. */
+    private void openSubscriptionCalendar() {
+        Intent intent = new Intent(this, SubscriptionCalendarActivity.class);
+        intent.putExtra(SubscriptionCalendarActivity.EXTRA_SUBSCRIPTION_ID, activeSubscription.getId());
+        if (activeSubscription.getPlan() != null) {
+            intent.putExtra(SubscriptionCalendarActivity.EXTRA_PLAN_NAME, activeSubscription.getPlan().getName());
+        }
+        startActivity(intent);
     }
 
     /** Submitted subscriptions can't upload again (see uploadSubscriptionScreenshot's

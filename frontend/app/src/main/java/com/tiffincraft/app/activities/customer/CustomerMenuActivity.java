@@ -254,7 +254,15 @@ public class CustomerMenuActivity extends AppCompatActivity {
                 if (!meal.isVegetarian() && !meal.isVegan()) displayedMeals.add(meal);
             }
         } else if (chipId == R.id.chipPopular) {
-            displayedMeals.addAll(allMeals);
+            // Popular: Only show meals with cook rating >= 4.0 AND that have reviews
+            for (Meal meal : allMeals) {
+                double rating = meal.getCookRating() != null ? meal.getCookRating() : 0;
+                // Assuming cook has reviews if rating > 0 (in real app, we'd need a review_count field)
+                if (rating >= 4.0 && rating > 0) {
+                    displayedMeals.add(meal);
+                }
+            }
+            // Sort by rating descending
             Collections.sort(displayedMeals, (a, b) -> {
                 double ratingA = a.getCookRating() != null ? a.getCookRating() : 0;
                 double ratingB = b.getCookRating() != null ? b.getCookRating() : 0;
