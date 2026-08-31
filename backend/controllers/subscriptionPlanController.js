@@ -417,10 +417,15 @@ export const removeMealFromPlans = async (req, res) => {
             [mealId, cookId]
         );
 
+        await db.promise().query(
+            "UPDATE meals SET in_subscription = FALSE WHERE id = ? AND cook_id = ?",
+            [mealId, cookId]
+        );
+
         if (affectedPlans.length === 0) {
             return res.status(200).json({
                 success: true,
-                message: "This meal is not in any subscription plans.",
+                message: "Meal removed from subscription availability.",
                 meal_name: meals[0].name,
                 removed_from_plans: []
             });

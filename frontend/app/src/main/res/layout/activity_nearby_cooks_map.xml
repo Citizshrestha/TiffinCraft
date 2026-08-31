@@ -85,11 +85,10 @@
                     android:layout_width="wrap_content"
                     android:layout_height="34dp"
                     android:text="5 km"
-                    android:textColor="@color/chip_text_selector"
-                    app:chipBackgroundColor="@color/chip_background_selector"
+                    android:textColor="@color/chip_text_color"
+                    app:chipBackgroundColor="@color/chip_bg_color"
                     app:chipCornerRadius="17dp"
-                    app:chipStrokeColor="@color/chip_stroke_selector"
-                    app:chipStrokeWidth="1dp" />
+                    app:chipStrokeWidth="0dp" />
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chip10km"
@@ -98,35 +97,32 @@
                     android:layout_height="34dp"
                     android:checked="true"
                     android:text="10 km"
-                    android:textColor="@color/chip_text_selector"
-                    app:chipBackgroundColor="@color/chip_background_selector"
+                    android:textColor="@color/chip_text_color"
+                    app:chipBackgroundColor="@color/chip_bg_color"
                     app:chipCornerRadius="17dp"
-                    app:chipStrokeColor="@color/chip_stroke_selector"
-                    app:chipStrokeWidth="1dp" />
+                    app:chipStrokeWidth="0dp" />
 
                 <com.google.android.material.chip.Chip
-                    android:id="@+id/chip25km"
+                    android:id="@+id/chip15km"
                     style="@style/Widget.MaterialComponents.Chip.Choice"
                     android:layout_width="wrap_content"
                     android:layout_height="34dp"
-                    android:text="25 km"
-                    android:textColor="@color/chip_text_selector"
-                    app:chipBackgroundColor="@color/chip_background_selector"
+                    android:text="15 km"
+                    android:textColor="@color/chip_text_color"
+                    app:chipBackgroundColor="@color/chip_bg_color"
                     app:chipCornerRadius="17dp"
-                    app:chipStrokeColor="@color/chip_stroke_selector"
-                    app:chipStrokeWidth="1dp" />
+                    app:chipStrokeWidth="0dp" />
 
                 <com.google.android.material.chip.Chip
-                    android:id="@+id/chip50km"
+                    android:id="@+id/chip20km"
                     style="@style/Widget.MaterialComponents.Chip.Choice"
                     android:layout_width="wrap_content"
                     android:layout_height="34dp"
-                    android:text="50 km"
-                    android:textColor="@color/chip_text_selector"
-                    app:chipBackgroundColor="@color/chip_background_selector"
+                    android:text="20 km"
+                    android:textColor="@color/chip_text_color"
+                    app:chipBackgroundColor="@color/chip_bg_color"
                     app:chipCornerRadius="17dp"
-                    app:chipStrokeColor="@color/chip_stroke_selector"
-                    app:chipStrokeWidth="1dp" />
+                    app:chipStrokeWidth="0dp" />
             </com.google.android.material.chip.ChipGroup>
         </HorizontalScrollView>
     </LinearLayout>

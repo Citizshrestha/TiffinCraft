@@ -775,7 +775,7 @@ export const updateBankDetails = async (req, res) => {
 // GET /api/cook/nearby?lat=&lng=&radius_km=
 // Customer-side discovery: approved, active, non-holiday cooks with saved
 // coordinates within radius_km of the given point, nearest first.
-const MAX_RADIUS_KM = 50;       // server-side cap — prevents unbounded full-table Haversine scans
+const MAX_RADIUS_KM = 20;       // server-side cap — matches the map screen's largest radius tab
 const DEFAULT_RADIUS_KM = 10;
 
 export const getNearbyCooks = async (req, res) => {

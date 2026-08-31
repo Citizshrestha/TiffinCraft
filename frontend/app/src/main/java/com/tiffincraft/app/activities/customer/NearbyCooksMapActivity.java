@@ -62,6 +62,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import io.socket.emitter.Emitter;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -214,13 +215,32 @@ public class NearbyCooksMapActivity extends AppCompatActivity implements OnMapRe
             int id = checkedIds.get(0);
             if (id == R.id.chip5km) radiusKm = 5.0;
             else if (id == R.id.chip10km) radiusKm = 10.0;
-            else if (id == R.id.chip25km) radiusKm = 25.0;
-            else if (id == R.id.chip50km) radiusKm = 50.0;
+            else if (id == R.id.chip15km) radiusKm = 15.0;
+            else if (id == R.id.chip20km) radiusKm = 20.0;
+
+            highlightSelectedChip(group);
 
             if (myLat != null && myLng != null) {
                 loadNearbyCooks(myLat, myLng, true);
             }
         });
+
+        // "10 km" ships pre-checked in the layout — style it immediately so
+        // the selected tab is obvious before the first tap.
+        highlightSelectedChip(chipGroupRadius);
+    }
+
+    /** Bold the label of the selected radius chip so the active tab pops. */
+    private void highlightSelectedChip(ChipGroup group) {
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (child instanceof Chip) {
+                Chip chip = (Chip) child;
+                chip.setTypeface(null, chip.isChecked()
+                        ? android.graphics.Typeface.BOLD
+                        : android.graphics.Typeface.NORMAL);
+            }
+        }
     }
 
     @Override
@@ -372,12 +392,7 @@ public class NearbyCooksMapActivity extends AppCompatActivity implements OnMapRe
         markerCooks.clear();
 
         LatLng myPosition = new LatLng(lat, lng);
-        map.addCircle(new CircleOptions()
-                .center(myPosition)
-                .radius(radiusKm * 1000)
-                .strokeColor(0x334CAF50)
-                .fillColor(0x1A4CAF50)
-                .strokeWidth(2f));
+        drawRadiusCircle(myPosition);
         map.addMarker(new MarkerOptions()
                 .position(myPosition)
                 .title("You")
@@ -389,13 +404,36 @@ public class NearbyCooksMapActivity extends AppCompatActivity implements OnMapRe
             // Backend already falls back to the nearest cooks regardless of
             // radius — an empty list means no cooks exist anywhere yet.
             rvCookCarousel.setVisibility(View.GONE);
-            map.animateCamera(CameraUpdateFactory.newLatLngZoom(myPosition, 13f));
+            fitCameraToRadius(myPosition);
             showEmptyState();
             return;
         }
 
+        // Strict radius enforcement: the backend's "never empty" fallback can
+        // return cooks beyond the selected radius, so filter here to guarantee
+        // the pins on the map match the selected km tab exactly.
+        List<CookProfile> inRange = new ArrayList<>();
+        for (CookProfile cook : cooks) {
+            if (!cook.hasCoordinates()) continue; // defense in depth; backend already filters NULLs
+            Double distance = cook.getDistanceKm();
+            if (distance == null || distance <= radiusKm) {
+                inRange.add(cook);
+            }
+        }
+
+        if (inRange.isEmpty()) {
+            // Keep the map (circle + You pin) visible and just tell the user
+            // why there are no pins, instead of covering it with an overlay.
+            rvCookCarousel.setVisibility(View.GONE);
+            cardLegend.setVisibility(View.GONE);
+            tvResultCount.setText("No cooks within " + formatRadius(radiusKm) + " — try a larger radius");
+            cardResultCount.setVisibility(View.VISIBLE);
+            fitCameraToRadius(myPosition);
+            return;
+        }
+
         rvCookCarousel.setVisibility(View.VISIBLE);
-        rvCookCarousel.setAdapter(new MapCookCarouselAdapter(cooks, cook -> {
+        rvCookCarousel.setAdapter(new MapCookCarouselAdapter(inRange, cook -> {
             if (cook.hasCoordinates()) {
                 map.animateCamera(CameraUpdateFactory.newLatLngZoom(
                         new LatLng(cook.getLatitude(), cook.getLongitude()), 16f));
@@ -403,12 +441,8 @@ public class NearbyCooksMapActivity extends AppCompatActivity implements OnMapRe
             CookMapBottomSheet.newInstance(cook).show(getSupportFragmentManager(), "cook_map_sheet");
         }));
 
-        LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
-        boundsBuilder.include(myPosition);
-
-        for (CookProfile cook : cooks) {
-            if (!cook.hasCoordinates()) continue; // defense in depth; backend already filters NULLs
-            LatLng position = offsetIfColliding(cook, cooks);
+        for (CookProfile cook : inRange) {
+            LatLng position = offsetIfColliding(cook, inRange);
             Marker marker = map.addMarker(new MarkerOptions()
                     .position(position)
                     .title(cook.getKitchenName())
@@ -420,27 +454,53 @@ public class NearbyCooksMapActivity extends AppCompatActivity implements OnMapRe
             if (marker != null) {
                 markerCooks.put(marker, cook);
             }
-            boundsBuilder.include(position);
         }
 
-        // Backend fallback: results sorted by distance, so if even the nearest
-        // one is outside the radius, all of them came from the fallback query.
-        Double nearest = cooks.get(0).getDistanceKm();
-        boolean beyondRadius = nearest != null && nearest > radiusKm;
-        if (beyondRadius) {
-            tvResultCount.setText("None within " + formatRadius(radiusKm) + " — showing nearest");
-        } else {
-            tvResultCount.setText(cooks.size() == 1 ? "1 cook nearby" : cooks.size() + " cooks nearby");
-        }
+        tvResultCount.setText(inRange.size() == 1 ? "1 cook within " + formatRadius(radiusKm)
+                : inRange.size() + " cooks within " + formatRadius(radiusKm));
         cardResultCount.setVisibility(View.VISIBLE);
         cardLegend.setVisibility(View.VISIBLE);
 
+        fitCameraToRadius(myPosition);
+    }
+
+    /**
+     * Draws the selected-km ring around the customer's GPS position as two
+     * stacked circles: a wide, very faint glow plus a crisper inner edge, so
+     * the boundary reads clearly on the styled map without hiding streets.
+     */
+    private void drawRadiusCircle(LatLng center) {
+        map.addCircle(new CircleOptions()
+                .center(center)
+                .radius(radiusKm * 1000)
+                .strokeColor(0x264CAF50)
+                .strokeWidth(10f)
+                .fillColor(0x0D4CAF50));
+        map.addCircle(new CircleOptions()
+                .center(center)
+                .radius(radiusKm * 1000)
+                .strokeColor(0x9943A047)
+                .strokeWidth(2.5f)
+                .fillColor(0x1A4CAF50)
+                .zIndex(0.5f));
+    }
+
+    /**
+     * Frames the whole radius circle (edge to edge) so the user always sees
+     * the selected km ring with their GPS pin at its center — zooming out for
+     * 50 km and in for 5 km whenever the tab changes.
+     */
+    private void fitCameraToRadius(LatLng center) {
+        double latDelta = radiusKm / 111.0;
+        double lngDelta = radiusKm / (111.32 * Math.cos(Math.toRadians(center.latitude)));
         try {
-            LatLngBounds bounds = boundsBuilder.build();
-            map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 120));
+            LatLngBounds bounds = new LatLngBounds(
+                    new LatLng(center.latitude - latDelta, center.longitude - lngDelta),
+                    new LatLng(center.latitude + latDelta, center.longitude + lngDelta));
+            map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 60));
         } catch (IllegalStateException e) {
-            // Bounds needs 2+ distinct points; fall back to a simple zoom.
-            map.animateCamera(CameraUpdateFactory.newLatLngZoom(myPosition, 13f));
+            // Degenerate projection (e.g. polar latitudes) — fall back to zoom.
+            map.animateCamera(CameraUpdateFactory.newLatLngZoom(center, 13f));
         }
     }
 

@@ -82,46 +82,46 @@
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipAll"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
                         android:layout_width="wrap_content"
                         android:layout_height="36dp"
                         android:text="All"
-                        android:textColor="@color/chip_text_selector"
-                        android:checkable="true"
+                        android:textColor="@color/chip_text_color"
                         android:checked="true"
-                        app:chipBackgroundColor="@color/chip_background_selector"
+                        app:chipBackgroundColor="@color/chip_bg_color"
                         app:chipCornerRadius="10dp"
                         app:chipStrokeWidth="0dp" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipActive"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
                         android:layout_width="wrap_content"
                         android:layout_height="36dp"
                         android:text="Active"
-                        android:textColor="@color/chip_text_selector"
-                        android:checkable="true"
-                        app:chipBackgroundColor="@color/chip_background_selector"
+                        android:textColor="@color/chip_text_color"
+                        app:chipBackgroundColor="@color/chip_bg_color"
                         app:chipCornerRadius="10dp"
                         app:chipStrokeWidth="0dp" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipCompleted"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
                         android:layout_width="wrap_content"
                         android:layout_height="36dp"
                         android:text="Completed"
-                        android:textColor="@color/chip_text_selector"
-                        android:checkable="true"
-                        app:chipBackgroundColor="@color/chip_background_selector"
+                        android:textColor="@color/chip_text_color"
+                        app:chipBackgroundColor="@color/chip_bg_color"
                         app:chipCornerRadius="10dp"
                         app:chipStrokeWidth="0dp" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipCancelled"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
                         android:layout_width="wrap_content"
                         android:layout_height="36dp"
                         android:text="Cancelled"
-                        android:textColor="@color/chip_text_selector"
-                        android:checkable="true"
-                        app:chipBackgroundColor="@color/chip_background_selector"
+                        android:textColor="@color/chip_text_color"
+                        app:chipBackgroundColor="@color/chip_bg_color"
                         app:chipCornerRadius="10dp"
                         app:chipStrokeWidth="0dp" />
                 </com.google.android.material.chip.ChipGroup>

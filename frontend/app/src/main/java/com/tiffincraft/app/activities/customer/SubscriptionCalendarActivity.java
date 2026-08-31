@@ -4,12 +4,14 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
@@ -542,13 +544,21 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
     }
 
     private void confirmMarkReceived(SubscriptionCalendarResponse.Day day) {
-        new MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
                 .setTitle("Got " + DeliveryDateUtils.formatLongDate(day.getDate()) + "'s meal?")
                 .setMessage("Confirming closes this day as delivered and lets your cook know it arrived. "
                         + "It can't be undone here, so only confirm if you actually received the meal.")
                 .setPositiveButton("Yes, I got it", (d, w) -> postDayHandshake(day, false))
-                .setNegativeButton("Not yet", null)
-                .show();
+                .setNegativeButton("Not yet", null);
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
+        
+        // Style the "Not yet" button with red color
+        Button negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+        if (negativeButton != null) {
+            negativeButton.setTextColor(getResources().getColor(R.color.error, null));
+        }
     }
 
     private void postDayHandshake(SubscriptionCalendarResponse.Day day, boolean sent) {

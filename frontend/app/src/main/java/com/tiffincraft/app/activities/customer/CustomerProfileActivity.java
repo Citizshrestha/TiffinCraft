@@ -375,7 +375,7 @@ public class CustomerProfileActivity extends AppCompatActivity {
                     "rejected".equals(activeSubscription.getPaymentStatus()) ? "Re-upload payment proof" : "Complete payment",
                     "Cancel subscription"
             };
-            new MaterialAlertDialogBuilder(this)
+            new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
                     .setTitle("Manage Subscription")
                     .setItems(options, (dialog, which) -> {
                         if (which == 0) {
@@ -391,7 +391,7 @@ public class CustomerProfileActivity extends AppCompatActivity {
         boolean isPaused = "paused".equals(activeSubscription.getStatus());
         String[] options = { isPaused ? "Resume subscription" : "Pause subscription", "Cancel subscription" };
 
-        new MaterialAlertDialogBuilder(this)
+        new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
                 .setTitle("Manage Subscription")
                 .setItems(options, (dialog, which) -> {
                     if (which == 0) {

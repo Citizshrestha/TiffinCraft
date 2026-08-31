@@ -126,41 +126,63 @@ public class OtpActivity extends AppCompatActivity {
                 .enqueue(new Callback<LoginResponse>() {
             @Override
             public void onResponse(Call<LoginResponse> call, Response<LoginResponse> response) {
+                // Always re-enable button and reset text
                 btnVerify.setEnabled(true);
                 btnVerify.setText(R.string.otp_verify_btn);
 
                 if (response.isSuccessful() && response.body() != null) {
                     LoginResponse loginResponse = response.body();
 
-                    SessionManager sessionManager = new SessionManager(OtpActivity.this);
-                    sessionManager.saveSession(
-                            loginResponse.getToken(),
-                            loginResponse.getUser().getRole(),
-                            loginResponse.getUser().getId(),
-                            loginResponse.getUser().getFullName()
-                    );
-                    
-                    // Save profile image if present
-                    if (loginResponse.getUser().getProfileImage() != null) {
-                        sessionManager.saveProfileImage(loginResponse.getUser().getProfileImage());
-                    }
+                    // Check if the response indicates success
+                    if (loginResponse.isSuccess() && loginResponse.getToken() != null) {
+                        SessionManager sessionManager = new SessionManager(OtpActivity.this);
+                        sessionManager.saveSession(
+                                loginResponse.getToken(),
+                                loginResponse.getUser().getRole(),
+                                loginResponse.getUser().getId(),
+                                loginResponse.getUser().getFullName()
+                        );
+                        
+                        // Save profile image if present
+                        if (loginResponse.getUser().getProfileImage() != null) {
+                            sessionManager.saveProfileImage(loginResponse.getUser().getProfileImage());
+                        }
 
-                    Toast.makeText(OtpActivity.this,
-                            R.string.otp_verified_success, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(OtpActivity.this,
+                                "Email verified successfully!", Toast.LENGTH_SHORT).show();
 
-                    Intent intent;
-                    if ("cook".equals(loginResponse.getUser().getRole())) {
-                        intent = new Intent(OtpActivity.this, CookHomeActivity.class);
+                        Intent intent;
+                        if ("cook".equals(loginResponse.getUser().getRole())) {
+                            intent = new Intent(OtpActivity.this, CookHomeActivity.class);
+                        } else {
+                            intent = new Intent(OtpActivity.this, CustomerHomeActivity.class);
+                        }
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                        finish();
                     } else {
-                        intent = new Intent(OtpActivity.this, CustomerHomeActivity.class);
+                        // Success flag is false or token is missing
+                        String errorMsg = loginResponse.getMessage() != null 
+                                ? loginResponse.getMessage() 
+                                : getString(R.string.otp_invalid);
+                        Toast.makeText(OtpActivity.this, errorMsg, Toast.LENGTH_LONG).show();
                     }
-                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    startActivity(intent);
-                    finish();
-
                 } else {
-                    Toast.makeText(OtpActivity.this,
-                            R.string.otp_invalid, Toast.LENGTH_SHORT).show();
+                    // HTTP error or null body
+                    String errorMsg = "Invalid OTP. Please try again.";
+                    if (response.errorBody() != null) {
+                        try {
+                            String errorBody = response.errorBody().string();
+                            // Try to parse error message from response
+                            if (errorBody.contains("message")) {
+                                org.json.JSONObject errorJson = new org.json.JSONObject(errorBody);
+                                errorMsg = errorJson.optString("message", errorMsg);
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    Toast.makeText(OtpActivity.this, errorMsg, Toast.LENGTH_LONG).show();
                 }
             }
 
@@ -169,7 +191,8 @@ public class OtpActivity extends AppCompatActivity {
                 btnVerify.setEnabled(true);
                 btnVerify.setText(R.string.otp_verify_btn);
                 Toast.makeText(OtpActivity.this,
-                        R.string.network_error, Toast.LENGTH_SHORT).show();
+                        "Network error. Please check your connection and try again.", 
+                        Toast.LENGTH_LONG).show();
             }
         });
     }

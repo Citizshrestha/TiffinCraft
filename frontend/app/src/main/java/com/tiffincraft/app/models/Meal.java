@@ -67,7 +67,7 @@ public class Meal {
     @SerializedName("cook_rating")
     private Double cookRating;
 
-    @SerializedName("is_in_subscription")
+    @SerializedName(value = "is_in_subscription", alternate = {"in_subscription"})
     private boolean isInSubscription;
 
     // Getters and setters

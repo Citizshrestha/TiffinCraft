@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Checked: dark forest green text on the white pill -->
-    <item android:color="#1B5E20" android:state_checked="true" />
-    <!-- Unchecked: white text on the translucent pill -->
-    <item android:color="#FFFFFF" />
-</selector>

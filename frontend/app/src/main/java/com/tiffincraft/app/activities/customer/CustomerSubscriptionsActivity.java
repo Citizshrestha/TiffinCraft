@@ -395,7 +395,7 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
      */
     private void showManageDialog(SubscriptionResponse.Subscription sub) {
         String[] options = { "View & skip delivery days", "Pause subscription", "Cancel subscription" };
-        new MaterialAlertDialogBuilder(this)
+        new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
                 .setTitle("Manage Subscription")
                 .setItems(options, (dialog, which) -> {
                     if (which == 0) openCalendar(sub);
