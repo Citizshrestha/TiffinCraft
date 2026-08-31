@@ -415,7 +415,7 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         wrapper.setPadding(pad, pad / 2, pad, 0);
         wrapper.addView(input);
 
-        new MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
                 .setTitle("Different meal on " + pretty + "?")
                 .setMessage("Tell the cook what you'd like instead. They'll accept or decline it, "
                         + "and you'll get the usual plan meal if they can't do it.")
@@ -428,8 +428,16 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
                     }
                     requestCustomMeal(day, note);
                 })
-                .setNegativeButton("Cancel", null)
-                .show();
+                .setNegativeButton("Cancel", null);
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
+        
+        // Style the "Cancel" button with red color
+        Button negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+        if (negativeButton != null) {
+            negativeButton.setTextColor(getResources().getColor(R.color.error, null));
+        }
     }
 
     private void requestCustomMeal(SubscriptionCalendarResponse.Day day, String note) {
