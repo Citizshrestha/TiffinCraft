@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Checked: green outline reinforces the active white pill -->
+    <item android:color="#4CAF50" android:state_checked="true" />
+    <!-- Unchecked: faint white outline on the green header -->
+    <item android:color="#40FFFFFF" />
+</selector>

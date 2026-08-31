@@ -532,7 +532,7 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         });
     }
 
-    private void confirmMarkSent(SubscriptionCalendarActivity.Day day) {
+    private void confirmMarkSent(SubscriptionCalendarResponse.Day day) {
         new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
                 .setTitle("Mark " + DeliveryDateUtils.formatLongDate(day.getDate()) + " as sent?")
                 .setMessage("Customer will be notified. Only confirm once the meal has left.")
