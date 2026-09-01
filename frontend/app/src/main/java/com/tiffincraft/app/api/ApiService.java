@@ -346,7 +346,7 @@ public interface ApiService {
     @PUT("chat/conversations/{conversationId}/messages/{messageId}")
     Call<SendChatMessageResponse> editChatMessage(@Header("Authorization") String token, @Path("conversationId") int conversationId, @Path("messageId") int messageId, @Body EditChatMessageRequest request);
 
-    @POST("chat/conversations/{conversationId}/messages/delete")
+    @HTTP(method = "DELETE", path = "chat/conversations/{conversationId}/messages", hasBody = true)
     Call<RegisterResponse> deleteChatMessages(@Header("Authorization") String token, @Path("conversationId") int conversationId, @Body DeleteChatMessagesRequest request);
 
     @Multipart
