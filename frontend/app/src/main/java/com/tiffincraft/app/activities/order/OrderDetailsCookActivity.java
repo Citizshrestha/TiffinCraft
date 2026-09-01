@@ -5,6 +5,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -12,6 +13,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
@@ -398,14 +400,20 @@ public class OrderDetailsCookActivity extends AppCompatActivity {
         if (currentOrder == null) return;
         String amount = String.format(Locale.getDefault(), "₹%.0f", currentOrder.getTotalAmount());
 
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("Confirm you received the payment?")
-                .setMessage("Only do this if " + amount + " has actually landed in your account — check the "
-                        + "amount, the date and the sender name on the screenshot against your own records.\n\n"
-                        + "Verifying confirms the order.")
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
+                .setTitle("Confirm payment received?")
+                .setMessage("Verify only if " + amount + " is in your account. Check amount, date, and sender name against the screenshot.")
                 .setPositiveButton("Yes, payment received", (d, w) -> sendDecision(true, null))
-                .setNegativeButton("Not yet", null)
-                .show();
+                .setNegativeButton("Not yet", null);
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
+        
+        // Style the "Not yet" button with red color
+        Button negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+        if (negativeButton != null) {
+            negativeButton.setTextColor(getResources().getColor(R.color.error, null));
+        }
     }
 
     /**

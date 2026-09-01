@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -13,6 +14,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
@@ -227,18 +229,24 @@ public class VerifyPaymentProofActivity extends AppCompatActivity {
     private void confirmVerify() {
         if (current == null) return;
         Double total = current.getTotalAmount();
-        String amount = total != null ? "Rs. " + SubscriptionRequestsActivity.fmt(total) : "the plan amount";
+        String amount = total != null ? "₹" + SubscriptionRequestsActivity.fmt(total) : "the amount";
 
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("Confirm you received the payment?")
-                .setMessage("Only do this if " + amount + " has actually landed in your account — "
-                        + "check the amount, the date and the sender name on the screenshot against "
-                        + "your own records.\n\nVerifying starts the subscription: deliveries run from "
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
+                .setTitle("Confirm payment received?")
+                .setMessage("Verify only if " + amount + " is in your account. Check amount, date, and sender name.\n\nThis starts the subscription from "
                         + DeliveryDateUtils.formatShortDate(current.getStartDate())
-                        + " for " + current.getDurationDays() + " calendar days.")
+                        + " for " + current.getDurationDays() + " days.")
                 .setPositiveButton("Yes, payment received", (d, w) -> sendDecision("verify", null))
-                .setNegativeButton("Not yet", null)
-                .show();
+                .setNegativeButton("Not yet", null);
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
+        
+        // Style the "Not yet" button with red color
+        Button negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+        if (negativeButton != null) {
+            negativeButton.setTextColor(getResources().getColor(R.color.error, null));
+        }
     }
 
     /**
