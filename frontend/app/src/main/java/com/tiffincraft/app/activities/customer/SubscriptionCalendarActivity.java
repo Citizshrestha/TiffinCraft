@@ -106,9 +106,10 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         progressLoading.setVisibility(days.isEmpty() ? View.VISIBLE : View.GONE);
         String token = "Bearer " + sessionManager.getToken();
 
-        // Remaining plan, capped at 62 days (server max). Clamped to start/end.
-        java.time.LocalDate from = java.time.LocalDate.now();
-        java.time.LocalDate to = from.plusDays(61);
+        // Load calendar from 30 days before today to cover past deliveries in current month
+        // This ensures we show August deliveries even when viewing in September
+        java.time.LocalDate from = java.time.LocalDate.now().minusDays(30);
+        java.time.LocalDate to = java.time.LocalDate.now().plusDays(61);
         apiService.getSubscriptionCalendar(token, subscriptionId, from.toString(), to.toString())
                 .enqueue(new Callback<SubscriptionCalendarResponse>() {
             @Override
