@@ -179,15 +179,15 @@
                             <FrameLayout
                                 android:layout_width="44dp"
                                 android:layout_height="44dp"
-                                android:background="@drawable/circle_icon_green">
+                                android:background="@drawable/circle_bg_amber_light">
 
                                 <ImageView
                                     android:layout_width="20dp"
                                     android:layout_height="20dp"
                                     android:layout_gravity="center"
                                     android:contentDescription="Today's Orders"
-                                    android:src="@drawable/ic_bag"
-                                    android:tint="#4CAF50" />
+                                    android:src="@drawable/ic_receipt"
+                                    android:tint="#F57C00" />
                             </FrameLayout>
 
                             <TextView
@@ -257,7 +257,7 @@
                             <FrameLayout
                                 android:layout_width="44dp"
                                 android:layout_height="44dp"
-                                android:background="@drawable/circle_icon_purple">
+                                android:background="@drawable/circle_bg_purple_light">
 
                                 <ImageView
                                     android:layout_width="20dp"
@@ -343,7 +343,7 @@
                             <FrameLayout
                                 android:layout_width="44dp"
                                 android:layout_height="44dp"
-                                android:background="@drawable/circle_icon_orange">
+                                android:background="@drawable/circle_bg_green_light">
 
                                 <ImageView
                                     android:layout_width="20dp"
@@ -351,7 +351,7 @@
                                     android:layout_gravity="center"
                                     android:contentDescription="Today's Earnings"
                                     android:src="@drawable/ic_wallet"
-                                    android:tint="#FB8C00" />
+                                    android:tint="#43A047" />
                             </FrameLayout>
 
                             <TextView
@@ -404,7 +404,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="4dp"
                                 android:text="This Week"
-                                android:textColor="#FB8C00"
+                                android:textColor="#43A047"
                                 android:textSize="11sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
@@ -431,7 +431,7 @@
                             <FrameLayout
                                 android:layout_width="44dp"
                                 android:layout_height="44dp"
-                                android:background="@drawable/circle_icon_blue">
+                                android:background="@drawable/circle_bg_blue_light">
 
                                 <ImageView
                                     android:layout_width="20dp"
@@ -659,7 +659,7 @@
                             android:layout_height="22dp"
                             android:contentDescription="Manage Meals"
                             android:src="@drawable/ic_manage_meals"
-                            android:tint="#4CAF50" />
+                            android:tint="#F57C00" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -701,7 +701,7 @@
                             android:layout_height="22dp"
                             android:contentDescription="View Orders"
                             android:src="@drawable/ic_view_orders"
-                            android:tint="#4CAF50" />
+                            android:tint="#F57C00" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -743,7 +743,7 @@
                             android:layout_height="22dp"
                             android:contentDescription="Subscriptions"
                             android:src="@drawable/ic_subscriptions_check"
-                            android:tint="#4CAF50" />
+                            android:tint="#7E57C2" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -751,8 +751,10 @@
                             android:layout_marginTop="6dp"
                             android:text="Subscriptions"
                             android:textColor="#333333"
-                            android:textSize="9.5sp"
-                            android:textStyle="bold" />
+                            android:textSize="8.5sp"
+                            android:textStyle="bold"
+                            android:maxLines="1"
+                            android:ellipsize="none" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 

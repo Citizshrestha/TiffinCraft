@@ -332,10 +332,6 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
         filterMeals();
         Log.d(TAG, "Adapter updated with filtered meals");
         }
-        
-        Toast.makeText(this, 
-            "Loaded " + (mealsList != null ? mealsList.size() : 0) + " meals", 
-            Toast.LENGTH_SHORT).show();
     }
     
     private void showNoMealsMessage() {

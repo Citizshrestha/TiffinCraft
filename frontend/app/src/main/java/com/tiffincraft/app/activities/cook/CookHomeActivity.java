@@ -706,6 +706,7 @@ public class CookHomeActivity extends AppCompatActivity {
 
         LineDataSet dataSet = new LineDataSet(entries, "Earnings");
         dataSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+        dataSet.setCubicIntensity(0.15f); // Reduce intensity to prevent gaps in fill
         dataSet.setColor(green);
         dataSet.setLineWidth(2.5f);
         dataSet.setDrawCircles(true);

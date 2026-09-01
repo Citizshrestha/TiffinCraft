@@ -351,13 +351,13 @@ export const getCookDashboard = async (req, res) => {
             todayOrdersChange = 100;
         }
 
-        // Get today's earnings (exclude cancelled orders)
+        // Get today's earnings (only delivered orders count as earned revenue)
         const [[todayEarnings]] = await db.promise().query(
             `SELECT COALESCE(SUM(total_amount), 0) as amount
              FROM orders
              WHERE cook_id = ?
              AND DATE(created_at) = CURDATE()
-             AND status != 'cancelled'`,
+             AND status = 'delivered'`,
             [cookId]
         );
 
@@ -367,7 +367,7 @@ export const getCookDashboard = async (req, res) => {
              FROM orders
              WHERE cook_id = ?
              AND DATE(created_at) = CURDATE() - INTERVAL 1 DAY
-             AND status != 'cancelled'`,
+             AND status = 'delivered'`,
             [cookId]
         );
 
