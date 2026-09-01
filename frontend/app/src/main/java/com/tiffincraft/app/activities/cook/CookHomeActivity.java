@@ -396,7 +396,11 @@ public class CookHomeActivity extends AppCompatActivity {
             DecimalFormat formatter = new DecimalFormat("#,##0");
             String earnings = "₹" + formatter.format(stats.getTodayEarnings().getAmount());
             tvTodayEarnings.setText(earnings);
-            bindChangeChip(R.id.tvEarningsChange, stats.getTodayEarnings().getChangePercentage(), "%");
+            // Hide percentage change for earnings - it's confusing for users
+            TextView tvEarningsChange = findViewById(R.id.tvEarningsChange);
+            if (tvEarningsChange != null) {
+                tvEarningsChange.setVisibility(View.GONE);
+            }
             bindVsLabel(R.id.tvEarningsVsLabel, stats.getTodayEarnings().getVsLabel());
         }
 
