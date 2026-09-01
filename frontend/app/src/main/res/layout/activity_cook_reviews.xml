@@ -40,37 +40,41 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="2dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="3dp"
         app:layout_constraintTop_toBottomOf="@id/toolbar">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="20dp"
+            android:background="@android:drawable/dialog_holo_light_frame">
 
             <!-- Average Rating -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:paddingBottom="12dp">
 
                 <TextView
                     android:id="@+id/tvAverageRating"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="4.5"
+                    android:text="5.0"
                     android:textColor="@color/text_primary"
-                    android:textSize="48sp"
-                    android:textStyle="bold" />
+                    android:textSize="56sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium" />
 
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:orientation="vertical">
+                    android:layout_marginStart="20dp"
+                    android:orientation="vertical"
+                    android:gravity="center_vertical">
 
                     <RatingBar
                         android:id="@+id/ratingBar"
@@ -79,25 +83,34 @@
                         android:layout_height="wrap_content"
                         android:isIndicator="true"
                         android:numStars="5"
-                        android:rating="4.5"
-                        android:progressTint="@color/rating_star" />
+                        android:rating="5"
+                        android:scaleX="1.2"
+                        android:scaleY="1.2"
+                        android:progressTint="#FFB300" />
 
                     <TextView
                         android:id="@+id/tvTotalReviews"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Based on 120 reviews"
+                        android:layout_marginTop="6dp"
+                        android:text="2 reviews"
                         android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
             </LinearLayout>
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#E0E0E0"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="16dp" />
 
             <!-- Star Breakdown -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
                 android:orientation="vertical">
 
                 <!-- 5 Stars -->
@@ -105,173 +118,193 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="center_vertical"
+                    android:layout_marginBottom="6dp"
                     android:orientation="horizontal">
 
                     <TextView
-                        android:layout_width="30dp"
+                        android:layout_width="35dp"
                         android:layout_height="wrap_content"
                         android:text="5⭐"
-                        android:textSize="12sp" />
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
 
                     <ProgressBar
                         android:id="@+id/progressBar5Star"
                         style="?android:attr/progressBarStyleHorizontal"
                         android:layout_width="0dp"
-                        android:layout_height="8dp"
+                        android:layout_height="10dp"
                         android:layout_marginStart="8dp"
                         android:layout_weight="1"
                         android:max="100"
                         android:progress="80"
-                        android:progressTint="@color/rating_star" />
+                        android:progressTint="#FFB300"
+                        android:progressBackgroundTint="#F5F5F5" />
 
                     <TextView
                         android:id="@+id/tvCount5Star"
-                        android:layout_width="30dp"
+                        android:layout_width="35dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
+                        android:layout_marginStart="10dp"
                         android:gravity="end"
-                        android:text="96"
-                        android:textSize="12sp" />
+                        android:text="2"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary" />
                 </LinearLayout>
 
                 <!-- 4 Stars -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
                     android:gravity="center_vertical"
+                    android:layout_marginBottom="6dp"
                     android:orientation="horizontal">
 
                     <TextView
-                        android:layout_width="30dp"
+                        android:layout_width="35dp"
                         android:layout_height="wrap_content"
                         android:text="4⭐"
-                        android:textSize="12sp" />
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
 
                     <ProgressBar
                         android:id="@+id/progressBar4Star"
                         style="?android:attr/progressBarStyleHorizontal"
                         android:layout_width="0dp"
-                        android:layout_height="8dp"
+                        android:layout_height="10dp"
                         android:layout_marginStart="8dp"
                         android:layout_weight="1"
                         android:max="100"
-                        android:progress="15"
-                        android:progressTint="@color/rating_star" />
+                        android:progress="0"
+                        android:progressTint="#FFB300"
+                        android:progressBackgroundTint="#F5F5F5" />
 
                     <TextView
                         android:id="@+id/tvCount4Star"
-                        android:layout_width="30dp"
+                        android:layout_width="35dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
+                        android:layout_marginStart="10dp"
                         android:gravity="end"
-                        android:text="18"
-                        android:textSize="12sp" />
+                        android:text="0"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary" />
                 </LinearLayout>
 
                 <!-- 3 Stars -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
                     android:gravity="center_vertical"
+                    android:layout_marginBottom="6dp"
                     android:orientation="horizontal">
 
                     <TextView
-                        android:layout_width="30dp"
+                        android:layout_width="35dp"
                         android:layout_height="wrap_content"
                         android:text="3⭐"
-                        android:textSize="12sp" />
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
 
                     <ProgressBar
                         android:id="@+id/progressBar3Star"
                         style="?android:attr/progressBarStyleHorizontal"
                         android:layout_width="0dp"
-                        android:layout_height="8dp"
+                        android:layout_height="10dp"
                         android:layout_marginStart="8dp"
                         android:layout_weight="1"
                         android:max="100"
-                        android:progress="3"
-                        android:progressTint="@color/rating_star" />
+                        android:progress="0"
+                        android:progressTint="#FFB300"
+                        android:progressBackgroundTint="#F5F5F5" />
 
                     <TextView
                         android:id="@+id/tvCount3Star"
-                        android:layout_width="30dp"
+                        android:layout_width="35dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
+                        android:layout_marginStart="10dp"
                         android:gravity="end"
-                        android:text="4"
-                        android:textSize="12sp" />
+                        android:text="0"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary" />
                 </LinearLayout>
 
                 <!-- 2 Stars -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
                     android:gravity="center_vertical"
+                    android:layout_marginBottom="6dp"
                     android:orientation="horizontal">
 
                     <TextView
-                        android:layout_width="30dp"
+                        android:layout_width="35dp"
                         android:layout_height="wrap_content"
                         android:text="2⭐"
-                        android:textSize="12sp" />
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
 
                     <ProgressBar
                         android:id="@+id/progressBar2Star"
                         style="?android:attr/progressBarStyleHorizontal"
                         android:layout_width="0dp"
-                        android:layout_height="8dp"
+                        android:layout_height="10dp"
                         android:layout_marginStart="8dp"
                         android:layout_weight="1"
                         android:max="100"
-                        android:progress="1"
-                        android:progressTint="@color/rating_star" />
+                        android:progress="0"
+                        android:progressTint="#FFB300"
+                        android:progressBackgroundTint="#F5F5F5" />
 
                     <TextView
                         android:id="@+id/tvCount2Star"
-                        android:layout_width="30dp"
+                        android:layout_width="35dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
+                        android:layout_marginStart="10dp"
                         android:gravity="end"
-                        android:text="1"
-                        android:textSize="12sp" />
+                        android:text="0"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary" />
                 </LinearLayout>
 
                 <!-- 1 Star -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
                     <TextView
-                        android:layout_width="30dp"
+                        android:layout_width="35dp"
                         android:layout_height="wrap_content"
                         android:text="1⭐"
-                        android:textSize="12sp" />
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
 
                     <ProgressBar
                         android:id="@+id/progressBar1Star"
                         style="?android:attr/progressBarStyleHorizontal"
                         android:layout_width="0dp"
-                        android:layout_height="8dp"
+                        android:layout_height="10dp"
                         android:layout_marginStart="8dp"
                         android:layout_weight="1"
                         android:max="100"
-                        android:progress="1"
-                        android:progressTint="@color/rating_star" />
+                        android:progress="0"
+                        android:progressTint="#FFB300"
+                        android:progressBackgroundTint="#F5F5F5" />
 
                     <TextView
                         android:id="@+id/tvCount1Star"
-                        android:layout_width="30dp"
+                        android:layout_width="35dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
+                        android:layout_marginStart="10dp"
                         android:gravity="end"
-                        android:text="1"
-                        android:textSize="12sp" />
+                        android:text="0"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary" />
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>
@@ -282,15 +315,18 @@
         android:id="@+id/scrollFilters"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="12dp"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
+        android:paddingBottom="4dp"
         android:scrollbars="none"
+        android:clipToPadding="false"
         app:layout_constraintTop_toBottomOf="@id/cardSummary">
 
         <com.google.android.material.chip.ChipGroup
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            app:chipSpacingHorizontal="8dp"
             app:singleSelection="true">
 
             <com.google.android.material.chip.Chip
@@ -299,42 +335,60 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="All"
-                android:checked="true" />
+                android:textSize="14sp"
+                android:checked="true"
+                app:chipCornerRadius="20dp"
+                app:chipMinHeight="40dp" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/btnFilter5Star"
                 style="@style/Widget.MaterialComponents.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="5 ⭐" />
+                android:text="5 ⭐"
+                android:textSize="14sp"
+                app:chipCornerRadius="20dp"
+                app:chipMinHeight="40dp" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/btnFilter4Star"
                 style="@style/Widget.MaterialComponents.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="4 ⭐" />
+                android:text="4 ⭐"
+                android:textSize="14sp"
+                app:chipCornerRadius="20dp"
+                app:chipMinHeight="40dp" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/btnFilter3Star"
                 style="@style/Widget.MaterialComponents.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="3 ⭐" />
+                android:text="3 ⭐"
+                android:textSize="14sp"
+                app:chipCornerRadius="20dp"
+                app:chipMinHeight="40dp" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/btnFilter2Star"
                 style="@style/Widget.MaterialComponents.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="2 ⭐" />
+                android:text="2 ⭐"
+                android:textSize="14sp"
+                app:chipCornerRadius="20dp"
+                app:chipMinHeight="40dp" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/btnFilter1Star"
                 style="@style/Widget.MaterialComponents.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="1 ⭐" />
+                android:text="1 ⭐"
+                android:textSize="14sp"
+                app:chipCornerRadius="20dp"
+                app:chipMinHeight="40dp" />
         </com.google.android.material.chip.ChipGroup>
     </HorizontalScrollView>
 
