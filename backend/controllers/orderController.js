@@ -366,7 +366,7 @@ export const getCookOrders = async (req, res) => {
              JOIN users u ON o.customer_id = u.id
              LEFT JOIN order_items oi ON o.id = oi.order_id
              LEFT JOIN meals m ON oi.meal_id = m.id
-             WHERE o.cook_id = ?`;
+             WHERE o.cook_id = ? AND o.hidden_from_cook = FALSE`;
 
         const params = [cookId];
 
@@ -960,8 +960,14 @@ export const verifyPayment = async (req, res) => {
 
 /**
  * DELETE /api/orders/:orderId
- * Cook permanently deletes a completed/delivered order
- * Only delivered or completed orders can be deleted
+ * Cook removes a completed/delivered order card from their own list.
+ * Only delivered or completed orders can be removed.
+ *
+ * Soft-delete (hidden_from_cook), not a real DELETE: earnings are computed
+ * live as SUM(total_amount) over the orders table (earningsController.js),
+ * so hard-deleting the row also subtracted its amount from the cook's
+ * earnings totals/breakdowns/transactions. Hiding it keeps the row (and the
+ * money) intact while still dropping the card from getCookOrders below.
  */
 export const deleteOrder = async (req, res) => {
     try {
@@ -983,7 +989,7 @@ export const deleteOrder = async (req, res) => {
 
         const order = orders[0];
 
-        // Only allow deletion of delivered or completed orders
+        // Only allow hiding delivered or completed orders
         if (order.status !== 'delivered' && order.status !== 'completed') {
             return res.status(403).json({
                 success: false,
@@ -991,21 +997,8 @@ export const deleteOrder = async (req, res) => {
             });
         }
 
-        // Delete order items first (foreign key constraint)
         await db.promise().query(
-            "DELETE FROM order_items WHERE order_id = ?",
-            [orderId]
-        );
-
-        // Delete related notifications
-        await db.promise().query(
-            "DELETE FROM notifications WHERE reference_id = ? AND reference_type = 'order'",
-            [orderId]
-        );
-
-        // Delete the order
-        await db.promise().query(
-            "DELETE FROM orders WHERE id = ?",
+            "UPDATE orders SET hidden_from_cook = TRUE WHERE id = ?",
             [orderId]
         );
 
