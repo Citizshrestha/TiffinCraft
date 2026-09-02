@@ -352,12 +352,12 @@ export const getCookDashboard = async (req, res) => {
         }
 
         // Get today's earnings (only delivered orders count as earned revenue)
-        // Use delivered_at date, not created_at, to properly track when revenue was earned
+        // Use Nepal time to ensure accurate daily tracking, not UTC
         const [[todayEarnings]] = await db.promise().query(
             `SELECT COALESCE(SUM(total_amount), 0) as amount
              FROM orders
              WHERE cook_id = ?
-             AND DATE(delivered_at) = CURDATE()
+             AND DATE(CONVERT_TZ(delivered_at, '+00:00', '+05:45')) = CURDATE()
              AND status = 'delivered'`,
             [cookId]
         );
@@ -367,7 +367,7 @@ export const getCookDashboard = async (req, res) => {
             `SELECT COALESCE(SUM(total_amount), 0) as amount
              FROM orders
              WHERE cook_id = ?
-             AND DATE(delivered_at) = CURDATE() - INTERVAL 1 DAY
+             AND DATE(CONVERT_TZ(delivered_at, '+00:00', '+05:45')) = CURDATE() - INTERVAL 1 DAY
              AND status = 'delivered'`,
             [cookId]
         );
