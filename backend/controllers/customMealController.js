@@ -7,6 +7,7 @@ import {
     isDateLocked, getCutoffHour, formatCutoffLabel
 } from "../utils/nptTime.js";
 import { DAY_STATUS, getDayRow, logDayEvent } from "../utils/subscriptionDailyLog.js";
+import { notifyCustomMealRequest, notifyCustomMealResponse } from "../utils/notificationHelper.js";
 
 /**
  * Custom meal requests — "give me X instead of the plan default on this day".
@@ -198,6 +199,15 @@ export const createCustomMealRequest = async (req, res) => {
             pushData: { subscriptionId: String(id), deliveryDate: date }
         });
 
+        // Dedicated FCM push with full payload — announceSubscriptionEvent's
+        // internal createNotification already wrote the in-app DB row; this
+        // ensures the push data (subscriptionId, requestId, deliveryDate,
+        // customerName) is always complete so FcmService can deep-link correctly.
+        notifyCustomMealRequest(
+            sub.cook_id, Number(id), customerName, sub.plan_name,
+            date, mealName, note, requestId
+        ).catch(err => console.error("notifyCustomMealRequest push failed:", err.message));
+
         return res.status(201).json({
             success: true,
             message: `Request sent for ${date}. The cook will accept or decline it.`,
@@ -299,6 +309,13 @@ export const respondToCustomMealRequest = async (req, res) => {
             notifType: accepted ? "custom_meal_accepted" : "custom_meal_declined",
             pushData: { subscriptionId: String(reqRow.subscription_id), deliveryDate: reqRow.date_str }
         });
+
+        // Dedicated FCM push to the customer with complete payload so the
+        // Android client can deep-link to the correct subscription calendar.
+        notifyCustomMealResponse(
+            reqRow.customer_id, reqRow.subscription_id, cookName,
+            reqRow.date_str, reqRow.meal_name, accepted, note, Number(requestId)
+        ).catch(err => console.error("notifyCustomMealResponse push failed:", err.message));
 
         return res.status(200).json({
             success: true,

@@ -190,6 +190,33 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                 bgRes = R.drawable.circle_icon_red;
                 tintColor = 0xFFE53935;
                 break;
+            case "custom_meal_request":
+                // Cook-side: customer is asking for a different meal — prompt the cook
+                // to act. Use the orange cook icon to match other action-required alerts.
+                iconRes = R.drawable.ic_cook;
+                bgRes = R.drawable.circle_icon_orange;
+                tintColor = 0xFFF57C00;
+                break;
+            case "custom_meal_accepted":
+                // Customer-side: cook agreed — show green check for good news.
+                iconRes = R.drawable.ic_check_circle;
+                bgRes = R.drawable.circle_icon_green;
+                tintColor = 0xFF388E3C;
+                break;
+            case "custom_meal_declined":
+                // Customer-side: cook declined — show red close so the customer
+                // knows they need to check the chat or plan accordingly.
+                iconRes = R.drawable.ic_close;
+                bgRes = R.drawable.circle_icon_red;
+                tintColor = 0xFFE53935;
+                break;
+            case "subscription_day_skipped":
+                // Cook-side: customer skipped a day — orange info so the cook knows
+                // not to cook that meal but it is not an error.
+                iconRes = R.drawable.ic_info;
+                bgRes = R.drawable.circle_icon_orange;
+                tintColor = 0xFFF57C00;
+                break;
             case "system":
             default:
                 iconRes = R.drawable.ic_notifications;

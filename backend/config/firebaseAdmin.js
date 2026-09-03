@@ -107,18 +107,22 @@ export const sendPush = async (fcmToken, title, body, data = {}) => {
   }
 
   try {
+    // Always include title + body inside the data payload as well as in the
+    // notification block.  When FCM delivers a data-only message (or when the
+    // app is in the foreground), FcmService.onMessageReceived() reads from
+    // data; the notification block is used by the system tray when the app is
+    // killed/background.  Having both means every delivery path works.
     const message = {
       token: fcmToken,
       notification: { title, body },
       data: Object.fromEntries(
-        Object.entries(data).map(([k, v]) => [k, String(v)])
+        Object.entries({ title, body, ...data }).map(([k, v]) => [k, String(v)])
       ),
       android: {
         priority: "high",
         notification: {
           channelId: "tiffincraft_alerts",
           sound: "default",
-          clickAction: "OPEN_ORDER",
         },
       },
     };

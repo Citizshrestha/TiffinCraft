@@ -368,15 +368,24 @@ public class SocketManager {
     // ==================== FCM Token ====================
 
     /**
-     * Cache the FCM device token and POST it to the backend. If the socket
-     * reconnects later, the token is re-sent automatically (see EVENT_CONNECT).
+     * Cache the FCM device token and immediately upload it to the backend via
+     * HTTP, regardless of whether the socket is connected.
+     *
+     * Previous behaviour gated the upload on isConnected() — meaning that if
+     * the socket was still dialling when a Home activity called
+     * fetchAndSendFcmToken() at startup, the token upload was silently skipped
+     * and the cook's fcm_token stayed NULL in the database, so every
+     * subsequent push notification call found no token to send to.
+     *
+     * The token is also re-sent whenever the socket reconnects (see
+     * EVENT_CONNECT listener), which covers the edge-case where the HTTP call
+     * below races against a very-first login before the auth token is stored.
      */
     public void setFcmToken(String fcmToken) {
         this.cachedFcmToken = fcmToken;
         this.fcmTokenSent = false;
-        if (isConnected()) {
-            sendFcmTokenToServer(fcmToken);
-        }
+        // Always attempt the HTTP upload immediately — do NOT gate on isConnected().
+        sendFcmTokenToServer(fcmToken);
     }
 
     private void sendFcmTokenToServer(String fcmToken) {

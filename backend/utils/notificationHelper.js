@@ -660,6 +660,66 @@ export const notifySkipDay = async (cookId, subscriptionId, customerName, planNa
 };
 
 /**
+ * Customer requested a different meal on their subscription delivery day.
+ * Sent to the COOK — they must accept or decline before the cutoff.
+ */
+export const notifyCustomMealRequest = async (
+    cookId, subscriptionId, customerName, planName, deliveryDate, mealName, note, requestId
+) => {
+    const what = mealName ? `"${mealName}"` : (note ? `"${note}"` : 'a specific meal');
+    const message = `${customerName} asked for ${what} on ${formatDeliveryDate(deliveryDate)} (${planName}). Accept or decline before the cutoff.`;
+    return createNotification(
+        cookId,
+        'Custom Meal Request Received! 🍲',
+        message,
+        'custom_meal_request',
+        requestId,
+        'custom_meal_request',
+        {
+            pushData: {
+                type: 'custom_meal_request',
+                subscriptionId: String(subscriptionId),
+                requestId: String(requestId),
+                deliveryDate: String(deliveryDate),
+                customerName: customerName || ''
+            }
+        }
+    );
+};
+
+/**
+ * Cook responded to a custom meal request — accepted or declined.
+ * Sent to the CUSTOMER so they know the outcome immediately.
+ */
+export const notifyCustomMealResponse = async (
+    customerId, subscriptionId, cookName, deliveryDate, mealName, accepted, reason, requestId
+) => {
+    const formattedDate = formatDeliveryDate(deliveryDate);
+    let message;
+    if (accepted) {
+        message = `${cookName} will make ${mealName ? `"${mealName}"` : 'your requested meal'} on ${formattedDate}. ✓`;
+    } else {
+        message = `${cookName} can't do that on ${formattedDate}.${reason ? ' ' + reason : " You'll get the usual plan meal."}`;
+    }
+    return createNotification(
+        customerId,
+        accepted ? 'Meal Request Accepted ✓' : 'Meal Request Declined',
+        message,
+        accepted ? 'custom_meal_accepted' : 'custom_meal_declined',
+        requestId,
+        'custom_meal_request',
+        {
+            pushData: {
+                type: accepted ? 'custom_meal_accepted' : 'custom_meal_declined',
+                subscriptionId: String(subscriptionId),
+                requestId: String(requestId),
+                deliveryDate: String(deliveryDate)
+            }
+        }
+    );
+};
+
+/**
  * Cook marked a whole date unavailable (sent to EVERY affected customer — this
  * is the fan-out arm of the bulk toggle). Says explicitly that no credit was
  * consumed, because the alternative reading — "I paid for a meal I never got" —
@@ -809,6 +869,8 @@ export default {
     notifySubscriptionVerified,
     notifySubscriptionRejected,
     notifySkipDay,
+    notifyCustomMealRequest,
+    notifyCustomMealResponse,
     notifyCookUnavailable,
     notifySubscriptionScheduled,
     notifySubscriptionCompleted,

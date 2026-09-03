@@ -12,6 +12,8 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import android.util.Log;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
@@ -142,11 +144,17 @@ public class OtpActivity extends AppCompatActivity {
                                 loginResponse.getUser().getId(),
                                 loginResponse.getUser().getFullName()
                         );
-                        
+
                         // Save profile image if present
                         if (loginResponse.getUser().getProfileImage() != null) {
                             sessionManager.saveProfileImage(loginResponse.getUser().getProfileImage());
                         }
+
+                        // Upload FCM token immediately so push notifications
+                        // work from the very first session. Must happen after
+                        // saveSession() because sendFcmTokenToServer() reads
+                        // the auth token from SharedPreferences.
+                        fetchAndSendFcmToken();
 
                         Toast.makeText(OtpActivity.this,
                                 "Email verified successfully!", Toast.LENGTH_SHORT).show();
@@ -252,5 +260,25 @@ public class OtpActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         if (countDownTimer != null) countDownTimer.cancel();
+    }
+
+    /**
+     * Fetch the FCM device token and upload it to the server.
+     * Called immediately after a session is created so push notifications
+     * are available from the first moment the user is logged in.
+     */
+    private void fetchAndSendFcmToken() {
+        com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+            .addOnCompleteListener(task -> {
+                if (task.isSuccessful() && task.getResult() != null) {
+                    String token = task.getResult();
+                    Log.d("OtpActivity", "🔥 FCM token fetched: " + token);
+                    com.tiffincraft.app.utils.SocketManager socketManager =
+                        com.tiffincraft.app.utils.SocketManager.getInstance(this);
+                    socketManager.setFcmToken(token);
+                } else {
+                    Log.e("OtpActivity", "❌ Failed to fetch FCM token", task.getException());
+                }
+            });
     }
 }

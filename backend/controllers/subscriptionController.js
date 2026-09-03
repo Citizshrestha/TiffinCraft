@@ -1261,6 +1261,20 @@ export const skipDay = async (req, res) => {
         const [[customer]] = await db.promise().query("SELECT full_name FROM users WHERE id = ?", [customerId]);
         await notifySkipDay(sub.cook_id, sub.id, customer?.full_name || "A customer", sub.plan_name, target, reason);
 
+        // Real-time delivery to the cook's personal socket room so a cook with
+        // the app open sees the badge increment and can act without refreshing.
+        const io = req.app.get("io");
+        if (io) {
+            io.to(`user_${sub.cook_id}`).emit("subscriptionDaySkipped", {
+                subscriptionId: sub.id,
+                planName: sub.plan_name,
+                customerName: customer?.full_name || "A customer",
+                deliveryDate: target,
+                reason: reason || null
+            });
+            console.log(`📡 Emitted subscriptionDaySkipped to cook ${sub.cook_id} for subscription ${sub.id}`);
+        }
+
         return res.status(200).json({
             success: true,
             message: extendedTo && extendedTo !== sub.end_date
