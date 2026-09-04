@@ -218,8 +218,8 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
                 }
 
                 // Show uploaded screenshot — tappable, opens the full-screen viewer.
-                if (paymentScreenshotUrl != null && !paymentScreenshotUrl.isEmpty() && binding.ivPaymentScreenshot != null) {
-                    binding.ivPaymentScreenshot.setVisibility(android.view.View.VISIBLE);
+                if (paymentScreenshotUrl != null && !paymentScreenshotUrl.isEmpty() && binding.layoutPaymentScreenshotContainer != null) {
+                    binding.layoutPaymentScreenshotContainer.setVisibility(android.view.View.VISIBLE);
                     Glide.with(this)
                             .load(paymentScreenshotUrl)
                             .placeholder(R.drawable.ic_image_placeholder)
@@ -233,8 +233,15 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
                         viewer.putExtra(com.tiffincraft.app.activities.common.MediaViewerActivity.EXTRA_IS_VIDEO, false);
                         startActivity(viewer);
                     });
-                } else if (binding.ivPaymentScreenshot != null) {
-                    binding.ivPaymentScreenshot.setVisibility(android.view.View.GONE);
+
+                    // Remove/replace proof is only accessible when 'paid' (not verified/rejected) and not auto-confirmed
+                    boolean canReplace = "paid".equals(paymentStatus) && !esewaConfirmed;
+                    binding.btnRemoveProof.setVisibility(canReplace ? android.view.View.VISIBLE : android.view.View.GONE);
+                    if (canReplace) {
+                        binding.btnRemoveProof.setOnClickListener(v -> confirmRemoveProof());
+                    }
+                } else if (binding.layoutPaymentScreenshotContainer != null) {
+                    binding.layoutPaymentScreenshotContainer.setVisibility(android.view.View.GONE);
                 }
 
                 // Upload button visibility: show only when pending (not yet paid/verified/rejected)
@@ -505,8 +512,37 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null) {
             Uri imageUri = data.getData();
-            uploadImageToCloudinary(imageUri);
+            confirmPickedImage(imageUri);
         }
+    }
+
+    private void confirmPickedImage(Uri imageUri) {
+        float density = getResources().getDisplayMetrics().density;
+        ImageView preview = new ImageView(this);
+        preview.setAdjustViewBounds(true);
+        preview.setMaxHeight(Math.round(320 * density));
+        int pad = Math.round(16 * density);
+        preview.setPadding(pad, pad, pad, 0);
+        Glide.with(this).load(imageUri).into(preview);
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Send this screenshot?")
+                .setView(preview)
+                .setMessage("The cook will verify the payment using this screenshot.")
+                .setPositiveButton("Send to cook", (d, w) -> uploadImageToCloudinary(imageUri))
+                .setNegativeButton("Pick another", (d, w) -> openImagePicker())
+                .setNeutralButton("Cancel", null)
+                .show();
+    }
+
+    private void confirmRemoveProof() {
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Upload a different screenshot?")
+                .setMessage("The cook hasn't verified this one yet, so you can still replace it. "
+                        + "The new screenshot takes the place of the old one.")
+                .setPositiveButton("Choose new screenshot", (d, w) -> openImagePicker())
+                .setNegativeButton("Keep this one", null)
+                .show();
     }
 
     private void uploadImageToCloudinary(Uri imageUri) {
@@ -544,12 +580,14 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
 
             binding.btnUploadPayment.setEnabled(false);
             binding.btnUploadPayment.setText("Uploading...");
+            if (binding.btnRemoveProof != null) binding.btnRemoveProof.setEnabled(false);
 
             apiService.uploadDocumentCloudinary(token, part).enqueue(new Callback<UploadResponse>() {
                 @Override
                 public void onResponse(@NonNull Call<UploadResponse> call, @NonNull Response<UploadResponse> response) {
                     binding.btnUploadPayment.setEnabled(true);
                     binding.btnUploadPayment.setText("Upload Payment Screenshot");
+                    if (binding.btnRemoveProof != null) binding.btnRemoveProof.setEnabled(true);
                     tempFile.delete();
 
                     if (response.isSuccessful() && response.body() != null
@@ -566,6 +604,7 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
                 public void onFailure(@NonNull Call<UploadResponse> call, @NonNull Throwable t) {
                     binding.btnUploadPayment.setEnabled(true);
                     binding.btnUploadPayment.setText("Upload Payment Screenshot");
+                    if (binding.btnRemoveProof != null) binding.btnRemoveProof.setEnabled(true);
                     tempFile.delete();
                     Toast.makeText(OrderDetailsCustomerActivity.this, "Upload error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
                 }

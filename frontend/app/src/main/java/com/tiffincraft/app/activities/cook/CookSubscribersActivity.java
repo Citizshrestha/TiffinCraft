@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -18,6 +19,7 @@ import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.gson.JsonObject;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.activities.customer.SubscriptionCalendarActivity;
@@ -386,18 +388,25 @@ public class CookSubscribersActivity extends AppCompatActivity {
      */
     private void showRejectDialog(SubscriptionResponse.Subscription sub) {
         EditText etReason = new EditText(this);
-        etReason.setHint("Reason for rejection (optional)");
+        etReason.setHint("Tell the customer what to correct");
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
         etReason.setPadding(pad, pad, pad, pad);
         
-        new AlertDialog.Builder(this)
-                .setTitle("Reject Payment - " + sub.getCustomerName())
-                .setMessage("Please provide a reason for rejecting this payment proof:")
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
+                .setTitle("Reject payment proof?")
+                .setMessage("The customer will see your reason and can upload a corrected screenshot.")
                 .setView(etReason)
-                .setPositiveButton("Reject", (dialog, which) ->
+                .setPositiveButton("Reject", (d, which) ->
                         submitVerification(sub.getId(), "rejected", etReason.getText().toString().trim()))
-                .setNegativeButton("Cancel", null)
-                .show();
+                .setNegativeButton("Back", null)
+                .create();
+        dialog.setOnShowListener(d -> {
+            Button reject = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            Button back = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+            reject.setTextColor(ContextCompat.getColor(this, R.color.sub_error));
+            back.setTextColor(ContextCompat.getColor(this, R.color.text_secondary));
+        });
+        dialog.show();
     }
 
     private void showVerifyDialog(SubscriptionResponse.Subscription sub) {

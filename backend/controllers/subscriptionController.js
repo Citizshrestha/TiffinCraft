@@ -668,7 +668,17 @@ export const pauseSubscription = async (req, res) => {
 
         // Verify ownership
         const [subs] = await db.promise().query(
-            "SELECT id, cook_id, status FROM subscriptions WHERE id = ? AND (customer_id = ? OR cook_id = ?)",
+            `SELECT s.id, s.customer_id, s.cook_id, s.status,
+                    DATE_FORMAT(s.start_date, '%Y-%m-%d') AS start_date,
+                    DATE_FORMAT(s.end_date, '%Y-%m-%d')   AS end_date,
+                    p.name AS plan_name, p.duration,
+                    cu.full_name AS customer_name,
+                    ck.full_name AS cook_name
+             FROM subscriptions s
+             JOIN subscription_plans p ON s.plan_id = p.id
+             JOIN users cu ON cu.id = s.customer_id
+             JOIN users ck ON ck.id = s.cook_id
+             WHERE s.id = ? AND (s.customer_id = ? OR s.cook_id = ?)`,
             [id, userId, userId]
         );
 
@@ -691,16 +701,42 @@ export const pauseSubscription = async (req, res) => {
             [id]
         );
 
+        const sub = subs[0];
+        const actor = userId === sub.cook_id ? "cook" : "customer";
+
         await logDayEvent({
             subscriptionId: id,
             event: "paused",
-            actor: userId === subs[0].cook_id ? "cook" : "customer",
-            detail: `Paused indefinitely from "${subs[0].status}". Remaining meal credits preserved.`
+            actor,
+            detail: `Paused indefinitely from "${sub.status}". Remaining meal credits preserved.`
         });
+
+        let conversationId = null;
+        if (actor === "customer") {
+            const result = await announceSubscriptionEvent({
+                io: req.app.get("io"),
+                customerId: sub.customer_id, cookId: sub.cook_id,
+                senderId: sub.customer_id, recipientId: sub.cook_id, senderName: sub.customer_name,
+                cardType: CARD_TYPES.SUBSCRIPTION_UPDATE,
+                cardText: `${sub.customer_name} paused their ${sub.plan_name} subscription. No meals are needed until they resume.`,
+                metadata: subscriptionCardMeta({
+                    subscriptionId: sub.id, planName: sub.plan_name, duration: sub.duration,
+                    startDate: sub.start_date, endDate: sub.end_date, status: "paused",
+                    customerName: sub.customer_name, cookName: sub.cook_name,
+                    note: "Paused by customer. No meals are needed until they resume."
+                }),
+                referenceId: sub.id, referenceType: "subscription",
+                title: "Subscription paused",
+                body: `${sub.customer_name} paused "${sub.plan_name}". Don't prepare their subscription meals until they resume.`,
+                notifType: "subscription_paused"
+            });
+            conversationId = result.conversationId;
+        }
 
         return res.status(200).json({
             success: true,
-            message: "Subscription paused. Today's and tomorrow's deliveries already past their cutoff are unaffected."
+            message: "Subscription paused. Today's and tomorrow's deliveries already past their cutoff are unaffected.",
+            conversation_id: conversationId
         });
 
     } catch (error) {
@@ -1710,12 +1746,16 @@ export const cancelSubscription = async (req, res) => {
         const { id } = req.params;
 
         const [subs] = await db.promise().query(
-            `SELECT s.id, s.cook_id, s.status, s.payment_status,
+            `SELECT s.id, s.customer_id, s.cook_id, s.status, s.payment_status,
                     DATE_FORMAT(s.start_date, '%Y-%m-%d') AS start_date,
                     DATE_FORMAT(s.end_date, '%Y-%m-%d')   AS end_date,
-                    p.duration, p.price_per_delivery
+                    p.name AS plan_name, p.duration, p.price_per_delivery,
+                    cu.full_name AS customer_name,
+                    ck.full_name AS cook_name
              FROM subscriptions s
              JOIN subscription_plans p ON p.id = s.plan_id
+             JOIN users cu ON cu.id = s.customer_id
+             JOIN users ck ON ck.id = s.cook_id
              WHERE s.id = ? AND (s.customer_id = ? OR s.cook_id = ?)`,
             [id, userId, userId]
         );
@@ -1775,6 +1815,28 @@ export const cancelSubscription = async (req, res) => {
             detail: `Cancelled by ${actor} from "${sub.status}". No further delivery days will be created. ${moneyNote}`
         });
 
+        let conversationId = null;
+        if (actor === "customer") {
+            const result = await announceSubscriptionEvent({
+                io: req.app.get("io"),
+                customerId: sub.customer_id, cookId: sub.cook_id,
+                senderId: sub.customer_id, recipientId: sub.cook_id, senderName: sub.customer_name,
+                cardType: CARD_TYPES.SUBSCRIPTION_UPDATE,
+                cardText: `${sub.customer_name} cancelled their ${sub.plan_name} subscription. No more meals are scheduled.`,
+                metadata: subscriptionCardMeta({
+                    subscriptionId: sub.id, planName: sub.plan_name, duration: sub.duration,
+                    startDate: sub.start_date, endDate: sub.end_date, status: "cancelled",
+                    customerName: sub.customer_name, cookName: sub.cook_name,
+                    note: "Cancelled by customer. No more meals are scheduled."
+                }),
+                referenceId: sub.id, referenceType: "subscription",
+                title: "Subscription cancelled",
+                body: `${sub.customer_name} cancelled "${sub.plan_name}". No more subscription meals are scheduled for them.`,
+                notifType: "subscription_cancelled"
+            });
+            conversationId = result.conversationId;
+        }
+
         return res.status(200).json({
             success: true,
             message: confirmed
@@ -1784,7 +1846,8 @@ export const cancelSubscription = async (req, res) => {
                     : `Cancelled. Nothing is owed.`,
             amount_owed: amountOwed,
             refund_due: refundDue,
-            cancelled_from: sub.status
+            cancelled_from: sub.status,
+            conversation_id: conversationId
         });
 
     } catch (error) {

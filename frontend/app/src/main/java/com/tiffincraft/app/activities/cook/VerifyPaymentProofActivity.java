@@ -257,7 +257,7 @@ public class VerifyPaymentProofActivity extends AppCompatActivity {
      */
     private void promptReject() {
         final EditText input = new EditText(this);
-        input.setHint("e.g. amount is short, or this is an old transfer");
+        input.setHint("Tell the customer what to correct");
         input.setMinLines(2);
 
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
@@ -265,10 +265,9 @@ public class VerifyPaymentProofActivity extends AppCompatActivity {
         wrapper.setPadding(pad, pad / 2, pad, 0);
         wrapper.addView(input);
 
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("Reject this screenshot?")
-                .setMessage("The customer is told why and can upload a new one. Nothing is deleted — "
-                        + "this image stays on the record in case the payment is disputed later.")
+        new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
+                .setTitle("Reject payment proof?")
+                .setMessage("The customer will see your reason and can upload a corrected screenshot.")
                 .setView(wrapper)
                 .setPositiveButton("Reject proof", (d, w) -> {
                     String reason = input.getText().toString().trim();
@@ -290,7 +289,7 @@ public class VerifyPaymentProofActivity extends AppCompatActivity {
 
         JsonObject body = new JsonObject();
         body.addProperty("action", action);
-        if (reason != null) body.addProperty("reason", reason);
+        if (reason != null) body.addProperty("note", reason);
 
         apiService.verifySubscriptionProof("Bearer " + sessionManager.getToken(), subscriptionId, body)
                 .enqueue(new Callback<SubscriptionActionResponse>() {

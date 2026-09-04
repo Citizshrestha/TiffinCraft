@@ -210,6 +210,16 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                 bgRes = R.drawable.circle_icon_red;
                 tintColor = 0xFFE53935;
                 break;
+            case "subscription_paused":
+                iconRes = R.drawable.ic_info;
+                bgRes = R.drawable.circle_icon_orange;
+                tintColor = 0xFFF57C00;
+                break;
+            case "subscription_cancelled":
+                iconRes = R.drawable.ic_close;
+                bgRes = R.drawable.circle_icon_red;
+                tintColor = 0xFFE53935;
+                break;
             case "subscription_day_skipped":
                 // Cook-side: customer skipped a day — orange info so the cook knows
                 // not to cook that meal but it is not an error.

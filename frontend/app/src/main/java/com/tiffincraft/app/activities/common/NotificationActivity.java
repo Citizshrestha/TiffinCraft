@@ -156,6 +156,8 @@ public class NotificationActivity extends AppCompatActivity {
             case "subscription_scheduled":
             case "subscription_completed":
             case "subscription_update":
+            case "subscription_paused":
+            case "subscription_cancelled":
             case "custom_meal_accepted":
             case "custom_meal_declined":
                 // Customer: their profile's subscription card already reflects the
