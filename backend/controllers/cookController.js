@@ -382,35 +382,18 @@ export const getCookDashboard = async (req, res) => {
             todayEarningsChange = 100;
         }
 
-        // Get active orders (not delivered or cancelled) - substitute for subscriptions
-        const [[activeOrders]] = await db.promise().query(
+        // Get active subscriptions (status = 'active' or 'scheduled')
+        const [[activeSubscriptions]] = await db.promise().query(
             `SELECT COUNT(*) as count
-             FROM orders
+             FROM subscriptions
              WHERE cook_id = ?
-             AND status NOT IN ('delivered', 'cancelled')`,
+             AND status IN ('active', 'scheduled')
+             AND payment_status = 'verified'`,
             [cookId]
         );
 
-        // Get last week's active orders for comparison
-        const [[lastWeekActiveOrders]] = await db.promise().query(
-            `SELECT COUNT(*) as count
-             FROM orders
-             WHERE cook_id = ?
-             AND DATE(created_at) >= CURDATE() - INTERVAL 7 DAY
-             AND DATE(created_at) < CURDATE()
-             AND status NOT IN ('delivered', 'cancelled')`,
-            [cookId]
-        );
-
-        // Calculate active orders percentage change
-        const activeOrdersCount = activeOrders.count || 0;
-        const lastWeekActiveOrdersCount = lastWeekActiveOrders.count || 0;
+        const activeOrdersCount = activeSubscriptions.count || 0;
         let activeOrdersChange = 0;
-        if (lastWeekActiveOrdersCount > 0) {
-            activeOrdersChange = ((activeOrdersCount - lastWeekActiveOrdersCount) / lastWeekActiveOrdersCount) * 100;
-        } else if (activeOrdersCount > 0) {
-            activeOrdersChange = 100;
-        }
 
         // Get average rating
         const [[ratingData]] = await db.promise().query(

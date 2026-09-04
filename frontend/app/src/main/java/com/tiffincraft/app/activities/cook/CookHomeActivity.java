@@ -78,7 +78,7 @@ public class CookHomeActivity extends AppCompatActivity {
     private double todayEarnings = 0;
     private double thisWeekEarnings = 0;
     private double thisMonthEarnings = 0;
-    private int currentEarningsPeriod = 1; // 0=Today, 1=This Week, 2=This Month
+    private int currentEarningsPeriod = 0; // 0=Today, 1=This Week, 2=This Month - Default to Today
 
     // Earnings Trend chart range toggle
     private TextView tvTrendRange, tvTrendSubtitle;
@@ -387,8 +387,15 @@ public class CookHomeActivity extends AppCompatActivity {
         // Update today's orders
         if (stats.getTodayOrders() != null) {
             tvTodayOrders.setText(String.valueOf(stats.getTodayOrders().getCount()));
-            bindChangeChip(R.id.tvOrdersChange, stats.getTodayOrders().getChangePercentage(), "%");
-            bindVsLabel(R.id.tvOrdersVsLabel, stats.getTodayOrders().getVsLabel());
+            // Hide percentage change and vs label for orders
+            TextView tvOrdersChange = findViewById(R.id.tvOrdersChange);
+            if (tvOrdersChange != null) {
+                tvOrdersChange.setVisibility(View.GONE);
+            }
+            TextView tvOrdersVsLabel = findViewById(R.id.tvOrdersVsLabel);
+            if (tvOrdersVsLabel != null) {
+                tvOrdersVsLabel.setVisibility(View.GONE);
+            }
         }
 
         // Update today's earnings
@@ -401,14 +408,25 @@ public class CookHomeActivity extends AppCompatActivity {
             if (tvEarningsChange != null) {
                 tvEarningsChange.setVisibility(View.GONE);
             }
-            bindVsLabel(R.id.tvEarningsVsLabel, stats.getTodayEarnings().getVsLabel());
+            // Hide vs label for earnings
+            TextView tvEarningsVsLabel = findViewById(R.id.tvEarningsVsLabel);
+            if (tvEarningsVsLabel != null) {
+                tvEarningsVsLabel.setVisibility(View.GONE);
+            }
         }
 
         // Update active subscriptions (using active orders count)
         if (stats.getActiveOrders() != null) {
             tvActiveSubscriptions.setText(String.valueOf(stats.getActiveOrders().getCount()));
-            bindChangeChip(R.id.tvSubscriptionsChange, stats.getActiveOrders().getChangePercentage(), "%");
-            bindVsLabel(R.id.tvSubscriptionsVsLabel, stats.getActiveOrders().getVsLabel());
+            // Hide change percentage and vs label for subscriptions
+            TextView tvSubscriptionsChange = findViewById(R.id.tvSubscriptionsChange);
+            if (tvSubscriptionsChange != null) {
+                tvSubscriptionsChange.setVisibility(View.GONE);
+            }
+            TextView tvSubscriptionsVsLabel = findViewById(R.id.tvSubscriptionsVsLabel);
+            if (tvSubscriptionsVsLabel != null) {
+                tvSubscriptionsVsLabel.setVisibility(View.GONE);
+            }
         }
 
         // Update average rating
