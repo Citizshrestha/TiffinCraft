@@ -53,9 +53,6 @@ const BLOCKING_STATUSES = [
     "verified", "scheduled", "active", "paused"
 ];
 
-/** Statuses a rejected/finished row may be recycled from on a fresh request. */
-const RECYCLABLE_STATUSES = ["rejected", "cancelled", "completed", "pending_payment"];
-
 const describeStatus = (status) => ({
     requested: "waiting for the cook to accept it",
     accepted: "accepted — it just needs your payment proof",
@@ -184,42 +181,17 @@ export const createSubscriptionRequest = async (req, res) => {
         const durationDays = getDurationDays(fullPlan.duration);
         const amount = Number(fullPlan.price_per_delivery) || null;
 
-        // Recycle a dead row for this exact plan instead of stacking orphans.
-        // This is what makes "cook rejected — try again with a different date"
-        // leave no leftover broken state: the rejected row is reused, its
-        // response_note and proof fields cleared, and it re-enters 'requested'.
-        const [recyclable] = await db.promise().query(
-            `SELECT id FROM subscriptions
-             WHERE customer_id = ? AND plan_id = ? AND status IN (?)
-             ORDER BY id DESC LIMIT 1`,
-            [customerId, plan_id, RECYCLABLE_STATUSES]
+        // Each request is a distinct commitment. Reusing a cancelled/completed
+        // ID attaches its old skips, custom meals and payment history to the new
+        // purchase. Keep that history on the original row instead.
+        const [created] = await db.promise().query(
+            `INSERT INTO subscriptions
+               (customer_id, cook_id, plan_id, delivery_address, start_date, next_delivery_date,
+                status, payment_status, payment_method, request_note, requested_at)
+             VALUES (?, ?, ?, ?, ?, ?, 'requested', 'pending', 'manual_qr', ?, NOW())`,
+            [customerId, cookId, plan_id, address, startDate, startDate, requestNote]
         );
-
-        let subscriptionId;
-        if (recyclable.length > 0) {
-            subscriptionId = recyclable[0].id;
-            await db.promise().query(
-                `UPDATE subscriptions
-                 SET status = 'requested', payment_status = 'pending', payment_method = 'manual_qr',
-                     delivery_address = ?, start_date = ?, next_delivery_date = ?, end_date = NULL,
-                     request_note = ?, requested_at = NOW(), responded_at = NULL, response_note = NULL,
-                     payment_screenshot_url = NULL, payment_screenshot_hash = NULL,
-                     payment_submitted_at = NULL, payment_rejection_reason = NULL,
-                     verified_by = NULL, verified_at = NULL,
-                     meals_total = NULL, meals_remaining = NULL, skipped_dates = NULL
-                 WHERE id = ? AND customer_id = ?`,
-                [address, startDate, startDate, requestNote, subscriptionId, customerId]
-            );
-        } else {
-            const [created] = await db.promise().query(
-                `INSERT INTO subscriptions
-                   (customer_id, cook_id, plan_id, delivery_address, start_date, next_delivery_date,
-                    status, payment_status, payment_method, request_note, requested_at)
-                 VALUES (?, ?, ?, ?, ?, ?, 'requested', 'pending', 'manual_qr', ?, NOW())`,
-                [customerId, cookId, plan_id, address, startDate, startDate, requestNote]
-            );
-            subscriptionId = created.insertId;
-        }
+        const subscriptionId = created.insertId;
 
         await logDayEvent({
             subscriptionId, event: "requested", actor: "customer",
