@@ -7,6 +7,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -25,6 +26,7 @@ import com.tiffincraft.app.models.MealResponse;
 import com.tiffincraft.app.models.SubscriptionPlanRequest;
 import com.tiffincraft.app.models.SubscriptionPlanResponse;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.ImageUrlHelper;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -184,6 +186,7 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
             View row = inflater.inflate(R.layout.item_plan_meal_selectable, layoutSelectableMeals, false);
 
             CheckBox cbSelected = row.findViewById(R.id.cbSelected);
+            ImageView imgMeal = row.findViewById(R.id.imgMeal);
             TextView tvName = row.findViewById(R.id.tvMealName);
             TextView tvPrice = row.findViewById(R.id.tvMealPrice);
             TextView tvQuantity = row.findViewById(R.id.tvQuantity);
@@ -193,6 +196,7 @@ public class SubscriptionPlanFormActivity extends AppCompatActivity {
 
             tvName.setText(meal.getName());
             tvPrice.setText(String.format(Locale.getDefault(), "₹%.0f", meal.getPrice()));
+            ImageUrlHelper.load(imgMeal, meal.getImageUrl(), R.drawable.meal_placeholder, 12);
 
             cbSelected.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 stepper.setVisibility(isChecked ? View.VISIBLE : View.GONE);

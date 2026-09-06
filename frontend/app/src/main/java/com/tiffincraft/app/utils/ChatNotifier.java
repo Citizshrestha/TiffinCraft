@@ -56,6 +56,9 @@ public final class ChatNotifier {
 
     public static void showMessageNotification(Context context, int conversationId,
                                                String senderName, String preview) {
+        if (!CookNotificationPreferences.alertsEnabledForType(context, "chat_message")) {
+            return;
+        }
         if (conversationId > 0 && conversationId == activeConversationId) {
             return;
         }

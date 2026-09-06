@@ -43,7 +43,10 @@ export const createNotification = async (userId, title, message, type, reference
         console.log(`✅ Notification created for user ${userId}: ${title}`);
 
         // Also send an FCM push if the user has a device token
-        const pushData = extra.pushData || {};
+        // Every push needs a type so Android can map it to the right switch.
+        // A more specific push type (for example payment_verified) must win
+        // because it also controls the notification's deep link.
+        const pushData = { type, ...(extra.pushData || {}) };
         console.log(`🔍 Fetching FCM token for user ${userId}...`);
         const fcmToken = await getFcmToken(userId);
         if (fcmToken) {

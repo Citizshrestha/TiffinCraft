@@ -225,7 +225,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="What the subscriber pays once, up front, for this plan. It must be lower than the items' combined menu price — that discount is the whole reason someone subscribes instead of ordering the same food separately."
+                    android:text="One upfront price for the full plan. Keep it below the menu total."
                     android:textColor="#999999"
                     android:textSize="12sp" />
 
@@ -247,7 +247,7 @@
                         android:id="@+id/etPlanPrice"
                         android:layout_width="match_parent"
                         android:layout_height="52dp"
-                        android:hint="e.g. 1400 if the items total ₹1550"
+                        android:hint="Enter plan price"
                         android:inputType="numberDecimal"
                         android:textColor="#111111"
                         android:textSize="14sp" />

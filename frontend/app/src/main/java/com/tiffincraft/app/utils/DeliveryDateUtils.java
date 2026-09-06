@@ -5,6 +5,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import java.util.TimeZone;
 
 /**
  * Formatting for the delivery dates the subscription endpoints return.
@@ -58,6 +59,23 @@ public final class DeliveryDateUtils {
     /** "Sep 3, 2026" — for headline positions like "Starts Sep 3, 2026". */
     public static String formatLongDate(String isoDate) {
         return format(isoDate, "MMM d, yyyy");
+    }
+
+    /** Formats an actual UTC timestamp in the device's local timezone. */
+    public static String formatTimestampDate(String isoTimestamp) {
+        if (isoTimestamp == null || isoTimestamp.isEmpty()) return EMPTY;
+        String[] patterns = {"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", "yyyy-MM-dd'T'HH:mm:ss'Z'"};
+        for (String pattern : patterns) {
+            try {
+                SimpleDateFormat parser = new SimpleDateFormat(pattern, Locale.US);
+                parser.setTimeZone(TimeZone.getTimeZone("UTC"));
+                Date instant = parser.parse(isoTimestamp);
+                if (instant != null) {
+                    return new SimpleDateFormat("MMM d, yyyy", Locale.US).format(instant);
+                }
+            } catch (Exception ignored) { }
+        }
+        return formatLongDate(isoTimestamp);
     }
 
     /** "Thu, 3 Sep" — the calendar row heading, where the weekday is the point. */

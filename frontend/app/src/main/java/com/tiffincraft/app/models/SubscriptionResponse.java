@@ -109,6 +109,9 @@ public class SubscriptionResponse {
         @SerializedName("created_at")
         private String createdAt;
 
+        @SerializedName("payment_submitted_at")
+        private String paymentSubmittedAt;
+
         @SerializedName("plan")
         private SubscriptionPlanResponse.Plan plan;
 
@@ -225,6 +228,10 @@ public class SubscriptionResponse {
 
         public String getCreatedAt() {
             return createdAt;
+        }
+
+        public String getPaymentSubmittedAt() {
+            return paymentSubmittedAt;
         }
 
         public SubscriptionPlanResponse.Plan getPlan() {

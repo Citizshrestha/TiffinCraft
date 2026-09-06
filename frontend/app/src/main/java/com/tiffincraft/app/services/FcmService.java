@@ -21,6 +21,7 @@ import com.tiffincraft.app.activities.cook.SubscriptionRequestsActivity;
 import com.tiffincraft.app.activities.order.OrderDetailsCookActivity;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.SocketManager;
+import com.tiffincraft.app.utils.CookNotificationPreferences;
 
 import java.util.Map;
 
@@ -82,6 +83,11 @@ public class FcmService extends FirebaseMessagingService {
         }
         if (title == null) title = "TiffinCraft";
         if (body == null) body = "";
+
+        if (!CookNotificationPreferences.alertsEnabledForType(this, type)) {
+            Log.d(TAG, "Push suppressed by cook notification preference: " + type);
+            return;
+        }
 
         showNotification(title, body, type, orderIdStr, conversationIdStr, subscriptionIdStr, requestIdStr);
     }

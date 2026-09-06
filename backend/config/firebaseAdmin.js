@@ -107,14 +107,11 @@ export const sendPush = async (fcmToken, title, body, data = {}) => {
   }
 
   try {
-    // Always include title + body inside the data payload as well as in the
-    // notification block.  When FCM delivers a data-only message (or when the
-    // app is in the foreground), FcmService.onMessageReceived() reads from
-    // data; the notification block is used by the system tray when the app is
-    // killed/background.  Having both means every delivery path works.
+    // Data-only, high-priority delivery ensures FcmService always gets the
+    // message before Android displays it. That is required for the device's
+    // notification-category switches to work while the app is backgrounded.
     const message = {
       token: fcmToken,
-      notification: { title, body },
       data: Object.fromEntries(
         Object.entries({ title, body, ...data }).map(([k, v]) => [k, String(v)])
       ),

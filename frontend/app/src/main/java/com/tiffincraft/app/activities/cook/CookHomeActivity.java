@@ -1007,6 +1007,14 @@ public class CookHomeActivity extends AppCompatActivity {
             String customerName = data.optString("mealName", "New Order");
             double totalAmount = data.optDouble("total_amount", 0);
 
+            if (!com.tiffincraft.app.utils.CookNotificationPreferences
+                    .alertsEnabledForType(this, "new_order")) {
+                fetchDashboardData();
+                fetchTodayOrders();
+                fetchUnreadNotifications();
+                return;
+            }
+
             Log.d(TAG, "🔔 New Order Received! Order #" + orderId);
 
             // Play notification sound (RingtoneManager) and vibrate
@@ -1052,6 +1060,14 @@ public class CookHomeActivity extends AppCompatActivity {
         try {
             int orderId = data.optInt("orderId");
             String message = data.optString("message", "Order cancelled");
+
+            if (!com.tiffincraft.app.utils.CookNotificationPreferences
+                    .alertsEnabledForType(this, "order_cancelled")) {
+                fetchDashboardData();
+                fetchTodayOrders();
+                fetchUnreadNotifications();
+                return;
+            }
 
             Log.d(TAG, "Order #" + orderId + " cancelled");
 

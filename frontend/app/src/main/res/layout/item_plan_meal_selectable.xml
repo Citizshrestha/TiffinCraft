@@ -15,10 +15,21 @@
         android:layout_height="wrap_content"
         app:buttonTint="@color/green_primary" />
 
+    <ImageView
+        android:id="@+id/imgMeal"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/bg_meal_image"
+        android:clipToOutline="true"
+        android:contentDescription="Meal photo"
+        android:scaleType="centerCrop"
+        android:src="@drawable/meal_placeholder" />
+
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
+        android:layout_marginStart="12dp"
         android:layout_weight="1"
         android:orientation="vertical">
 

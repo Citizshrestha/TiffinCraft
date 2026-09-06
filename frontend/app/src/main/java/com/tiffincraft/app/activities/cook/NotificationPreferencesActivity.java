@@ -1,6 +1,7 @@
 package com.tiffincraft.app.activities.cook;
 
 import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.widget.LinearLayout;
@@ -10,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.utils.CookNotificationPreferences;
 
 /**
  * Lets the cook control which push notifications they receive. Preferences are stored
@@ -18,10 +20,14 @@ import com.tiffincraft.app.R;
  */
 public class NotificationPreferencesActivity extends AppCompatActivity {
 
-    public static final String PREFS_NAME = "NotificationPreferences";
+    public static final String PREFS_NAME = CookNotificationPreferences.PREFS_NAME;
 
     private static final String[] KEYS = {
-            "new_orders", "order_status", "chat_messages", "earnings_summary", "promotions"
+            CookNotificationPreferences.NEW_ORDERS,
+            CookNotificationPreferences.ORDER_STATUS,
+            CookNotificationPreferences.CHAT_MESSAGES,
+            CookNotificationPreferences.EARNINGS_SUMMARY,
+            CookNotificationPreferences.PROMOTIONS
     };
     private static final String[] TITLES = {
             "New Orders", "Order Status Updates", "Chat Messages", "Weekly Earnings Summary", "Promotions & Offers"
@@ -99,10 +105,18 @@ public class NotificationPreferencesActivity extends AppCompatActivity {
 
             SwitchCompat sw = new SwitchCompat(this);
             sw.setChecked(prefs.getBoolean(key, defaultValue));
-            sw.setThumbTintList(android.content.res.ColorStateList.valueOf(0xFF4CAF50));
-            sw.setTrackTintList(android.content.res.ColorStateList.valueOf(0xFFC8E6C9));
+            int[][] switchStates = {
+                    new int[] { android.R.attr.state_checked },
+                    new int[] { -android.R.attr.state_checked }
+            };
+            sw.setThumbTintList(new ColorStateList(switchStates,
+                    new int[] { 0xFF43AE50, 0xFF9DA39B }));
+            sw.setTrackTintList(new ColorStateList(switchStates,
+                    new int[] { 0xFFBFE5C3, 0xFFE0E3DE }));
+            sw.setContentDescription(TITLES[i]);
             sw.setOnCheckedChangeListener((buttonView, isChecked) ->
-                    prefs.edit().putBoolean(key, isChecked).apply());
+                    CookNotificationPreferences.set(this, key, isChecked));
+            row.setOnClickListener(v -> sw.toggle());
 
             row.addView(textCol);
             row.addView(sw);

@@ -371,15 +371,30 @@
             </LinearLayout>
 
             <!-- ============ KITCHEN DETAILS (real data) ============ -->
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp"
                 android:layout_marginBottom="10dp"
-                android:text="Kitchen Details"
-                android:textColor="#999999"
-                android:textSize="12sp"
-                android:textStyle="bold" />
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Kitchen details"
+                    android:textColor="#14210F"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Menu, capacity and contact information"
+                    android:textColor="#7C8478"
+                    android:textSize="11.5sp" />
+            </LinearLayout>
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
@@ -387,10 +402,10 @@
                 android:layout_marginStart="20dp"
                 android:layout_marginEnd="20dp"
                 android:layout_marginBottom="24dp"
-                    app:cardBackgroundColor="#FFFFFF"
-                    app:cardCornerRadius="18dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="#EDF1E6"
+                    app:cardBackgroundColor="#FCFDF9"
+                    app:cardCornerRadius="22dp"
+                    app:cardElevation="1dp"
+                    app:strokeColor="#E4ECDD"
                     app:strokeWidth="1dp">
 
                 <LinearLayout
@@ -404,7 +419,7 @@
                         android:layout_height="wrap_content"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:padding="16dp">
+                        android:padding="14dp">
 
                         <FrameLayout
                             android:layout_width="38dp"
@@ -426,8 +441,9 @@
                             android:layout_marginStart="14dp"
                             android:layout_weight="1"
                             android:text="Cuisine"
-                            android:textColor="#8A8F86"
-                            android:textSize="13sp" />
+                            android:textColor="#6F766C"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
 
                         <TextView
                             android:id="@+id/tvProfileFoodType"
@@ -442,7 +458,7 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:layout_marginStart="72dp"
+                        android:layout_marginStart="68dp"
                         android:background="#F1F4EC" />
 
                     <!-- Daily capacity -->
@@ -451,7 +467,7 @@
                         android:layout_height="wrap_content"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:padding="16dp">
+                        android:padding="14dp">
 
                         <FrameLayout
                             android:layout_width="38dp"
@@ -473,8 +489,9 @@
                             android:layout_marginStart="14dp"
                             android:layout_weight="1"
                             android:text="Daily Capacity"
-                            android:textColor="#8A8F86"
-                            android:textSize="13sp" />
+                            android:textColor="#6F766C"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
 
                         <TextView
                             android:id="@+id/tvProfileCapacity"
@@ -489,7 +506,7 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:layout_marginStart="72dp"
+                        android:layout_marginStart="68dp"
                         android:background="#F1F4EC" />
 
                     <!-- Phone -->
@@ -498,7 +515,7 @@
                         android:layout_height="wrap_content"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:padding="16dp">
+                        android:padding="14dp">
 
                         <FrameLayout
                             android:layout_width="38dp"
@@ -520,8 +537,9 @@
                             android:layout_marginStart="14dp"
                             android:layout_weight="1"
                             android:text="Phone"
-                            android:textColor="#8A8F86"
-                            android:textSize="13sp" />
+                            android:textColor="#6F766C"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
 
                         <TextView
                             android:id="@+id/tvProfilePhone"
@@ -536,7 +554,7 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:layout_marginStart="72dp"
+                        android:layout_marginStart="68dp"
                         android:background="#F1F4EC" />
 
                     <!-- Email -->
@@ -545,7 +563,7 @@
                         android:layout_height="wrap_content"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:padding="16dp">
+                        android:padding="14dp">
 
                         <FrameLayout
                             android:layout_width="38dp"
@@ -567,8 +585,9 @@
                             android:layout_marginStart="14dp"
                             android:layout_weight="1"
                             android:text="Email"
-                            android:textColor="#8A8F86"
-                            android:textSize="13sp" />
+                            android:textColor="#6F766C"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
 
                         <TextView
                             android:id="@+id/tvProfileEmail"
@@ -585,7 +604,7 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:layout_marginStart="72dp"
+                        android:layout_marginStart="68dp"
                         android:background="#F1F4EC" />
 
                     <!-- Address -->
@@ -594,7 +613,7 @@
                         android:layout_height="wrap_content"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:padding="16dp">
+                        android:padding="14dp">
 
                         <FrameLayout
                             android:layout_width="38dp"
@@ -615,8 +634,9 @@
                             android:layout_height="wrap_content"
                             android:layout_marginStart="14dp"
                             android:text="Address"
-                            android:textColor="#8A8F86"
-                            android:textSize="13sp" />
+                            android:textColor="#6F766C"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
 
                         <TextView
                             android:id="@+id/tvProfileAddress"

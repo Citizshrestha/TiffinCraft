@@ -621,7 +621,7 @@ export const getCookSubscribers = async (req, res) => {
              JOIN subscription_plans p ON s.plan_id = p.id
              JOIN users u ON s.customer_id = u.id
              WHERE s.cook_id = ?
-             ORDER BY s.created_at DESC`,
+             ORDER BY COALESCE(s.payment_submitted_at, s.created_at) DESC`,
             [cookId]
         );
 

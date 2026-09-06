@@ -32,6 +32,7 @@ import com.tiffincraft.app.models.SubscriptionRequestsResponse;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.CurrencyUtils;
 import com.tiffincraft.app.utils.DeliveryDateUtils;
+import com.tiffincraft.app.utils.ImageUrlHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -61,9 +62,10 @@ public class CookSubscribersActivity extends AppCompatActivity {
     private LinearLayout layoutSubscribers, layoutNewSubscriptionRequests;
     private TextView tvEmptySubscribers, tvNewSubscriptionRequestCount, btnViewAllSubscriptionRequests;
     private View cardNewSubscriptionRequests;
-    private TextView chipAll, chipSubmitted, chipActive, chipOther;
+    private TextView chipAll, chipRequests, chipSubmitted, chipActive, chipOther;
 
     private List<SubscriptionResponse.Subscription> allSubscribers = new ArrayList<>();
+    private List<SubscriptionRequestsResponse.Item> newSubscriptionRequests = new ArrayList<>();
     private String currentFilter = "all";
 
     @Override
@@ -81,6 +83,7 @@ public class CookSubscribersActivity extends AppCompatActivity {
         tvNewSubscriptionRequestCount = findViewById(R.id.tvNewSubscriptionRequestCount);
         btnViewAllSubscriptionRequests = findViewById(R.id.btnViewAllSubscriptionRequests);
         chipAll = findViewById(R.id.chipAll);
+        chipRequests = findViewById(R.id.chipSubscriptionRequests);
         chipSubmitted = findViewById(R.id.chipPaymentProofs);
         chipActive = findViewById(R.id.chipActive);
         chipOther = findViewById(R.id.chipOther);
@@ -92,13 +95,14 @@ public class CookSubscribersActivity extends AppCompatActivity {
                 startActivity(new Intent(this, SubscriptionRequestsActivity.class)));
 
         chipAll.setOnClickListener(v -> setFilter("all"));
+        chipRequests.setOnClickListener(v -> setFilter("requests"));
         chipSubmitted.setOnClickListener(v -> setFilter("payment_proofs"));
         chipActive.setOnClickListener(v -> setFilter("active"));
         chipOther.setOnClickListener(v -> setFilter("other"));
 
         String initialFilter = getIntent().getStringExtra(EXTRA_INITIAL_FILTER);
         if (initialFilter != null) {
-            currentFilter = initialFilter;
+            currentFilter = "submitted".equals(initialFilter) ? "payment_proofs" : initialFilter;
             updateChipStyles();
         }
 
@@ -126,8 +130,8 @@ public class CookSubscribersActivity extends AppCompatActivity {
     }
 
     private void updateChipStyles() {
-        TextView[] chips = { chipAll, chipSubmitted, chipActive, chipOther };
-        String[] keys = { "all", "payment_proofs", "active", "other" };
+        TextView[] chips = { chipAll, chipRequests, chipSubmitted, chipActive, chipOther };
+        String[] keys = { "all", "requests", "payment_proofs", "active", "other" };
         for (int i = 0; i < chips.length; i++) {
             boolean selected = keys[i].equals(currentFilter);
             chips[i].setBackground(ContextCompat.getDrawable(this, selected ? R.drawable.chip_selected_green : R.drawable.chip_unselected));
@@ -180,8 +184,13 @@ public class CookSubscribersActivity extends AppCompatActivity {
     }
 
     private void renderNewSubscriptionRequests(List<SubscriptionRequestsResponse.Item> requests) {
+        newSubscriptionRequests = requests == null ? new ArrayList<>() : new ArrayList<>(requests);
+        if ("requests".equals(currentFilter)) renderSubscribers();
+    }
+
+    private void renderSubscriptionRequestsTab() {
         layoutNewSubscriptionRequests.removeAllViews();
-        int count = requests == null ? 0 : requests.size();
+        int count = newSubscriptionRequests.size();
         cardNewSubscriptionRequests.setVisibility(count == 0 ? View.GONE : View.VISIBLE);
         if (count == 0) return;
 
@@ -189,9 +198,8 @@ public class CookSubscribersActivity extends AppCompatActivity {
         btnViewAllSubscriptionRequests.setText(count > 3 ? "View all " + count + " requests" : "View all requests");
 
         LayoutInflater inflater = LayoutInflater.from(this);
-        int displayed = Math.min(count, 3);
-        for (int i = 0; i < displayed; i++) {
-            SubscriptionRequestsResponse.Item request = requests.get(i);
+        for (int i = 0; i < count; i++) {
+            SubscriptionRequestsResponse.Item request = newSubscriptionRequests.get(i);
             View card = inflater.inflate(R.layout.item_subscription_request_compact,
                     layoutNewSubscriptionRequests, false);
             TextView customer = card.findViewById(R.id.tvRequestCustomerName);
@@ -219,6 +227,15 @@ public class CookSubscribersActivity extends AppCompatActivity {
 
     private void renderSubscribers() {
         layoutSubscribers.removeAllViews();
+        cardNewSubscriptionRequests.setVisibility(View.GONE);
+
+        if ("requests".equals(currentFilter)) {
+            boolean empty = newSubscriptionRequests.isEmpty();
+            tvEmptySubscribers.setVisibility(empty ? View.VISIBLE : View.GONE);
+            if (empty) tvEmptySubscribers.setText("No new subscription requests.");
+            renderSubscriptionRequestsTab();
+            return;
+        }
 
         List<SubscriptionResponse.Subscription> filtered = new ArrayList<>();
         for (SubscriptionResponse.Subscription sub : allSubscribers) {
@@ -385,7 +402,10 @@ public class CookSubscribersActivity extends AppCompatActivity {
             tvPlanName.setText((sub.getPlanName() != null ? sub.getPlanName() : "Plan")
                     + " · " + sub.getDurationLabel());
             
-            if (sub.getCreatedAt() != null) {
+            String submittedAt = sub.getPaymentSubmittedAt();
+            if (submittedAt != null && !submittedAt.isEmpty()) {
+                tvSubmittedDate.setText("Submitted: " + DeliveryDateUtils.formatTimestampDate(submittedAt));
+            } else if (sub.getCreatedAt() != null) {
                 tvSubmittedDate.setText("Submitted: " + DeliveryDateUtils.formatLongDate(sub.getCreatedAt()));
             }
 
@@ -411,12 +431,8 @@ public class CookSubscribersActivity extends AppCompatActivity {
 
             // Load payment proof image
             if (sub.getPaymentScreenshotUrl() != null && !sub.getPaymentScreenshotUrl().isEmpty()) {
-                Glide.with(this)
-                        .load(sub.getPaymentScreenshotUrl())
-                        .placeholder(R.drawable.ic_image_placeholder)
-                        .error(R.drawable.ic_image_placeholder)
-                        .centerCrop()
-                        .into(ivPaymentProof);
+                ImageUrlHelper.load(ivPaymentProof, sub.getPaymentScreenshotUrl(),
+                        R.drawable.ic_image_placeholder, 16);
                         
                 // Click to view full image
                 ivPaymentProof.setOnClickListener(v -> showFullImageDialog(sub));
@@ -439,11 +455,8 @@ public class CookSubscribersActivity extends AppCompatActivity {
         ivFullImage.setScaleType(ImageView.ScaleType.FIT_CENTER);
         
         if (sub.getPaymentScreenshotUrl() != null) {
-            Glide.with(this)
-                    .load(sub.getPaymentScreenshotUrl())
-                    .placeholder(R.drawable.ic_image_placeholder)
-                    .error(R.drawable.ic_image_placeholder)
-                    .into(ivFullImage);
+            ImageUrlHelper.loadNoCrop(ivFullImage, sub.getPaymentScreenshotUrl(),
+                    R.drawable.ic_image_placeholder);
         }
         
         new AlertDialog.Builder(ctx)
