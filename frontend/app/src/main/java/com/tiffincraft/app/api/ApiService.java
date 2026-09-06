@@ -207,6 +207,9 @@ public interface ApiService {
     @PUT("notifications/{id}/read")
     Call<NotificationResponse> markNotificationAsRead(@Header("Authorization") String token, @Path("id") int notificationId);
 
+    @PUT("notifications/read-all")
+    Call<NotificationResponse> markAllUserNotificationsAsRead(@Header("Authorization") String token);
+
     @PUT("cook/profile/holiday-mode")
     Call<CookProfileResponse> updateHolidayMode(@Header("Authorization") String token, @Body com.google.gson.JsonObject requestBody);
 

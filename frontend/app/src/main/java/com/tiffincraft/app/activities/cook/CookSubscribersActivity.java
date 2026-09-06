@@ -28,7 +28,9 @@ import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.CookSubscribersResponse;
 import com.tiffincraft.app.models.RegisterResponse;
 import com.tiffincraft.app.models.SubscriptionResponse;
+import com.tiffincraft.app.models.SubscriptionRequestsResponse;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.CurrencyUtils;
 import com.tiffincraft.app.utils.DeliveryDateUtils;
 
 import java.util.ArrayList;
@@ -56,8 +58,9 @@ public class CookSubscribersActivity extends AppCompatActivity {
     private ApiService apiService;
     private SessionManager sessionManager;
 
-    private LinearLayout layoutSubscribers;
-    private TextView tvEmptySubscribers;
+    private LinearLayout layoutSubscribers, layoutNewSubscriptionRequests;
+    private TextView tvEmptySubscribers, tvNewSubscriptionRequestCount, btnViewAllSubscriptionRequests;
+    private View cardNewSubscriptionRequests;
     private TextView chipAll, chipSubmitted, chipActive, chipOther;
 
     private List<SubscriptionResponse.Subscription> allSubscribers = new ArrayList<>();
@@ -72,7 +75,11 @@ public class CookSubscribersActivity extends AppCompatActivity {
         apiService = RetrofitClient.getInstance(this).getApiService();
 
         layoutSubscribers = findViewById(R.id.layoutSubscribers);
+        layoutNewSubscriptionRequests = findViewById(R.id.layoutNewSubscriptionRequests);
+        cardNewSubscriptionRequests = findViewById(R.id.cardNewSubscriptionRequests);
         tvEmptySubscribers = findViewById(R.id.tvEmptySubscribers);
+        tvNewSubscriptionRequestCount = findViewById(R.id.tvNewSubscriptionRequestCount);
+        btnViewAllSubscriptionRequests = findViewById(R.id.btnViewAllSubscriptionRequests);
         chipAll = findViewById(R.id.chipAll);
         chipSubmitted = findViewById(R.id.chipPaymentProofs);
         chipActive = findViewById(R.id.chipActive);
@@ -81,6 +88,8 @@ public class CookSubscribersActivity extends AppCompatActivity {
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
         findViewById(R.id.fabAddSubscription).setOnClickListener(v ->
                 startActivityForResult(new Intent(this, SubscriptionPlanFormActivity.class), REQUEST_ADD_SUBSCRIPTION));
+        btnViewAllSubscriptionRequests.setOnClickListener(v ->
+                startActivity(new Intent(this, SubscriptionRequestsActivity.class)));
 
         chipAll.setOnClickListener(v -> setFilter("all"));
         chipSubmitted.setOnClickListener(v -> setFilter("payment_proofs"));
@@ -128,6 +137,7 @@ public class CookSubscribersActivity extends AppCompatActivity {
 
     private void loadSubscribers() {
         String token = "Bearer " + sessionManager.getToken();
+        loadNewSubscriptionRequests(token);
         apiService.getCookSubscribers(token).enqueue(new Callback<CookSubscribersResponse>() {
             @Override
             public void onResponse(@NonNull Call<CookSubscribersResponse> call, @NonNull Response<CookSubscribersResponse> response) {
@@ -141,6 +151,70 @@ public class CookSubscribersActivity extends AppCompatActivity {
                 Toast.makeText(CookSubscribersActivity.this, "Failed to load subscribers: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    /**
+     * New requests are shown before the roster because they need a decision
+     * before they can become subscribers. The full inbox remains available for
+     * payment-proof review and past decisions.
+     */
+    private void loadNewSubscriptionRequests(String token) {
+        apiService.getCookSubscriptionRequests(token, "requested")
+                .enqueue(new Callback<SubscriptionRequestsResponse>() {
+                    @Override
+                    public void onResponse(@NonNull Call<SubscriptionRequestsResponse> call,
+                                           @NonNull Response<SubscriptionRequestsResponse> response) {
+                        List<SubscriptionRequestsResponse.Item> requests = response.isSuccessful()
+                                && response.body() != null && response.body().isSuccess()
+                                ? response.body().getRequests() : null;
+                        renderNewSubscriptionRequests(requests);
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull Call<SubscriptionRequestsResponse> call, @NonNull Throwable t) {
+                        // The subscriber roster is still useful if this optional
+                        // companion request fails to load, so keep the section hidden.
+                        renderNewSubscriptionRequests(null);
+                    }
+                });
+    }
+
+    private void renderNewSubscriptionRequests(List<SubscriptionRequestsResponse.Item> requests) {
+        layoutNewSubscriptionRequests.removeAllViews();
+        int count = requests == null ? 0 : requests.size();
+        cardNewSubscriptionRequests.setVisibility(count == 0 ? View.GONE : View.VISIBLE);
+        if (count == 0) return;
+
+        tvNewSubscriptionRequestCount.setText(count == 1 ? "1 new" : count + " new");
+        btnViewAllSubscriptionRequests.setText(count > 3 ? "View all " + count + " requests" : "View all requests");
+
+        LayoutInflater inflater = LayoutInflater.from(this);
+        int displayed = Math.min(count, 3);
+        for (int i = 0; i < displayed; i++) {
+            SubscriptionRequestsResponse.Item request = requests.get(i);
+            View card = inflater.inflate(R.layout.item_subscription_request_compact,
+                    layoutNewSubscriptionRequests, false);
+            TextView customer = card.findViewById(R.id.tvRequestCustomerName);
+            TextView plan = card.findViewById(R.id.tvRequestPlan);
+            TextView details = card.findViewById(R.id.tvRequestDetails);
+            MaterialButton review = card.findViewById(R.id.btnReviewSubscriptionRequest);
+
+            customer.setText(request.getCustomerName() == null ? "Customer" : request.getCustomerName());
+            String duration = request.getDurationDays() > 0 ? request.getDurationDays() + " days" : request.getDuration();
+            plan.setText((request.getPlanName() == null ? "Subscription plan" : request.getPlanName())
+                    + (duration == null || duration.isEmpty() ? "" : " · " + duration));
+            String start = request.getStartDate() == null ? "Start date to be confirmed"
+                    : "Starts " + DeliveryDateUtils.formatLongDate(request.getStartDate());
+            String amount = request.getTotalAmount() == null ? "" : " · "
+                    + CurrencyUtils.formatRupees(request.getTotalAmount());
+            details.setText(start + amount);
+
+            View.OnClickListener openRequest = v -> startActivity(
+                    SubscriptionRequestsActivity.intentFor(this, request.getId()));
+            card.setOnClickListener(openRequest);
+            review.setOnClickListener(openRequest);
+            layoutNewSubscriptionRequests.addView(card);
+        }
     }
 
     private void renderSubscribers() {

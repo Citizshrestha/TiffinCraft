@@ -34,6 +34,7 @@ import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.activities.order.OrderHistoryActivity;
 import com.tiffincraft.app.utils.CurrencyUtils;
 import com.tiffincraft.app.utils.ImageUtils;
+import com.tiffincraft.app.utils.SubscriptionManageDialog;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -389,24 +390,13 @@ public class CustomerProfileActivity extends AppCompatActivity {
         }
 
         boolean isPaused = "paused".equals(activeSubscription.getStatus());
-        String[] options = {
-                "View & skip delivery days",
-                isPaused ? "Resume subscription" : "Pause subscription",
-                "Cancel subscription"
-        };
-
-        new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
-                .setTitle("Manage Subscription")
-                .setItems(options, (dialog, which) -> {
-                    if (which == 0) {
-                        openSubscriptionCalendar();
-                    } else if (which == 1) {
-                        if (isPaused) resumeSubscription(); else pauseSubscription();
-                    } else {
-                        confirmCancelSubscription();
-                    }
-                })
-                .show();
+        SubscriptionManageDialog.show(this, isPaused, new SubscriptionManageDialog.Actions() {
+            @Override public void onSchedule() { openSubscriptionCalendar(); }
+            @Override public void onPauseOrResume() {
+                if (isPaused) resumeSubscription(); else pauseSubscription();
+            }
+            @Override public void onCancel() { confirmCancelSubscription(); }
+        });
     }
 
     /** Same per-day schedule screen the My Subscriptions list opens. */

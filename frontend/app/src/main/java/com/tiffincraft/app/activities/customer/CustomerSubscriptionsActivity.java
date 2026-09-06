@@ -22,6 +22,7 @@ import com.tiffincraft.app.models.SubscriptionResponse;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.CurrencyUtils;
 import com.tiffincraft.app.utils.DeliveryDateUtils;
+import com.tiffincraft.app.utils.SubscriptionManageDialog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -394,15 +395,14 @@ public class CustomerSubscriptionsActivity extends AppCompatActivity {
      * inconvenient day was pause or cancel the whole subscription.
      */
     private void showManageDialog(SubscriptionResponse.Subscription sub) {
-        String[] options = { "View & skip delivery days", "Pause subscription", "Cancel subscription" };
-        new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
-                .setTitle("Manage Subscription")
-                .setItems(options, (dialog, which) -> {
-                    if (which == 0) openCalendar(sub);
-                    else if (which == 1) pauseSubscription(sub);
-                    else confirmCancel(sub);
-                })
-                .show();
+        boolean isPaused = "paused".equals(sub.getStatus());
+        SubscriptionManageDialog.show(this, isPaused, new SubscriptionManageDialog.Actions() {
+            @Override public void onSchedule() { openCalendar(sub); }
+            @Override public void onPauseOrResume() {
+                if (isPaused) resumeSubscription(sub); else pauseSubscription(sub);
+            }
+            @Override public void onCancel() { confirmCancel(sub); }
+        });
     }
 
     private void pauseSubscription(SubscriptionResponse.Subscription sub) {

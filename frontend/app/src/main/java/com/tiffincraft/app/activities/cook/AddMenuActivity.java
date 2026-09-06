@@ -85,6 +85,10 @@ public class AddMenuActivity extends AppCompatActivity {
             isVeg = true;
             updateChipSelection();
         });
+        binding.chipNonVeg.setOnClickListener(v -> {
+            isVeg = false;
+            updateChipSelection();
+        });
         
         binding.chipSpicy.setOnClickListener(v -> {
             isSpicy = !isSpicy;
@@ -103,9 +107,14 @@ public class AddMenuActivity extends AppCompatActivity {
     }
     
     private void updateChipSelection() {
-        // Veg chip is always selected for now (you can make it toggle if needed)
-        binding.chipVeg.setBackground(ContextCompat.getDrawable(this, R.drawable.chip_selected_green));
-        binding.chipVeg.setTextColor(ContextCompat.getColor(this, R.color.dark_green));
+        int selectedText = ContextCompat.getColor(this, R.color.dark_green);
+        int unselectedText = ContextCompat.getColor(this, android.R.color.darker_gray);
+        binding.chipVeg.setBackground(ContextCompat.getDrawable(this,
+                isVeg ? R.drawable.chip_selected_green : R.drawable.chip_unselected));
+        binding.chipVeg.setTextColor(isVeg ? selectedText : unselectedText);
+        binding.chipNonVeg.setBackground(ContextCompat.getDrawable(this,
+                isVeg ? R.drawable.chip_unselected : R.drawable.chip_selected_red));
+        binding.chipNonVeg.setTextColor(isVeg ? unselectedText : ContextCompat.getColor(this, R.color.error));
         
         // Spicy chip
         if (isSpicy) {
@@ -113,7 +122,7 @@ public class AddMenuActivity extends AppCompatActivity {
             binding.chipSpicy.setTextColor(ContextCompat.getColor(this, R.color.dark_green));
         } else {
             binding.chipSpicy.setBackground(ContextCompat.getDrawable(this, R.drawable.chip_unselected));
-            binding.chipSpicy.setTextColor(ContextCompat.getColor(this, android.R.color.darker_gray));
+            binding.chipSpicy.setTextColor(unselectedText);
         }
         
         // Bestseller chip
@@ -122,7 +131,7 @@ public class AddMenuActivity extends AppCompatActivity {
             binding.chipBestseller.setTextColor(ContextCompat.getColor(this, R.color.dark_green));
         } else {
             binding.chipBestseller.setBackground(ContextCompat.getDrawable(this, R.drawable.chip_unselected));
-            binding.chipBestseller.setTextColor(ContextCompat.getColor(this, android.R.color.darker_gray));
+            binding.chipBestseller.setTextColor(unselectedText);
         }
     }
     

@@ -338,6 +338,24 @@
                         android:textStyle="bold" />
 
                     <TextView
+                        android:id="@+id/chipNonVeg"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/chip_unselected"
+                        android:clickable="true"
+                        android:contentDescription="Mark meal as Non-Veg"
+                        android:focusable="true"
+                        android:paddingStart="14dp"
+                        android:paddingTop="8dp"
+                        android:paddingEnd="14dp"
+                        android:paddingBottom="8dp"
+                        android:text="Non-Veg"
+                        android:textColor="#555555"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
                         android:id="@+id/chipSpicy"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"

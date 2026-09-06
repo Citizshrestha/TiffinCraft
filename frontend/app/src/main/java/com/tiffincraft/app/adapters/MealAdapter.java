@@ -52,6 +52,12 @@ public class MealAdapter extends RecyclerView.Adapter<MealAdapter.MealViewHolder
         holder.tvMealName.setText(meal.getName());
         holder.tvMealDescription.setText(meal.getDescription());
         holder.tvMealPrice.setText(CurrencyUtils.formatRupees(meal.getPrice()));
+        boolean isVegetarian = meal.isVegetarian();
+        holder.tvDietaryTag.setText(isVegetarian ? "Veg" : "Non-Veg");
+        holder.tvDietaryTag.setBackgroundResource(isVegetarian
+                ? R.drawable.chip_selected_green : R.drawable.chip_selected_red);
+        holder.tvDietaryTag.setTextColor(context.getColor(isVegetarian
+                ? R.color.dark_green : R.color.error));
         
         // Load meal image with category-based placeholders
         int placeholderImage = R.drawable.meal_veg_thali; // Default
@@ -143,7 +149,7 @@ public class MealAdapter extends RecyclerView.Adapter<MealAdapter.MealViewHolder
     static class MealViewHolder extends RecyclerView.ViewHolder {
         MaterialCardView cardMeal;
         ImageView imgMeal, btnEdit, btnDelete;
-        TextView tvMealName, tvMealDescription, tvMealPrice, tvSoldOut, btnAddSubscription;
+        TextView tvMealName, tvMealDescription, tvMealPrice, tvDietaryTag, tvSoldOut, btnAddSubscription;
         SwitchMaterial switchAvailability;
 
         MealViewHolder(@NonNull View itemView) {
@@ -153,6 +159,7 @@ public class MealAdapter extends RecyclerView.Adapter<MealAdapter.MealViewHolder
             tvMealName = itemView.findViewById(R.id.tvMealName);
             tvMealDescription = itemView.findViewById(R.id.tvMealDescription);
             tvMealPrice = itemView.findViewById(R.id.tvMealPrice);
+            tvDietaryTag = itemView.findViewById(R.id.tvDietaryTag);
             tvSoldOut = itemView.findViewById(R.id.tvSoldOut);
             switchAvailability = itemView.findViewById(R.id.switchAvailability);
             btnEdit = itemView.findViewById(R.id.btnEdit);

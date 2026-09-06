@@ -256,10 +256,17 @@
                             android:id="@+id/tvTotalEarningsProfile"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:ellipsize="none"
+                            android:maxLines="1"
+                            android:singleLine="true"
                             android:text="₹56,320"
                             android:textColor="#14210F"
                             android:textSize="20sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            app:autoSizeMaxTextSize="20sp"
+                            app:autoSizeMinTextSize="8sp"
+                            app:autoSizeTextType="uniform" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -295,11 +302,12 @@
                             android:layout_height="wrap_content"
                             android:gravity="center"
                             android:maxLines="1"
+                            android:singleLine="true"
                             android:text="Feb 2024"
                             android:textColor="#14210F"
-                            android:textSize="15sp"
+                            android:textSize="20sp"
                             android:textStyle="bold"
-                            app:autoSizeMaxTextSize="15sp"
+                            app:autoSizeMaxTextSize="20sp"
                             app:autoSizeMinTextSize="8sp"
                             app:autoSizeTextType="uniform" />
 
@@ -603,10 +611,9 @@
                         </FrameLayout>
 
                         <TextView
-                            android:layout_width="0dp"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="14dp"
-                            android:layout_weight="1"
                             android:text="Address"
                             android:textColor="#8A8F86"
                             android:textSize="13sp" />
@@ -618,11 +625,15 @@
                             android:layout_weight="1.4"
                             android:ellipsize="end"
                             android:gravity="end"
-                            android:maxLines="2"
+                            android:maxLines="1"
+                            android:singleLine="true"
                             android:text="—"
                             android:textColor="#14210F"
                             android:textSize="13.5sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            app:autoSizeMaxTextSize="13.5sp"
+                            app:autoSizeMinTextSize="10sp"
+                            app:autoSizeTextType="uniform" />
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

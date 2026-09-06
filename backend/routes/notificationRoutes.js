@@ -13,7 +13,7 @@ router.use(protect);
 
 router.get('/', getUserNotifications);
 router.get('/unread-count', getUnreadCount);
-router.put('/:id/read', markAsRead);
 router.put('/read-all', markAllNotificationsAsRead);
+router.put('/:id/read', markAsRead);
 
 export default router;

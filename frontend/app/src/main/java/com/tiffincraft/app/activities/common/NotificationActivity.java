@@ -7,6 +7,7 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -40,6 +41,7 @@ public class NotificationActivity extends AppCompatActivity {
     private LinearLayout emptyView;
     private ProgressBar progressBar;
     private ImageView btnBack;
+    private TextView btnMarkAllRead;
 
     private NotificationAdapter adapter;
     private List<Notification> notificationList;
@@ -65,8 +67,11 @@ public class NotificationActivity extends AppCompatActivity {
         emptyView = findViewById(R.id.emptyView);
         progressBar = findViewById(R.id.progressBar);
         btnBack = findViewById(R.id.btnBack);
+        btnMarkAllRead = findViewById(R.id.btnMarkAllRead);
 
         btnBack.setOnClickListener(v -> finish());
+        btnMarkAllRead.setOnClickListener(v -> markAllAsRead());
+        updateMarkAllReadAction();
     }
 
     private void setupRecyclerView() {
@@ -230,6 +235,7 @@ public class NotificationActivity extends AppCompatActivity {
                         rvNotifications.setVisibility(View.VISIBLE);
                         adapter.notifyDataSetChanged();
                     }
+                    updateMarkAllReadAction();
                 } else {
                     emptyView.setVisibility(View.VISIBLE);
                     Toast.makeText(NotificationActivity.this, "Failed to load notifications", Toast.LENGTH_SHORT).show();
@@ -254,6 +260,7 @@ public class NotificationActivity extends AppCompatActivity {
             public void onResponse(@NonNull Call<NotificationResponse> call, @NonNull Response<NotificationResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
                     adapter.markAsRead(position);
+                    updateMarkAllReadAction();
                 }
             }
 
@@ -262,5 +269,47 @@ public class NotificationActivity extends AppCompatActivity {
                 Log.e(TAG, "Failed to mark as read: " + t.getMessage());
             }
         });
+    }
+
+    private void markAllAsRead() {
+        if (!hasUnreadNotifications()) return;
+
+        btnMarkAllRead.setEnabled(false);
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.markAllUserNotificationsAsRead(token).enqueue(new Callback<NotificationResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<NotificationResponse> call, @NonNull Response<NotificationResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    for (Notification notification : notificationList) {
+                        notification.setIsRead(true);
+                    }
+                    adapter.notifyDataSetChanged();
+                    Toast.makeText(NotificationActivity.this, "All notifications marked as read", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(NotificationActivity.this, "Could not mark notifications as read", Toast.LENGTH_SHORT).show();
+                }
+                updateMarkAllReadAction();
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<NotificationResponse> call, @NonNull Throwable t) {
+                Log.e(TAG, "Failed to mark all notifications as read: " + t.getMessage());
+                Toast.makeText(NotificationActivity.this, "Network error", Toast.LENGTH_SHORT).show();
+                updateMarkAllReadAction();
+            }
+        });
+    }
+
+    private boolean hasUnreadNotifications() {
+        for (Notification notification : notificationList) {
+            if (!notification.isRead()) return true;
+        }
+        return false;
+    }
+
+    private void updateMarkAllReadAction() {
+        boolean hasUnread = hasUnreadNotifications();
+        btnMarkAllRead.setEnabled(hasUnread);
+        btnMarkAllRead.setAlpha(hasUnread ? 1f : 0.45f);
     }
 }
