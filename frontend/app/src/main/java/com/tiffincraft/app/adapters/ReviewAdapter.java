@@ -92,7 +92,7 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
         private final Button btnDeleteReview;
         private final ImageButton btnReviewMore;
         private final TextView tvCustomerInitial;
-        private final TextView tvLikeCount;
+        private final ImageButton btnReviewLike;
 
         public ReviewViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -110,7 +110,7 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
             btnDeleteReview = itemView.findViewById(R.id.btnDeleteReview);
             btnReviewMore = itemView.findViewById(R.id.btnReviewMore);
             tvCustomerInitial = itemView.findViewById(R.id.tvCustomerInitial);
-            tvLikeCount = itemView.findViewById(R.id.tvLikeCount);
+            btnReviewLike = itemView.findViewById(R.id.btnReviewLike);
         }
 
         public void bind(Review review) {
@@ -130,7 +130,14 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
 
             tvDate.setText(formatDate(review.getCreatedAt()));
             int likeCount = review.getLikeCount();
-            tvLikeCount.setText(likeCount > 0 ? likeCount + (likeCount == 1 ? " like" : " likes") : "");
+            btnReviewLike.setImageResource(likeCount > 0
+                    ? R.drawable.ic_favorite : R.drawable.ic_favorite_border);
+            btnReviewLike.setColorFilter(context.getResources().getColor(
+                    likeCount > 0 ? R.color.error_red : R.color.text_secondary, null));
+            btnReviewLike.setContentDescription(likeCount > 0 ? "Liked review" : "Like review");
+            btnReviewLike.setOnClickListener(v -> {
+                if (listener != null) listener.onLikeClick(review);
+            });
 
             // Show cook reply if exists
             if (review.getCookReply() != null && !review.getCookReply().isEmpty()) {

@@ -220,18 +220,27 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     || msg.getViewType() == ChatMessage.TYPE_VIDEO_RECEIVED;
             String url = msg.getMediaUrl() != null ? msg.getMediaUrl() : msg.getText();
 
+            vh.ivMedia.setVisibility(View.VISIBLE);
             if (isVideo) {
-                vh.ivMedia.setVisibility(View.GONE);
-                vh.tvMediaLabel.setVisibility(View.VISIBLE);
-                vh.tvMediaLabel.setText("Play video");
+                vh.ivMedia.setContentDescription("Video — tap to play");
+                Glide.with(context)
+                        .load(videoThumbnailUrl(url))
+                        .placeholder(R.drawable.ic_image_placeholder)
+                        .centerCrop()
+                        .into(vh.ivMedia);
+                vh.viewVideoScrim.setVisibility(View.VISIBLE);
+                vh.ivVideoPlay.setVisibility(View.VISIBLE);
+                vh.tvVideoBadge.setVisibility(View.VISIBLE);
             } else {
-                vh.tvMediaLabel.setVisibility(View.GONE);
-                vh.ivMedia.setVisibility(View.VISIBLE);
+                vh.ivMedia.setContentDescription("Chat image");
                 Glide.with(context)
                         .load(url)
                         .placeholder(R.drawable.ic_image_placeholder)
                         .centerCrop()
                         .into(vh.ivMedia);
+                vh.viewVideoScrim.setVisibility(View.GONE);
+                vh.ivVideoPlay.setVisibility(View.GONE);
+                vh.tvVideoBadge.setVisibility(View.GONE);
             }
 
             if ((msg.getViewType() == ChatMessage.TYPE_IMAGE_RECEIVED
@@ -294,6 +303,16 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         } else if (holder instanceof DateViewHolder) {
             ((DateViewHolder) holder).tvDate.setText(msg.getText());
         }
+    }
+
+    /** Cloudinary can deliver a first-frame JPEG without downloading video bytes. */
+    private String videoThumbnailUrl(String mediaUrl) {
+        if (mediaUrl == null) return "";
+        String marker = "/video/upload/";
+        if (mediaUrl.contains(marker)) {
+            return mediaUrl.replace(marker, "/video/upload/so_0,f_jpg/");
+        }
+        return mediaUrl;
     }
 
     /**
@@ -428,12 +447,16 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
     static class MediaViewHolder extends RecyclerView.ViewHolder {
         ImageView ivMedia, ivAvatar;
-        TextView tvMediaLabel, tvTimestamp;
+        ImageView ivVideoPlay;
+        View viewVideoScrim;
+        TextView tvVideoBadge, tvTimestamp;
         MediaViewHolder(@NonNull View itemView) {
             super(itemView);
             ivMedia = itemView.findViewById(R.id.ivMedia);
             ivAvatar = itemView.findViewById(R.id.ivAvatar);
-            tvMediaLabel = itemView.findViewById(R.id.tvMediaLabel);
+            viewVideoScrim = itemView.findViewById(R.id.viewVideoScrim);
+            ivVideoPlay = itemView.findViewById(R.id.ivVideoPlay);
+            tvVideoBadge = itemView.findViewById(R.id.tvVideoBadge);
             tvTimestamp = itemView.findViewById(R.id.tvTimestamp);
         }
     }

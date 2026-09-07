@@ -6,16 +6,23 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.gson.JsonObject;
 import com.tiffincraft.app.R;
+import com.tiffincraft.app.activities.common.MediaViewerActivity;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.databinding.ActivityBankDetailsBinding;
@@ -46,8 +53,6 @@ public class BankDetailsActivity extends AppCompatActivity {
     private String khaltiQrUrl;
     private String bankQrUrl;
 
-    private int currentUploadType = 0;
-
     // Image picker launchers
     private ActivityResultLauncher<Intent> esewaPickerLauncher;
     private ActivityResultLauncher<Intent> khaltiPickerLauncher;
@@ -75,8 +80,7 @@ public class BankDetailsActivity extends AppCompatActivity {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         Uri imageUri = result.getData().getData();
                         if (imageUri != null) {
-                            currentUploadType = UPLOAD_TYPE_ESEWA;
-                            uploadQrCode(imageUri, "esewa");
+                            confirmQrUpload(imageUri, UPLOAD_TYPE_ESEWA, "eSewa", "esewa");
                         }
                     }
                 }
@@ -89,8 +93,7 @@ public class BankDetailsActivity extends AppCompatActivity {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         Uri imageUri = result.getData().getData();
                         if (imageUri != null) {
-                            currentUploadType = UPLOAD_TYPE_KHALTI;
-                            uploadQrCode(imageUri, "khalti");
+                            confirmQrUpload(imageUri, UPLOAD_TYPE_KHALTI, "Khalti", "khalti");
                         }
                     }
                 }
@@ -103,8 +106,7 @@ public class BankDetailsActivity extends AppCompatActivity {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         Uri imageUri = result.getData().getData();
                         if (imageUri != null) {
-                            currentUploadType = UPLOAD_TYPE_BANK;
-                            uploadQrCode(imageUri, "bank");
+                            confirmQrUpload(imageUri, UPLOAD_TYPE_BANK, "Bank", "bank");
                         }
                     }
                 }
@@ -148,12 +150,87 @@ public class BankDetailsActivity extends AppCompatActivity {
         binding.btnSave.setOnClickListener(v -> {
             saveBankDetails();
         });
+
+        binding.ivEsewaQr.setOnClickListener(v -> openQrFullScreen(esewaQrUrl));
+        binding.ivKhaltiQr.setOnClickListener(v -> openQrFullScreen(khaltiQrUrl));
+        binding.ivBankQr.setOnClickListener(v -> openQrFullScreen(bankQrUrl));
     }
 
     private void openImagePicker(ActivityResultLauncher<Intent> launcher) {
         Intent intent = new Intent(Intent.ACTION_PICK);
         intent.setType("image/*");
         launcher.launch(intent);
+    }
+
+    private void confirmQrUpload(Uri imageUri, int uploadType, String qrLabel, String qrType) {
+        if (!ImageUploadHelper.isImageFile(this, imageUri)) {
+            Toast.makeText(this, "Please select a valid image file", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (!ImageUploadHelper.isValidFileSize(this, imageUri, 5)) {
+            Toast.makeText(this, "Image size must be less than 5MB", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        int previewSize = (int) (220 * getResources().getDisplayMetrics().density);
+        int padding = (int) (18 * getResources().getDisplayMetrics().density);
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(padding, 0, padding, 0);
+
+        TextView message = new TextView(this);
+        message.setText("Please confirm this is the " + qrLabel + " QR you want customers to scan.");
+        message.setTextColor(getColor(R.color.text_secondary));
+        message.setTextSize(15);
+        content.addView(message, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        ImageView preview = new ImageView(this);
+        preview.setAdjustViewBounds(true);
+        preview.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        preview.setBackgroundColor(getColor(R.color.background_light));
+        LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(previewSize, previewSize);
+        imageParams.topMargin = padding;
+        imageParams.bottomMargin = padding / 2;
+        imageParams.gravity = android.view.Gravity.CENTER_HORIZONTAL;
+        content.addView(preview, imageParams);
+        Glide.with(this).load(imageUri).into(preview);
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
+                .setTitle("Upload " + qrLabel + " QR?")
+                .setView(content)
+                .setNegativeButton("Cancel", null)
+                .setNeutralButton("Choose another", (d, which) -> openPickerForType(uploadType))
+                .setPositiveButton("Upload", (d, which) -> uploadQrCode(imageUri, uploadType, qrType))
+                .create();
+        dialog.show();
+    }
+
+    private void openPickerForType(int uploadType) {
+        switch (uploadType) {
+            case UPLOAD_TYPE_ESEWA:
+                openImagePicker(esewaPickerLauncher);
+                break;
+            case UPLOAD_TYPE_KHALTI:
+                openImagePicker(khaltiPickerLauncher);
+                break;
+            case UPLOAD_TYPE_BANK:
+                openImagePicker(bankPickerLauncher);
+                break;
+        }
+    }
+
+    private void openQrFullScreen(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            return;
+        }
+
+        Intent intent = new Intent(this, MediaViewerActivity.class);
+        intent.putExtra(MediaViewerActivity.EXTRA_MEDIA_URL, url);
+        intent.putExtra(MediaViewerActivity.EXTRA_IS_VIDEO, false);
+        startActivity(intent);
     }
 
     private void loadBankDetails() {
@@ -199,17 +276,7 @@ public class BankDetailsActivity extends AppCompatActivity {
         });
     }
 
-    private void uploadQrCode(Uri imageUri, String qrType) {
-        if (!ImageUploadHelper.isImageFile(this, imageUri)) {
-            Toast.makeText(this, "Please select a valid image file", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        if (!ImageUploadHelper.isValidFileSize(this, imageUri, 5)) {
-            Toast.makeText(this, "Image size must be less than 5MB", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
+    private void uploadQrCode(Uri imageUri, int uploadType, String qrType) {
         showLoading(true);
 
         // /upload/bank-qr expects a "document" multipart field (see uploadRoutes.js
@@ -237,7 +304,7 @@ public class BankDetailsActivity extends AppCompatActivity {
                     String uploadedUrl = response.body().getData().getUrl();
 
                     // Update the respective QR URL
-                    switch (currentUploadType) {
+                    switch (uploadType) {
                         case UPLOAD_TYPE_ESEWA:
                             esewaQrUrl = uploadedUrl;
                             updateQrImageView(UPLOAD_TYPE_ESEWA, uploadedUrl);

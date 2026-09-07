@@ -248,7 +248,7 @@ public class CookSettingsActivity extends AppCompatActivity {
     }
 
     private void showDeleteAccountConfirmation() {
-        new AlertDialog.Builder(this)
+        AlertDialog accountDeletionDialog = new AlertDialog.Builder(this)
                 .setTitle("Delete Account")
                 .setMessage("This will permanently delete your account and all associated data. " +
                         "This action cannot be undone.\n\n" +
@@ -266,7 +266,11 @@ public class CookSettingsActivity extends AppCompatActivity {
                     performAccountDeletion(password);
                 })
                 .setNegativeButton("Cancel", null)
-                .show();
+                .create();
+        accountDeletionDialog.setOnShowListener(ignored ->
+                accountDeletionDialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                        .setTextColor(getColor(R.color.error_red)));
+        accountDeletionDialog.show();
     }
 
     private void performAccountDeletion(String password) {

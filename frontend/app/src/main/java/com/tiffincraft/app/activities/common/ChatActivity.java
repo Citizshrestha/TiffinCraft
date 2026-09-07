@@ -30,6 +30,7 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -1008,7 +1009,65 @@ public class ChatActivity extends AppCompatActivity {
                     mediaUri,
                     data.getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION);
         } catch (SecurityException ignored) { }
-        uploadAndSendMedia(mediaUri);
+        confirmMediaBeforeSending(mediaUri);
+    }
+
+    /**
+     * A gallery tap should never publish a file by itself. Show the exact image or
+     * video that will be sent, then make the user explicitly choose Send.
+     */
+    private void confirmMediaBeforeSending(Uri mediaUri) {
+        String mimeType = ImageUploadHelper.getMimeType(this, mediaUri);
+        if (mimeType == null || (!mimeType.startsWith("image/") && !mimeType.startsWith("video/"))) {
+            Toast.makeText(this, "Please select an image or video.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        boolean isVideo = mimeType.startsWith("video/");
+        long maxSizeMb = isVideo ? 100 : 10;
+        if (!ImageUploadHelper.isValidFileSize(this, mediaUri, maxSizeMb)) {
+            Toast.makeText(this,
+                    isVideo ? "Video must be 100MB or smaller." : "Image must be 10MB or smaller.",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        View preview = getLayoutInflater().inflate(R.layout.dialog_confirm_chat_media, null);
+        TextView title = preview.findViewById(R.id.tvPreviewTitle);
+        TextView subtitle = preview.findViewById(R.id.tvPreviewSubtitle);
+        ImageView mediaPreview = preview.findViewById(R.id.ivMediaPreview);
+        View videoScrim = preview.findViewById(R.id.viewVideoPreviewScrim);
+        ImageView videoPlay = preview.findViewById(R.id.ivVideoPreviewPlay);
+
+        title.setText(isVideo ? "Send this video?" : "Send this photo?");
+        subtitle.setText(isVideo
+                ? "Review the video before sending it to " + contactName + "."
+                : "Review the photo before sending it to " + contactName + ".");
+
+        if (isVideo) {
+            videoScrim.setVisibility(View.VISIBLE);
+            videoPlay.setVisibility(View.VISIBLE);
+            Glide.with(this)
+                    .asBitmap()
+                    .load(mediaUri)
+                    .frame(1_000_000L)
+                    .centerCrop()
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .into(mediaPreview);
+        } else {
+            Glide.with(this)
+                    .load(mediaUri)
+                    .centerCrop()
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .into(mediaPreview);
+        }
+
+        new MaterialAlertDialogBuilder(this)
+                .setView(preview)
+                .setPositiveButton("Send", (dialog, which) -> uploadAndSendMedia(mediaUri))
+                .setNeutralButton("Choose another", (dialog, which) -> openMediaPickerIntent())
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void uploadAndSendMedia(Uri mediaUri) {

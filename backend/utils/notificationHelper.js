@@ -397,7 +397,7 @@ export const notifyCommissionDue = async (cookId, amountDue, month, year, settle
     return createNotification(
         cookId,
         'Commission Due',
-        `Your platform commission for ${monthLabel} ${year} is ₹${Number(amountDue).toFixed(2)}. Pay via the platform QR in Earnings and upload your payment screenshot.`,
+        `Your platform commission for ${monthLabel} ${year} is ₹${Number(amountDue).toFixed(2)}. Pay using the QR code in Earnings, then upload your payment screenshot for verification.`,
         'commission_due',
         settlementId,
         'commission_settlement',
@@ -428,8 +428,8 @@ export const notifyCommissionDueReminder = async (
     const amount = `₹${Number(amountRemaining).toFixed(2)}`;
     const title = isOverdue ? 'Commission Payment Overdue' : 'Commission Due Soon';
     const message = isOverdue
-        ? `${amount} commission for ${monthLabel} ${year} was due${dueDateLabel ? ` on ${dueDateLabel}` : ''}. Please pay it and upload your screenshot to keep your kitchen in good standing.`
-        : `${amount} commission for ${monthLabel} ${year} is due${dueDateLabel ? ` on ${dueDateLabel}` : ' soon'}. Pay via the platform QR and upload your screenshot.`;
+        ? `${amount} commission for ${monthLabel} ${year} was due${dueDateLabel ? ` on ${dueDateLabel}` : ''}. Pay using the QR code in Earnings, then upload your payment screenshot for verification.`
+        : `${amount} commission for ${monthLabel} ${year} is due${dueDateLabel ? ` on ${dueDateLabel}` : ' soon'}. Pay using the QR code in Earnings, then upload your payment screenshot for verification.`;
 
     return createNotification(
         cookId,
