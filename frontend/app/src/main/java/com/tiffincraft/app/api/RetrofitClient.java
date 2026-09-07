@@ -1,7 +1,8 @@
 package com.tiffincraft.app.api;
 
 import android.content.Context;
-import android.content.SharedPreferences;
+
+import com.tiffincraft.app.security.SecureTokenStore;
 
 import okhttp3.Cookie;
 import okhttp3.CookieJar;
@@ -22,20 +23,7 @@ import java.util.concurrent.TimeUnit;
 
 public class RetrofitClient {
 
-    /**
-     * BASE_URL / SERVER_URL are MUTABLE and backed by {@link ServerConfig}'s
-     * cache rather than a hardcoded literal.
-     *
-     * That indirection was originally needed because the dev backend ran behind
-     * localtunnel and its URL rotated on every restart. The backend now lives
-     * at a stable hosted HTTPS address, so in normal operation these fields are
-     * simply seeded from ServerConfig's compiled-in default and never change.
-     *
-     * The mutability is kept for two reasons: image-URL helpers elsewhere read
-     * SERVER_URL directly, and {@link ServerConfig#setLanDiscoveryEnabled}
-     * still allows pointing the app at a backend on the local network without
-     * touching this class.
-     */
+
     public static String BASE_URL;
     public static String SERVER_URL;
 
@@ -52,7 +40,14 @@ public class RetrofitClient {
         SERVER_URL = ServerConfig.getCachedServerUrl(this.context);
 
         HttpLoggingInterceptor loggingInterceptor = new HttpLoggingInterceptor();
-        loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BODY); // Changed from HEADERS to BODY
+        loggingInterceptor.redactHeader("Authorization");
+        loggingInterceptor.redactHeader("Cookie");
+        loggingInterceptor.redactHeader("Set-Cookie");
+        boolean isDebugBuild = (this.context.getApplicationInfo().flags
+                & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        loggingInterceptor.setLevel(isDebugBuild
+                ? HttpLoggingInterceptor.Level.BASIC
+                : HttpLoggingInterceptor.Level.NONE);
 
         Interceptor authInterceptor = new Interceptor() {
             @Override
@@ -63,9 +58,7 @@ public class RetrofitClient {
                         .header("Bypass-Tunnel-Reminder", "true");
 
                 if (originalRequest.header("Authorization") == null) {
-                    SharedPreferences prefs = context.getSharedPreferences(
-                            "TiffinCraftSession", Context.MODE_PRIVATE);
-                    String token = prefs.getString("token", null);
+                    String token = SecureTokenStore.getToken(context);
                     if (token != null && !token.isEmpty()) {
                         builder.header("Authorization", "Bearer " + token);
                     }
@@ -88,9 +81,7 @@ public class RetrofitClient {
                 // Save token from cookie to SessionManager prefs for consistency
                 for (Cookie cookie : cookies) {
                     if ("auth_token".equals(cookie.name())) {
-                        SharedPreferences prefs = context.getSharedPreferences(
-                                "TiffinCraftSession", Context.MODE_PRIVATE);
-                        prefs.edit().putString("token", cookie.value()).apply();
+                        SecureTokenStore.saveToken(context, cookie.value());
                     }
                 }
             }
@@ -103,19 +94,7 @@ public class RetrofitClient {
         };
 
         OkHttpClient okHttpClient = new OkHttpClient.Builder()
-                // connectTimeout stays short: an unreachable host (e.g. phone off the
-                // dev LAN) should fail fast into the failover/retry path instead of
-                // leaving a screen spinning for a minute+. readTimeout stays generous
-                // because the dev tunnel (loca.lt) is itself slow/flaky under load —
-                // measured 17s+ for a trivial request — and CookHomeActivity alone
-                // fires 4 parallel calls on every onResume, so a tight read timeout
-                // turned that tunnel latency into spurious "network error" toasts.
-                //
-                // 60s, not 40s: the hosted backend is on a free tier that spins down
-                // when idle, and a measured cold start is ~20s before the handler even
-                // runs. An endpoint that then does real work — forgot-password waits
-                // on an SMTP send — could exceed 40s from a cold instance and surface
-                // as a network error on a request that actually succeeded server-side.
+
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(60, TimeUnit.SECONDS)
                 .writeTimeout(60, TimeUnit.SECONDS)
@@ -155,19 +134,16 @@ public class RetrofitClient {
     }
 
     public static String getAuthToken(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences("TiffinCraftSession", Context.MODE_PRIVATE);
-        String token = prefs.getString("token", null);
+        String token = SecureTokenStore.getToken(context);
         return token != null ? "Bearer " + token : null;
     }
 
     public static void saveAuthToken(Context context, String token) {
-        SharedPreferences prefs = context.getSharedPreferences("TiffinCraftSession", Context.MODE_PRIVATE);
-        prefs.edit().putString("token", token).apply();
+        SecureTokenStore.saveToken(context, token);
     }
 
     public static void clearAuthToken(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences("TiffinCraftSession", Context.MODE_PRIVATE);
-        prefs.edit().remove("token").apply();
+        SecureTokenStore.clearToken(context);
     }
 
     /** Get the current server URL for Socket.IO connections */

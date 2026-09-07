@@ -689,7 +689,11 @@ public class CommissionSettlementActivity extends AppCompatActivity {
 
         // Two-step, same as the customer-pays-cook Option A flow: upload the raw
         // image to get a Cloudinary URL, then attach that URL to the settlement.
-        apiService.uploadDocumentCloudinary(token, imagePart).enqueue(new Callback<UploadResponse>() {
+        okhttp3.RequestBody purpose = okhttp3.RequestBody.create(
+                okhttp3.MediaType.parse("text/plain"), "commission_payment");
+        okhttp3.RequestBody referenceId = okhttp3.RequestBody.create(
+                okhttp3.MediaType.parse("text/plain"), String.valueOf(current.getId()));
+        apiService.uploadDocumentCloudinary(token, purpose, referenceId, imagePart).enqueue(new Callback<UploadResponse>() {
             @Override
             public void onResponse(@NonNull Call<UploadResponse> call, @NonNull Response<UploadResponse> response) {
                 if (!response.isSuccessful() || response.body() == null || !response.body().isSuccess()) {

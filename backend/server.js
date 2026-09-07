@@ -46,31 +46,20 @@ const server = http.createServer(app);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// ── CORS policy ───────────────────────────────────────────────
-// Defined here rather than further down because Socket.IO (below) needs the
-// same rules as the REST API — previously it had its own, different, and also
-// wrong config.
-//
-// Scope note: CORS is a *browser* protection. The Android app sends no Origin
-// header, and eSewa's return trip into /api/payments/... is a top-level
-// navigation, not an XHR. Neither is affected by anything in this block.
+
 const allowedOrigins = (process.env.CLIENT_URL || "")
     .split(",")
     .map((o) => o.trim().replace(/\/$/, ""))
     .filter(Boolean);
 
-// Loopback / private-LAN origins, so the Admin dashboard can be developed
-// against a running backend. Gated on NODE_ENV: a real production deploy
-// should not be reachable from whatever a developer happens to be serving.
+
 const DEV_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?$/;
 
-// Rejections are logged once per origin, not once per request — a misconfigured
-// CLIENT_URL would otherwise flood the log with identical lines.
+
 const loggedRejections = new Set();
 
 function corsOrigin(origin, callback) {
-    // No Origin header: native app, curl, server-to-server, eSewa callback.
-    // There is no browser here to protect, so CORS has no opinion.
+
     if (!origin) return callback(null, true);
 
     const normalized = origin.replace(/\/$/, "");

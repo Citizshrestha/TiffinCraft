@@ -54,19 +54,38 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnReviewSubscriptionRequest"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="wrap_content"
             android:layout_height="38dp"
-            android:layout_marginStart="10dp"
             android:insetTop="0dp"
             android:insetBottom="0dp"
-            android:text="Review"
+            android:text="Accept"
             android:textAllCaps="false"
             android:textColor="@color/green_primary_dark"
             android:textSize="12sp"
             app:cornerRadius="10dp"
             app:strokeColor="@color/green_primary_dark" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnRejectSubscriptionRequest"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:text="Decline"
+            android:textAllCaps="false"
+            android:textColor="@color/error_red"
+            android:textSize="12sp" />
+        </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

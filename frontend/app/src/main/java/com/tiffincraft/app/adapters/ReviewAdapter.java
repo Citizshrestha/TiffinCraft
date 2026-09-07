@@ -5,6 +5,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.PopupMenu;
 import android.widget.RatingBar;
 import android.widget.TextView;
 
@@ -31,6 +33,7 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
         void onReplyClick(Review review);
         default void onEditClick(Review review) {}
         default void onDeleteClick(Review review) {}
+        default void onLikeClick(Review review) {}
     }
 
     public ReviewAdapter(Context context, List<Review> reviews, OnReviewActionListener listener) {
@@ -87,6 +90,9 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
         private final View layoutOwnReviewActions;
         private final Button btnEditReview;
         private final Button btnDeleteReview;
+        private final ImageButton btnReviewMore;
+        private final TextView tvCustomerInitial;
+        private final TextView tvLikeCount;
 
         public ReviewViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -102,11 +108,16 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
             layoutOwnReviewActions = itemView.findViewById(R.id.layoutOwnReviewActions);
             btnEditReview = itemView.findViewById(R.id.btnEditReview);
             btnDeleteReview = itemView.findViewById(R.id.btnDeleteReview);
+            btnReviewMore = itemView.findViewById(R.id.btnReviewMore);
+            tvCustomerInitial = itemView.findViewById(R.id.tvCustomerInitial);
+            tvLikeCount = itemView.findViewById(R.id.tvLikeCount);
         }
 
         public void bind(Review review) {
             tvCustomerName.setText(review.getCustomerName() != null ? review.getCustomerName() : "Customer");
-            tvRating.setText(String.valueOf(review.getRating()));
+            String customerName = review.getCustomerName() != null ? review.getCustomerName().trim() : "";
+            tvCustomerInitial.setText(customerName.isEmpty() ? "C" : customerName.substring(0, 1).toUpperCase(Locale.getDefault()));
+            tvRating.setText(String.format(Locale.getDefault(), "%d.0", review.getRating()));
             ratingBar.setRating(review.getRating());
             tvComment.setText(review.getComment() != null ? review.getComment() : "No comment");
 
@@ -118,6 +129,8 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
             }
 
             tvDate.setText(formatDate(review.getCreatedAt()));
+            int likeCount = review.getLikeCount();
+            tvLikeCount.setText(likeCount > 0 ? likeCount + (likeCount == 1 ? " like" : " likes") : "");
 
             // Show cook reply if exists
             if (review.getCookReply() != null && !review.getCookReply().isEmpty()) {
@@ -131,6 +144,7 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
 
             if (readOnly) {
                 btnReply.setVisibility(View.GONE);
+                btnReviewMore.setVisibility(View.GONE);
             } else {
                 btnReply.setVisibility(View.VISIBLE);
                 btnReply.setOnClickListener(v -> {
@@ -138,6 +152,8 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
                         listener.onReplyClick(review);
                     }
                 });
+                btnReviewMore.setVisibility(View.VISIBLE);
+                btnReviewMore.setOnClickListener(v -> showCookActions(review));
             }
 
             // Edit/Delete — only on the row belonging to the logged-in customer,
@@ -152,6 +168,29 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
                     if (listener != null) listener.onDeleteClick(review);
                 });
             }
+        }
+
+        private void showCookActions(Review review) {
+            PopupMenu popup = new PopupMenu(context, btnReviewMore);
+            popup.getMenuInflater().inflate(R.menu.menu_review_actions, popup.getMenu());
+            popup.setOnMenuItemClickListener(item -> {
+                if (item.getItemId() == R.id.action_like_review) {
+                    if (listener != null) listener.onLikeClick(review);
+                    return true;
+                }
+                if (item.getItemId() == R.id.action_delete_review) {
+                    new androidx.appcompat.app.AlertDialog.Builder(context)
+                            .setTitle("Delete customer review?")
+                            .setMessage("This permanently removes the review and updates your kitchen rating.")
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Delete", (dialog, which) -> {
+                                if (listener != null) listener.onDeleteClick(review);
+                            }).show();
+                    return true;
+                }
+                return false;
+            });
+            popup.show();
         }
 
         private String formatDate(String rawDate) {

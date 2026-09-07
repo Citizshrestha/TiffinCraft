@@ -17,6 +17,7 @@ public class Review {
     private String customer_name;
     private String customer_image;
     private String meal_name;
+    private int like_count;
 
     // Getters and Setters
     public int getId() {
@@ -130,4 +131,7 @@ public class Review {
     public void setMealName(String meal_name) {
         this.meal_name = meal_name;
     }
+
+    public int getLikeCount() { return like_count; }
+    public void setLikeCount(int like_count) { this.like_count = like_count; }
 }

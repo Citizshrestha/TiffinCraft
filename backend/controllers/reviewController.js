@@ -275,6 +275,7 @@ export const getCookReviews = async (req, res) => {
 
         const [reviews] = await db.promise().query(
             `SELECT r.*, u.full_name as customer_name,
+                    (SELECT COUNT(*) FROM review_likes rl WHERE rl.review_id = r.id) AS like_count,
                     u.profile_image as customer_image
              FROM reviews r
              JOIN users u ON r.customer_id = u.id
@@ -354,6 +355,7 @@ export const getMyCookReviews = async (req, res) => {
         // migrating; ReviewAdapter already null-guards getMealName().
         const [reviews] = await db.promise().query(
             `SELECT r.*,
+                    (SELECT COUNT(*) FROM review_likes rl WHERE rl.review_id = r.id) AS like_count,
                     u.full_name as customer_name,
                     u.profile_image as customer_image
              FROM reviews r
@@ -446,4 +448,58 @@ export const replyToReview = async (req, res) => {
             error: error.message
         });
     }
+};
+
+// DELETE /api/reviews/:reviewId/reply — cook removes only their own response.
+export const deleteReviewReply = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+        const { reviewId } = req.params;
+        const [result] = await db.promise().query(
+            "UPDATE reviews SET cook_reply = NULL, cook_reply_at = NULL WHERE id = ? AND cook_id = ? AND cook_reply IS NOT NULL",
+            [reviewId, cookId]
+        );
+        if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "Reply not found." });
+        return res.status(200).json({ success: true, message: "Reply deleted." });
+    } catch (error) {
+        console.error("deleteReviewReply error:", error);
+        return res.status(500).json({ success: false, message: "Server error." });
+    }
+};
+
+// POST /api/reviews/:reviewId/like — an idempotent acknowledgement from the owning cook.
+export const likeReview = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+        const { reviewId } = req.params;
+        const [reviews] = await db.promise().query("SELECT id FROM reviews WHERE id = ? AND cook_id = ?", [reviewId, cookId]);
+        if (reviews.length === 0) return res.status(404).json({ success: false, message: "Review not found." });
+        await db.promise().query("INSERT IGNORE INTO review_likes (review_id, cook_id) VALUES (?, ?)", [reviewId, cookId]);
+        return res.status(200).json({ success: true, message: "Review liked." });
+    } catch (error) {
+        console.error("likeReview error:", error);
+        return res.status(500).json({ success: false, message: "Server error." });
+    }
+};
+
+// DELETE /api/reviews/:reviewId/cook — a cook may moderate only feedback left for their kitchen.
+export const deleteCookReview = async (req, res) => {
+    const connection = await db.promise().getConnection();
+    try {
+        const cookId = req.user.id;
+        const { reviewId } = req.params;
+        const [reviews] = await connection.query("SELECT id FROM reviews WHERE id = ? AND cook_id = ?", [reviewId, cookId]);
+        if (reviews.length === 0) return res.status(404).json({ success: false, message: "Review not found." });
+        await connection.beginTransaction();
+        await connection.query("DELETE FROM reviews WHERE id = ?", [reviewId]);
+        const [ratingResult] = await connection.query("SELECT AVG(rating) AS avg_rating FROM reviews WHERE cook_id = ?", [cookId]);
+        const rating = ratingResult[0].avg_rating === null ? 0 : parseFloat(ratingResult[0].avg_rating).toFixed(2);
+        await connection.query("UPDATE cook_profiles SET rating = ? WHERE user_id = ?", [rating, cookId]);
+        await connection.commit();
+        return res.status(200).json({ success: true, message: "Review deleted." });
+    } catch (error) {
+        await connection.rollback();
+        console.error("deleteCookReview error:", error);
+        return res.status(500).json({ success: false, message: "Server error." });
+    } finally { connection.release(); }
 };

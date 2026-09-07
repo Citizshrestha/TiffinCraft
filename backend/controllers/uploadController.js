@@ -111,7 +111,46 @@ export const uploadDocument = async (req, res) => {
     }
 
     const userId = req.user.id;
-    const folder = `tiffincraft/documents/${userId}`;
+    const role = req.user.role;
+    const purpose = String(req.body.purpose || '').trim();
+    const referenceId = Number(req.body.reference_id);
+
+    if (!Number.isInteger(referenceId) || referenceId <= 0) {
+      return res.status(400).json({ success: false, message: 'A valid reference_id is required.' });
+    }
+
+    const allowedPurpose = (role === 'customer' && ['order_payment', 'subscription_payment'].includes(purpose))
+      || (role === 'cook' && purpose === 'commission_payment');
+    if (!allowedPurpose) {
+      return res.status(403).json({ success: false, message: 'This upload purpose is not allowed for your account.' });
+    }
+
+    let ownsReference = false;
+    if (purpose === 'order_payment') {
+      const [rows] = await db.promise().query(
+        'SELECT id FROM orders WHERE id = ? AND customer_id = ? LIMIT 1',
+        [referenceId, userId]
+      );
+      ownsReference = rows.length > 0;
+    } else if (purpose === 'subscription_payment') {
+      const [rows] = await db.promise().query(
+        'SELECT id FROM subscriptions WHERE id = ? AND customer_id = ? LIMIT 1',
+        [referenceId, userId]
+      );
+      ownsReference = rows.length > 0;
+    } else if (purpose === 'commission_payment') {
+      const [rows] = await db.promise().query(
+        'SELECT id FROM commission_settlements WHERE id = ? AND cook_id = ? LIMIT 1',
+        [referenceId, userId]
+      );
+      ownsReference = rows.length > 0;
+    }
+
+    if (!ownsReference) {
+      return res.status(403).json({ success: false, message: 'That payment record does not belong to you.' });
+    }
+
+    const folder = `tiffincraft/documents/${userId}/${purpose}/${referenceId}`;
 
     const result = await uploadToCloudinary(req.file.buffer, folder, {
       resource_type: 'auto',
@@ -287,31 +326,5 @@ export const uploadBankQr = async (req, res) => {
   }
 };
 
-/**
- * DELETE /api/upload/image
- * Delete an image from Cloudinary by its URL.
- */
-export const deleteImage = async (req, res) => {
-  try {
-    const { imageUrl } = req.body;
-
-    if (!imageUrl) {
-      return res.status(400).json({ success: false, message: 'imageUrl is required.' });
-    }
-
-    const publicId = extractPublicId(imageUrl);
-    if (!publicId) {
-      return res.status(400).json({ success: false, message: 'Invalid Cloudinary image URL.' });
-    }
-
-    const result = await deleteFromCloudinary(publicId);
-
-    return res.status(200).json({ success: true, message: 'Image deleted successfully.', data: result });
-  } catch (error) {
-    console.error('deleteImage error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to delete image.', error: error.message });
-  }
-};
-
-export default { uploadMealImage, uploadProfileImage, uploadDocument, uploadChatMedia, uploadBankQr, deleteImage };
+export default { uploadMealImage, uploadProfileImage, uploadDocument, uploadChatMedia, uploadBankQr };
 

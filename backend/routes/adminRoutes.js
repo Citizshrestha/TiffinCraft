@@ -58,8 +58,7 @@ router.get("/reviews", getAdminReviews);
 router.delete("/reviews/:reviewId", adminDeleteReview);
 router.get("/payments", getAdminPayments);
 
-// Subscription oversight. The static /disputes path is declared first so it can
-// never be matched as a subscription id by a future /subscriptions/:id route.
+
 router.get("/subscriptions/disputes", getPaymentDisputes);
 router.get("/subscriptions", getAdminSubscriptions);
 

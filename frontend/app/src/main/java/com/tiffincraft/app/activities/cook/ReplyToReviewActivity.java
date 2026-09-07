@@ -72,6 +72,7 @@ public class ReplyToReviewActivity extends AppCompatActivity {
             binding.etReply.setText(existingReply);
             binding.tvTitle.setText("Edit Your Reply");
             binding.btnSubmit.setText("Update Reply");
+            binding.btnDeleteReply.setVisibility(View.VISIBLE);
         } else {
             binding.tvTitle.setText("Reply to Review");
             binding.btnSubmit.setText("Post Reply");
@@ -97,6 +98,32 @@ public class ReplyToReviewActivity extends AppCompatActivity {
             }
 
             submitReply(reply);
+        });
+
+        binding.btnDeleteReply.setOnClickListener(v -> new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Delete your reply?")
+                .setMessage("The customer will no longer see this response.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Delete", (dialog, which) -> deleteReply())
+                .show());
+    }
+
+    private void deleteReply() {
+        showLoading(true);
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.deleteReviewReply(token, reviewId).enqueue(new Callback<RegisterResponse>() {
+            @Override public void onResponse(@NonNull Call<RegisterResponse> call, @NonNull Response<RegisterResponse> response) {
+                showLoading(false);
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    Toast.makeText(ReplyToReviewActivity.this, "Reply deleted", Toast.LENGTH_SHORT).show();
+                    setResult(RESULT_OK);
+                    finish();
+                } else Toast.makeText(ReplyToReviewActivity.this, "Could not delete reply", Toast.LENGTH_SHORT).show();
+            }
+            @Override public void onFailure(@NonNull Call<RegisterResponse> call, @NonNull Throwable t) {
+                showLoading(false);
+                Toast.makeText(ReplyToReviewActivity.this, "Could not delete reply", Toast.LENGTH_SHORT).show();
+            }
         });
     }
 
@@ -143,5 +170,6 @@ public class ReplyToReviewActivity extends AppCompatActivity {
         binding.progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
         binding.btnSubmit.setEnabled(!show);
         binding.etReply.setEnabled(!show);
+        binding.btnDeleteReply.setEnabled(!show);
     }
 }

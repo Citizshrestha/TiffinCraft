@@ -75,3 +75,10 @@ export const dayHandshakeLimiter = perUserLimiter({
     limit: 120,
     message: "Too many delivery confirmations in a row. Please wait a few minutes."
 });
+
+/** File uploads consume third-party storage and image-processing quota. */
+export const uploadLimiter = perUserLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 30,
+    message: "Too many uploads. Please wait a few minutes before trying again."
+});

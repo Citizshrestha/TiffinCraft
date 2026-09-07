@@ -31,6 +31,7 @@ import com.tiffincraft.app.models.SubscriptionDetailResponse;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.DeliveryDateUtils;
 import com.tiffincraft.app.utils.ImageUploadHelper;
+import com.tiffincraft.app.utils.PaymentScreenshotConfirmationDialog;
 
 import java.util.Locale;
 
@@ -499,22 +500,11 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
      * customer saw which image they had chosen.
      */
     private void confirmPickedImage(Uri picked) {
-        float density = getResources().getDisplayMetrics().density;
-        ImageView preview = new ImageView(this);
-        preview.setAdjustViewBounds(true);
-        preview.setMaxHeight(Math.round(320 * density));
-        int pad = Math.round(16 * density);
-        preview.setPadding(pad, pad, pad, 0);
-        Glide.with(this).load(picked).into(preview);
-
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("Send this screenshot?")
-                .setView(preview)
-                .setMessage("The cook will check the amount, date and name on it.")
-                .setPositiveButton("Send to cook", (d, w) -> uploadProof(picked))
-                .setNegativeButton("Pick another", (d, w) -> openImagePicker())
-                .setNeutralButton("Cancel", null)
-                .show();
+        PaymentScreenshotConfirmationDialog.show(
+                this,
+                picked,
+                () -> uploadProof(picked),
+                this::openImagePicker);
     }
 
     private void openImagePicker() {

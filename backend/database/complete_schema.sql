@@ -158,6 +158,17 @@ CREATE TABLE IF NOT EXISTS reviews (
     INDEX idx_order (order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- A cook can acknowledge a review once. Keeping this separate preserves the
+-- review record and prevents repeat taps from inflating the count.
+CREATE TABLE IF NOT EXISTS review_likes (
+    review_id INT NOT NULL,
+    cook_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (review_id, cook_id),
+    FOREIGN KEY (review_id) REFERENCES reviews(id) ON DELETE CASCADE,
+    FOREIGN KEY (cook_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ============================================================================
 -- Notifications table
 -- ============================================================================

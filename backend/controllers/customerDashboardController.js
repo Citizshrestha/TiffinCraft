@@ -145,13 +145,22 @@ export const getCustomerDashboard = async (req, res) => {
  */
 export const getCustomerById = async (req, res) => {
     try {
+        const cookId = req.user.id;
         const { customerId } = req.params;
 
         const [users] = await db.promise().query(
             `SELECT id, full_name, phone, profile_image, address, created_at
              FROM users
-             WHERE id = ? AND role = 'customer' AND is_active = TRUE`,
-            [customerId]
+             WHERE id = ? AND role = 'customer' AND is_active = TRUE
+               AND (
+                    EXISTS (SELECT 1 FROM orders o
+                            WHERE o.customer_id = users.id AND o.cook_id = ?)
+                 OR EXISTS (SELECT 1 FROM subscriptions s
+                            WHERE s.customer_id = users.id AND s.cook_id = ?)
+                 OR EXISTS (SELECT 1 FROM conversations c
+                            WHERE c.customer_id = users.id AND c.cook_id = ?)
+               )`,
+            [customerId, cookId, cookId, cookId]
         );
 
         if (users.length === 0) {

@@ -465,13 +465,17 @@ public class ChatActivity extends AppCompatActivity {
                     ? "This replaces their plan meal for that one day."
                     : "They get the usual plan meal that day. They're charged the same either way.");
 
-        new MaterialAlertDialogBuilder(this)
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
                 .setTitle(title)
                 .setMessage(body)
                 .setPositiveButton(accept ? "Accept" : "Decline",
                         (d, w) -> sendCardDecision(referenceId, isSubscription, accept))
                 .setNegativeButton("Cancel", null)
-                .show();
+                .create();
+        dialog.setOnShowListener(ignored ->
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                        .setTextColor(ContextCompat.getColor(this, R.color.error_red)));
+        dialog.show();
     }
 
     private void sendCardDecision(int referenceId, boolean isSubscription, boolean accept) {

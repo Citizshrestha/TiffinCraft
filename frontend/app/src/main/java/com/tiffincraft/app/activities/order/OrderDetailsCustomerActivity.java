@@ -38,6 +38,7 @@ import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.CurrencyUtils;
 import com.tiffincraft.app.utils.ImageUrlHelper;
 import com.tiffincraft.app.utils.ImageUtils;
+import com.tiffincraft.app.utils.PaymentScreenshotConfirmationDialog;
 import com.tiffincraft.app.utils.TimeFormat;
 
 import org.json.JSONObject;
@@ -517,22 +518,11 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
     }
 
     private void confirmPickedImage(Uri imageUri) {
-        float density = getResources().getDisplayMetrics().density;
-        ImageView preview = new ImageView(this);
-        preview.setAdjustViewBounds(true);
-        preview.setMaxHeight(Math.round(320 * density));
-        int pad = Math.round(16 * density);
-        preview.setPadding(pad, pad, pad, 0);
-        Glide.with(this).load(imageUri).into(preview);
-
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle("Send this screenshot?")
-                .setView(preview)
-                .setMessage("The cook will verify the payment using this screenshot.")
-                .setPositiveButton("Send to cook", (d, w) -> uploadImageToCloudinary(imageUri))
-                .setNegativeButton("Pick another", (d, w) -> openImagePicker())
-                .setNeutralButton("Cancel", null)
-                .show();
+        PaymentScreenshotConfirmationDialog.show(
+                this,
+                imageUri,
+                () -> uploadImageToCloudinary(imageUri),
+                this::openImagePicker);
     }
 
     private void confirmRemoveProof() {
@@ -582,7 +572,9 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
             binding.btnUploadPayment.setText("Uploading...");
             if (binding.btnRemoveProof != null) binding.btnRemoveProof.setEnabled(false);
 
-            apiService.uploadDocumentCloudinary(token, part).enqueue(new Callback<UploadResponse>() {
+            RequestBody purpose = RequestBody.create(MediaType.parse("text/plain"), "order_payment");
+            RequestBody referenceId = RequestBody.create(MediaType.parse("text/plain"), String.valueOf(orderId));
+            apiService.uploadDocumentCloudinary(token, purpose, referenceId, part).enqueue(new Callback<UploadResponse>() {
                 @Override
                 public void onResponse(@NonNull Call<UploadResponse> call, @NonNull Response<UploadResponse> response) {
                     binding.btnUploadPayment.setEnabled(true);

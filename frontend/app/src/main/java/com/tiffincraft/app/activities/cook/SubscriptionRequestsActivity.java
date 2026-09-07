@@ -60,8 +60,8 @@ public class SubscriptionRequestsActivity extends AppCompatActivity {
     public static final String EXTRA_FOCUS_SUBSCRIPTION_ID = "focus_subscription_id";
 
     public static Intent intentFor(android.content.Context context, int subscriptionId) {
-        Intent intent = new Intent(context, SubscriptionRequestsActivity.class);
-        intent.putExtra(EXTRA_FOCUS_SUBSCRIPTION_ID, subscriptionId);
+        Intent intent = new Intent(context, CookSubscribersActivity.class);
+        intent.putExtra(CookSubscribersActivity.EXTRA_INITIAL_FILTER, "requests");
         return intent;
     }
 
@@ -95,6 +95,15 @@ public class SubscriptionRequestsActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Requests now live in Subscribers alongside the people they affect.
+        // Keep this activity as a safe redirect for old notification deep-links.
+        Intent redirect = new Intent(this, CookSubscribersActivity.class);
+        redirect.putExtra(CookSubscribersActivity.EXTRA_INITIAL_FILTER, "requests");
+        startActivity(redirect);
+        finish();
+        return;
+
+        /*
         setContentView(R.layout.activity_subscription_requests);
 
         sessionManager = new SessionManager(this);
@@ -126,11 +135,13 @@ public class SubscriptionRequestsActivity extends AppCompatActivity {
         focusSubscriptionId = getIntent().getIntExtra(EXTRA_FOCUS_SUBSCRIPTION_ID, 0);
 
         loadRequests();
+        */
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        if (isFinishing()) return;
         // onCreate already loaded — skip the first resume so a cold start doesn't
         // fire two identical requests. After that, refresh unconditionally:
         // coming back from the verify screen this list is stale by definition,
@@ -351,16 +362,9 @@ public class SubscriptionRequestsActivity extends AppCompatActivity {
 
         // Worth flagging: a second screenshot means the first one was rejected,
         // and the reason for that rejection is the context for this decision.
-        if (item.isRetriedProof()) {
-            String reason = item.getPaymentRejectionReason();
-            tvRetryWarning.setText("Attempt " + item.getPaymentProofAttempts()
-                    + (reason != null && !reason.trim().isEmpty()
-                        ? " — you rejected the last one: \"" + reason + "\""
-                        : " — an earlier proof was rejected."));
-            tvRetryWarning.setVisibility(View.VISIBLE);
-        } else {
-            tvRetryWarning.setVisibility(View.GONE);
-        }
+        // Historical proof retries are intentionally not shown in the unified
+        // subscriber inbox; only the payment's current state needs action.
+        tvRetryWarning.setVisibility(View.GONE);
 
         // The two action flags are mutually exclusive server-side.
         layoutDecisionActions.setVisibility(item.needsDecision() ? View.VISIBLE : View.GONE);

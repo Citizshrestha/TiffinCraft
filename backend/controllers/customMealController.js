@@ -7,7 +7,7 @@ import {
     isDateLocked, getCutoffHour, formatCutoffLabel
 } from "../utils/nptTime.js";
 import { DAY_STATUS, getDayRow, logDayEvent } from "../utils/subscriptionDailyLog.js";
-import { notifyCustomMealRequest, notifyCustomMealResponse } from "../utils/notificationHelper.js";
+import { formatDeliveryDate } from "../utils/notificationHelper.js";
 
 /**
  * Custom meal requests — "give me X instead of the plan default on this day".
@@ -193,20 +193,11 @@ export const createCustomMealRequest = async (req, res) => {
                 mealId, mealName, note, status: "pending", customerName
             }),
             referenceId: requestId, referenceType: "custom_meal_request",
-            title: "Custom meal request",
-            body: `${customerName} asked for ${mealName || "a different meal"} on ${date}.`,
+            title: "Custom Meal Request Received! 🍲",
+            body: `${customerName} asked for ${mealName ? `"${mealName}"` : "a different meal"} on ${formatDeliveryDate(date)} (${sub.plan_name}). Accept or decline before the cutoff.`,
             notifType: "custom_meal_request",
-            pushData: { subscriptionId: String(id), deliveryDate: date }
+            pushData: { subscriptionId: String(id), requestId: String(requestId), deliveryDate: date }
         });
-
-        // Dedicated FCM push with full payload — announceSubscriptionEvent's
-        // internal createNotification already wrote the in-app DB row; this
-        // ensures the push data (subscriptionId, requestId, deliveryDate,
-        // customerName) is always complete so FcmService can deep-link correctly.
-        notifyCustomMealRequest(
-            sub.cook_id, Number(id), customerName, sub.plan_name,
-            date, mealName, note, requestId
-        ).catch(err => console.error("notifyCustomMealRequest push failed:", err.message));
 
         return res.status(201).json({
             success: true,
@@ -302,20 +293,17 @@ export const respondToCustomMealRequest = async (req, res) => {
                 mealName: reqRow.meal_name, note, status: newStatus
             }),
             referenceId: Number(requestId), referenceType: "custom_meal_request",
-            title: accepted ? "Meal request accepted" : "Meal request declined",
+            title: accepted ? "Meal Request Accepted ✓" : "Meal Request Declined",
             body: accepted
-                ? `${cookName} will make ${reqRow.meal_name || "your requested meal"} on ${reqRow.date_str}.`
-                : `${cookName} can't make that on ${reqRow.date_str}.${note ? " Reason: " + note : " You'll get the usual plan meal."}`,
+                ? `${cookName} will make ${reqRow.meal_name ? `"${reqRow.meal_name}"` : "your requested meal"} on ${formatDeliveryDate(reqRow.date_str)}. ✓`
+                : `${cookName} can't make that on ${formatDeliveryDate(reqRow.date_str)}.${note ? " Reason: " + note : " You'll get the usual plan meal."}`,
             notifType: accepted ? "custom_meal_accepted" : "custom_meal_declined",
-            pushData: { subscriptionId: String(reqRow.subscription_id), deliveryDate: reqRow.date_str }
+            pushData: {
+                subscriptionId: String(reqRow.subscription_id),
+                requestId: String(requestId),
+                deliveryDate: reqRow.date_str
+            }
         });
-
-        // Dedicated FCM push to the customer with complete payload so the
-        // Android client can deep-link to the correct subscription calendar.
-        notifyCustomMealResponse(
-            reqRow.customer_id, reqRow.subscription_id, cookName,
-            reqRow.date_str, reqRow.meal_name, accepted, note, Number(requestId)
-        ).catch(err => console.error("notifyCustomMealResponse push failed:", err.message));
 
         return res.status(200).json({
             success: true,
@@ -368,6 +356,36 @@ export const getCustomMealRequests = async (req, res) => {
         });
     } catch (error) {
         console.error("getCustomMealRequests error:", error);
+        return res.status(500).json({ success: false, message: "Server error.", error: error.message });
+    }
+};
+
+/**
+ * GET /api/subscriptions/cook/custom-meal-requests — cook's pending swaps
+ * across every subscriber. This powers the unified Subscribers request tab;
+ * per-subscription history remains available through getCustomMealRequests.
+ */
+export const getCookCustomMealRequests = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+        const [requests] = await db.promise().query(
+            `SELECT r.id AS request_id, r.subscription_id,
+                    DATE_FORMAT(r.delivery_date, '%Y-%m-%d') AS delivery_date,
+                    r.meal_id, m.name AS meal_name, m.image_url AS meal_image,
+                    r.note, r.status, r.created_at,
+                    u.full_name AS customer_name, p.name AS plan_name
+             FROM custom_meal_requests r
+             JOIN subscriptions s ON s.id = r.subscription_id
+             JOIN users u ON u.id = r.customer_id
+             JOIN subscription_plans p ON p.id = s.plan_id
+             LEFT JOIN meals m ON m.id = r.meal_id
+             WHERE r.cook_id = ? AND r.status = 'pending'
+             ORDER BY r.delivery_date ASC, r.created_at ASC`,
+            [cookId]
+        );
+        return res.status(200).json({ success: true, viewer: 'cook', requests });
+    } catch (error) {
+        console.error("getCookCustomMealRequests error:", error);
         return res.status(500).json({ success: false, message: "Server error.", error: error.message });
     }
 };
@@ -435,6 +453,7 @@ export default {
     createCustomMealRequest,
     respondToCustomMealRequest,
     getCustomMealRequests,
+    getCookCustomMealRequests,
     cancelCustomMealRequest,
     expireDanglingCustomMealRequests
 };

@@ -224,6 +224,34 @@ public class CookReviewsActivity extends AppCompatActivity implements ReviewAdap
     }
 
     @Override
+    public void onLikeClick(Review review) {
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.likeReview(token, review.getId()).enqueue(new Callback<com.tiffincraft.app.models.RegisterResponse>() {
+            @Override public void onResponse(@NonNull Call<com.tiffincraft.app.models.RegisterResponse> call, @NonNull Response<com.tiffincraft.app.models.RegisterResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    Toast.makeText(CookReviewsActivity.this, "Review liked", Toast.LENGTH_SHORT).show();
+                    loadReviews();
+                } else Toast.makeText(CookReviewsActivity.this, "Could not like review", Toast.LENGTH_SHORT).show();
+            }
+            @Override public void onFailure(@NonNull Call<com.tiffincraft.app.models.RegisterResponse> call, @NonNull Throwable t) { Toast.makeText(CookReviewsActivity.this, "Could not like review", Toast.LENGTH_SHORT).show(); }
+        });
+    }
+
+    @Override
+    public void onDeleteClick(Review review) {
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.deleteCookReview(token, review.getId()).enqueue(new Callback<com.tiffincraft.app.models.RegisterResponse>() {
+            @Override public void onResponse(@NonNull Call<com.tiffincraft.app.models.RegisterResponse> call, @NonNull Response<com.tiffincraft.app.models.RegisterResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    Toast.makeText(CookReviewsActivity.this, "Review deleted", Toast.LENGTH_SHORT).show();
+                    loadReviews();
+                } else Toast.makeText(CookReviewsActivity.this, "Could not delete review", Toast.LENGTH_SHORT).show();
+            }
+            @Override public void onFailure(@NonNull Call<com.tiffincraft.app.models.RegisterResponse> call, @NonNull Throwable t) { Toast.makeText(CookReviewsActivity.this, "Could not delete review", Toast.LENGTH_SHORT).show(); }
+        });
+    }
+
+    @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == 100 && resultCode == RESULT_OK) {

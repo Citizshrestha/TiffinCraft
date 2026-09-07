@@ -26,9 +26,11 @@ import com.tiffincraft.app.activities.customer.SubscriptionCalendarActivity;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.CookSubscribersResponse;
+import com.tiffincraft.app.models.CustomMeal;
 import com.tiffincraft.app.models.RegisterResponse;
 import com.tiffincraft.app.models.SubscriptionResponse;
 import com.tiffincraft.app.models.SubscriptionRequestsResponse;
+import com.tiffincraft.app.models.SubscriptionActionResponse;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.CurrencyUtils;
 import com.tiffincraft.app.utils.DeliveryDateUtils;
@@ -60,12 +62,13 @@ public class CookSubscribersActivity extends AppCompatActivity {
     private SessionManager sessionManager;
 
     private LinearLayout layoutSubscribers, layoutNewSubscriptionRequests;
-    private TextView tvEmptySubscribers, tvNewSubscriptionRequestCount, btnViewAllSubscriptionRequests;
+    private TextView tvEmptySubscribers, tvNewSubscriptionRequestCount;
     private View cardNewSubscriptionRequests;
     private TextView chipAll, chipRequests, chipSubmitted, chipActive, chipOther;
 
     private List<SubscriptionResponse.Subscription> allSubscribers = new ArrayList<>();
     private List<SubscriptionRequestsResponse.Item> newSubscriptionRequests = new ArrayList<>();
+    private List<CustomMeal> mealChangeRequests = new ArrayList<>();
     private String currentFilter = "all";
 
     @Override
@@ -81,7 +84,6 @@ public class CookSubscribersActivity extends AppCompatActivity {
         cardNewSubscriptionRequests = findViewById(R.id.cardNewSubscriptionRequests);
         tvEmptySubscribers = findViewById(R.id.tvEmptySubscribers);
         tvNewSubscriptionRequestCount = findViewById(R.id.tvNewSubscriptionRequestCount);
-        btnViewAllSubscriptionRequests = findViewById(R.id.btnViewAllSubscriptionRequests);
         chipAll = findViewById(R.id.chipAll);
         chipRequests = findViewById(R.id.chipSubscriptionRequests);
         chipSubmitted = findViewById(R.id.chipPaymentProofs);
@@ -91,8 +93,6 @@ public class CookSubscribersActivity extends AppCompatActivity {
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
         findViewById(R.id.fabAddSubscription).setOnClickListener(v ->
                 startActivityForResult(new Intent(this, SubscriptionPlanFormActivity.class), REQUEST_ADD_SUBSCRIPTION));
-        btnViewAllSubscriptionRequests.setOnClickListener(v ->
-                startActivity(new Intent(this, SubscriptionRequestsActivity.class)));
 
         chipAll.setOnClickListener(v -> setFilter("all"));
         chipRequests.setOnClickListener(v -> setFilter("requests"));
@@ -181,6 +181,19 @@ public class CookSubscribersActivity extends AppCompatActivity {
                         renderNewSubscriptionRequests(null);
                     }
                 });
+        apiService.getCookCustomMealRequests(token).enqueue(new Callback<com.tiffincraft.app.models.CustomMealsResponse>() {
+            @Override public void onResponse(@NonNull Call<com.tiffincraft.app.models.CustomMealsResponse> call,
+                                             @NonNull Response<com.tiffincraft.app.models.CustomMealsResponse> response) {
+                List<CustomMeal> requests = response.isSuccessful() && response.body() != null && response.body().isSuccess()
+                        ? response.body().getRequests() : null;
+                mealChangeRequests = requests == null ? new ArrayList<>() : new ArrayList<>(requests);
+                if ("requests".equals(currentFilter)) renderSubscribers();
+            }
+            @Override public void onFailure(@NonNull Call<com.tiffincraft.app.models.CustomMealsResponse> call, @NonNull Throwable t) {
+                mealChangeRequests = new ArrayList<>();
+                if ("requests".equals(currentFilter)) renderSubscribers();
+            }
+        });
     }
 
     private void renderNewSubscriptionRequests(List<SubscriptionRequestsResponse.Item> requests) {
@@ -190,12 +203,11 @@ public class CookSubscribersActivity extends AppCompatActivity {
 
     private void renderSubscriptionRequestsTab() {
         layoutNewSubscriptionRequests.removeAllViews();
-        int count = newSubscriptionRequests.size();
+        int count = newSubscriptionRequests.size() + mealChangeRequests.size();
         cardNewSubscriptionRequests.setVisibility(count == 0 ? View.GONE : View.VISIBLE);
         if (count == 0) return;
 
         tvNewSubscriptionRequestCount.setText(count == 1 ? "1 new" : count + " new");
-        btnViewAllSubscriptionRequests.setText(count > 3 ? "View all " + count + " requests" : "View all requests");
 
         LayoutInflater inflater = LayoutInflater.from(this);
         for (int i = 0; i < count; i++) {
@@ -205,22 +217,39 @@ public class CookSubscribersActivity extends AppCompatActivity {
             TextView customer = card.findViewById(R.id.tvRequestCustomerName);
             TextView plan = card.findViewById(R.id.tvRequestPlan);
             TextView details = card.findViewById(R.id.tvRequestDetails);
-            MaterialButton review = card.findViewById(R.id.btnReviewSubscriptionRequest);
+            MaterialButton accept = card.findViewById(R.id.btnReviewSubscriptionRequest);
+            MaterialButton decline = card.findViewById(R.id.btnRejectSubscriptionRequest);
 
             customer.setText(request.getCustomerName() == null ? "Customer" : request.getCustomerName());
             String duration = request.getDurationDays() > 0 ? request.getDurationDays() + " days" : request.getDuration();
             plan.setText((request.getPlanName() == null ? "Subscription plan" : request.getPlanName())
                     + (duration == null || duration.isEmpty() ? "" : " · " + duration));
+            plan.setText("Subscription · " + plan.getText());
             String start = request.getStartDate() == null ? "Start date to be confirmed"
                     : "Starts " + DeliveryDateUtils.formatLongDate(request.getStartDate());
             String amount = request.getTotalAmount() == null ? "" : " · "
                     + CurrencyUtils.formatRupees(request.getTotalAmount());
             details.setText(start + amount);
 
-            View.OnClickListener openRequest = v -> startActivity(
-                    SubscriptionRequestsActivity.intentFor(this, request.getId()));
-            card.setOnClickListener(openRequest);
-            review.setOnClickListener(openRequest);
+            accept.setText("Accept");
+            accept.setOnClickListener(v -> respondToSubscriptionRequest(request, true));
+            decline.setOnClickListener(v -> respondToSubscriptionRequest(request, false));
+            layoutNewSubscriptionRequests.addView(card);
+        }
+        for (CustomMeal request : mealChangeRequests) {
+            View card = inflater.inflate(R.layout.item_subscription_request_compact, layoutNewSubscriptionRequests, false);
+            TextView customer = card.findViewById(R.id.tvRequestCustomerName);
+            TextView plan = card.findViewById(R.id.tvRequestPlan);
+            TextView details = card.findViewById(R.id.tvRequestDetails);
+            MaterialButton accept = card.findViewById(R.id.btnReviewSubscriptionRequest);
+            MaterialButton decline = card.findViewById(R.id.btnRejectSubscriptionRequest);
+            customer.setText(request.getCustomerName() == null ? "Customer" : request.getCustomerName());
+            plan.setText("Meal change" + (request.getPlanName() == null ? "" : " · " + request.getPlanName()));
+            String date = request.getDeliveryDate() == null ? "Delivery date to be confirmed" : DeliveryDateUtils.formatLongDate(request.getDeliveryDate());
+            details.setText("For " + date + " · " + request.describe());
+            accept.setText("Accept");
+            accept.setOnClickListener(v -> respondToMealChange(request, true));
+            decline.setOnClickListener(v -> respondToMealChange(request, false));
             layoutNewSubscriptionRequests.addView(card);
         }
     }
@@ -230,9 +259,9 @@ public class CookSubscribersActivity extends AppCompatActivity {
         cardNewSubscriptionRequests.setVisibility(View.GONE);
 
         if ("requests".equals(currentFilter)) {
-            boolean empty = newSubscriptionRequests.isEmpty();
+            boolean empty = newSubscriptionRequests.isEmpty() && mealChangeRequests.isEmpty();
             tvEmptySubscribers.setVisibility(empty ? View.VISIBLE : View.GONE);
-            if (empty) tvEmptySubscribers.setText("No new subscription requests.");
+            if (empty) tvEmptySubscribers.setText("No subscription or meal-change requests.");
             renderSubscriptionRequestsTab();
             return;
         }
@@ -304,21 +333,26 @@ public class CookSubscribersActivity extends AppCompatActivity {
                 String starts = DeliveryDateUtils.formatLongDate(sub.getStartDate());
                 tvNextDelivery.setText("Starts " + starts + " — no action needed until then");
                 tvNextDelivery.setVisibility(View.VISIBLE);
+                tvNextDelivery.setTextColor(getColor(R.color.status_preparing_text));
             } else if ("active".equals(sub.getStatus())) {
                 // Nullable once every remaining day is skipped or closed.
                 tvNextDelivery.setText(sub.getNextDeliveryDate() != null
                         ? "Next delivery: " + DeliveryDateUtils.formatLongDate(sub.getNextDeliveryDate())
                         : "No upcoming delivery — every remaining day is skipped or closed");
                 tvNextDelivery.setVisibility(View.VISIBLE);
+                tvNextDelivery.setTextColor(getColor(R.color.status_delivered_text));
             } else if ("paused".equals(sub.getStatus())) {
                 tvNextDelivery.setText("Paused by customer");
                 tvNextDelivery.setVisibility(View.VISIBLE);
+                tvNextDelivery.setTextColor(getColor(R.color.text_subtitle));
             } else if ("completed".equals(sub.getStatus())) {
                 tvNextDelivery.setText("Completed — every meal used");
                 tvNextDelivery.setVisibility(View.VISIBLE);
+                tvNextDelivery.setTextColor(getColor(R.color.text_subtitle));
             } else if ("cancelled".equals(sub.getStatus())) {
                 tvNextDelivery.setText("Cancelled");
                 tvNextDelivery.setVisibility(View.VISIBLE);
+                tvNextDelivery.setTextColor(getColor(R.color.text_subtitle));
             } else {
                 tvNextDelivery.setVisibility(View.GONE);
             }
@@ -343,6 +377,43 @@ public class CookSubscribersActivity extends AppCompatActivity {
 
             layoutSubscribers.addView(card);
         }
+    }
+
+    private void respondToSubscriptionRequest(SubscriptionRequestsResponse.Item request, boolean accept) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(accept ? "Accept subscription?" : "Decline subscription?")
+                .setMessage(accept ? "The customer can continue to payment after you accept." : "The customer will be told this plan is unavailable.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton(accept ? "Accept" : "Decline", (dialog, which) -> {
+                    JsonObject body = new JsonObject();
+                    body.addProperty("action", accept ? "accept" : "reject");
+                    submitRequestAction(apiService.respondToSubscriptionRequest("Bearer " + sessionManager.getToken(), request.getId(), body));
+                }).show();
+    }
+
+    private void respondToMealChange(CustomMeal request, boolean accept) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(accept ? "Accept meal change?" : "Decline meal change?")
+                .setMessage(accept ? "The requested meal will be added to that delivery day." : "The customer will receive the plan's usual meal.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton(accept ? "Accept" : "Decline", (dialog, which) -> {
+                    JsonObject body = new JsonObject();
+                    body.addProperty("action", accept ? "accept" : "decline");
+                    submitRequestAction(apiService.respondToCustomMealRequest("Bearer " + sessionManager.getToken(), request.getRequestId(), body));
+                }).show();
+    }
+
+    private void submitRequestAction(Call<SubscriptionActionResponse> call) {
+        call.enqueue(new Callback<SubscriptionActionResponse>() {
+            @Override public void onResponse(@NonNull Call<SubscriptionActionResponse> call, @NonNull Response<SubscriptionActionResponse> response) {
+                String message = response.body() != null ? response.body().getMessage() : "Could not update request.";
+                Toast.makeText(CookSubscribersActivity.this, message, Toast.LENGTH_SHORT).show();
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) loadSubscribers();
+            }
+            @Override public void onFailure(@NonNull Call<SubscriptionActionResponse> call, @NonNull Throwable t) {
+                Toast.makeText(CookSubscribersActivity.this, "Could not update request.", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void applyPaymentStatusChip(TextView chip, SubscriptionResponse.Subscription sub) {

@@ -16,18 +16,16 @@ import { uploadSingle } from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
-// The Android app calls these under /api/customer/* (see ApiService); the handlers
-// live in authController.js and are also reachable under /api/auth/* — mounted here
-// too so the existing app build works without a rebuild.
-router.get("/profile", authMiddleware, getCustomerProfile);
-router.put("/profile", authMiddleware, updateCustomerProfile);
-router.post("/profile/image", authMiddleware, uploadSingle("profile_image"), uploadCustomerProfileImage);
 
-router.get("/dashboard", authMiddleware, getCustomerDashboard);
+router.get("/profile", authMiddleware, roleOnly("customer"), getCustomerProfile);
+router.put("/profile", authMiddleware, roleOnly("customer"), updateCustomerProfile);
+router.post("/profile/image", authMiddleware, roleOnly("customer"), uploadSingle("profile_image"), uploadCustomerProfileImage);
 
-router.get("/notifications", authMiddleware, getNotifications);
-router.put("/notifications/:id/read", authMiddleware, markNotificationAsRead);
-router.put("/notifications/read-all", authMiddleware, markAllNotificationsAsRead);
+router.get("/dashboard", authMiddleware, roleOnly("customer"), getCustomerDashboard);
+
+router.get("/notifications", authMiddleware, roleOnly("customer"), getNotifications);
+router.put("/notifications/read-all", authMiddleware, roleOnly("customer"), markAllNotificationsAsRead);
+router.put("/notifications/:id/read", authMiddleware, roleOnly("customer"), markNotificationAsRead);
 
 // A cook viewing a customer's details from a shared order/chat — must come after the
 // literal routes above, or Express would match "profile"/"dashboard" as :customerId.

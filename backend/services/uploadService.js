@@ -1,13 +1,7 @@
 import cloudinary from '../config/cloudinary.js';
 import { Readable } from 'stream';
 
-/**
- * Upload image buffer to Cloudinary
- * @param {Buffer} fileBuffer - Image file buffer from multer memoryStorage
- * @param {string} folder     - Cloudinary folder path (e.g. 'tiffincraft/profiles/john_doe')
- * @param {Object} options    - Extra Cloudinary upload options
- * @returns {Promise<Object>} Cloudinary upload result
- */
+
 export const uploadToCloudinary = (fileBuffer, folder, options = {}) => {
   return new Promise((resolve, reject) => {
     const { transformation, ...restOptions } = options;
@@ -33,11 +27,7 @@ export const uploadToCloudinary = (fileBuffer, folder, options = {}) => {
   });
 };
 
-/**
- * Delete media from Cloudinary by its public_id
- * @param {string} publicId - Cloudinary public_id
- * @param {string} resourceType - 'image' | 'video' | 'raw' | 'auto'
- */
+
 export const deleteFromCloudinary = async (publicId, resourceType = "image") => {
   try {
     return await cloudinary.uploader.destroy(publicId, {
@@ -48,11 +38,7 @@ export const deleteFromCloudinary = async (publicId, resourceType = "image") => 
   }
 };
 
-/**
- * Extract the Cloudinary public_id from a secure_url
- * Example URL: https://res.cloudinary.com/<cloud>/image/upload/v1234/folder/sub/name.jpg
- * Returns: folder/sub/name
- */
+
 export const extractPublicId = (url) => {
   if (!url) return null;
   const parts = url.split('/');
@@ -64,17 +50,12 @@ export const extractPublicId = (url) => {
   return afterUpload.slice(startIndex).join('/').replace(/\.[^/.]+$/, '');
 };
 
-/**
- * Upload multiple images to the same folder
- */
+
 export const uploadMultipleToCloudinary = async (fileBuffers, folder) => {
   return Promise.all(fileBuffers.map((buf) => uploadToCloudinary(buf, folder)));
 };
 
-/**
- * Build a sanitized Cloudinary folder-safe string from any identifier
- * Lowercases, strips special characters, replaces spaces/@ with underscores
- */
+
 export const sanitizeFolderName = (name) => {
   if (!name) return 'unknown';
   return name

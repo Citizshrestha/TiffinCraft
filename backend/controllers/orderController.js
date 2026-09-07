@@ -452,19 +452,57 @@ export const updateOrderStatus = async (req, res) => {
 
         const order = orders[0];
 
+        // A repeated tap is a successful no-op. It must not create another
+        // notification or re-run delivery accounting.
+        if (order.status === status) {
+            return res.status(200).json({
+                success: true,
+                message: `Order is already "${status}".`,
+                unchanged: true
+            });
+        }
+
+        const transitions = {
+            pending: ["confirmed", "cancelled"],
+            // "accepted" is retained only for older rows created before the
+            // API standardized on "confirmed".
+            accepted: ["preparing", "ready", "cancelled"],
+            confirmed: ["preparing", "cancelled"],
+            preparing: ["ready", "cancelled"],
+            ready: ["delivered", "cancelled"],
+            delivered: [],
+            cancelled: []
+        };
+        const allowedNext = transitions[order.status] || [];
+        if (!allowedNext.includes(status)) {
+            return res.status(409).json({
+                success: false,
+                message: `Order cannot move from "${order.status}" to "${status}".`,
+                current_status: order.status,
+                allowed_statuses: allowedNext
+            });
+        }
+
         // SECURITY CHECK: For online payment orders, block "delivered" status
         // until payment has been verified by the cook
-        if (status === 'delivered' && order.payment_method === 'online' && order.payment_status !== 'verified') {
+        if (status === 'delivered' && order.payment_method === 'online'
+                && !['paid', 'verified'].includes(order.payment_status)) {
             return res.status(403).json({
                 success: false,
                 message: "Payment not verified yet — verify the customer's payment proof before marking this order delivered."
             });
         }
 
-        await db.promise().query(
-            "UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?",
-            [status, orderId]
+        const [updated] = await db.promise().query(
+            "UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ? AND cook_id = ? AND status = ?",
+            [status, orderId, cookId, order.status]
         );
+        if (updated.affectedRows === 0) {
+            return res.status(409).json({
+                success: false,
+                message: "Order changed on another screen. Refresh and try again."
+            });
+        }
 
         if (status === "delivered") {
             await applyDeliveryCommission(orderId);

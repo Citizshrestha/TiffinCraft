@@ -25,8 +25,7 @@ import {
 
 const router = Router();
 
-// Location writes ride on profile updates — throttle them so a compromised
-// token can't hammer coordinate changes; generous enough for normal editing.
+
 const profileUpdateLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 20,
@@ -35,7 +34,7 @@ const profileUpdateLimiter = rateLimit({
     message: { success: false, message: "Too many profile updates, try again later." }
 });
 
-// Blunts scraping of distance-ranked cook positions.
+
 const nearbyLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 60,
@@ -65,13 +64,10 @@ router.put("/profile/bank-details", protect, roleOnly("cook"), updateBankDetails
 // Dashboard endpoint
 router.get("/dashboard", protect, roleOnly("cook"), getCookDashboard);
 
-// CRITICAL: /nearby must precede the greedy "/:cookId" route below, or Express
-// matches the literal string "nearby" as :cookId and this route is dead.
+
 router.get("/nearby", nearbyLimiter, protect, roleOnly("customer"), getNearbyCooks);
 
-// Subscription delivery operations. Same CRITICAL ordering constraint as
-// /nearby above — these are literal paths and must be declared before
-// "/:cookId", or "today-deliveries" is matched as a cook id.
+
 router.get("/today-deliveries", protect, roleOnly("cook"), getTodayDeliveries);
 router.post("/daily-availability", protect, roleOnly("cook"), cookAvailabilityLimiter, setCookDailyUnavailability);
 router.delete("/daily-availability/:date", protect, roleOnly("cook"), cookAvailabilityLimiter, clearCookDailyUnavailability);

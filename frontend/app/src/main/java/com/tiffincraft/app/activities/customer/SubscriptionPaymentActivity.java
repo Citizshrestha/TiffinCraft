@@ -228,7 +228,11 @@ public class SubscriptionPaymentActivity extends AppCompatActivity {
         binding.btnUploadProof.setEnabled(false);
         String token = "Bearer " + sessionManager.getToken();
 
-        apiService.uploadDocumentCloudinary(token, imagePart).enqueue(new Callback<UploadResponse>() {
+        okhttp3.RequestBody purpose = okhttp3.RequestBody.create(
+                okhttp3.MediaType.parse("text/plain"), "subscription_payment");
+        okhttp3.RequestBody referenceId = okhttp3.RequestBody.create(
+                okhttp3.MediaType.parse("text/plain"), String.valueOf(subscriptionId));
+        apiService.uploadDocumentCloudinary(token, purpose, referenceId, imagePart).enqueue(new Callback<UploadResponse>() {
             @Override
             public void onResponse(@NonNull Call<UploadResponse> call, @NonNull Response<UploadResponse> response) {
                 if (!response.isSuccessful() || response.body() == null || !response.body().isSuccess()) {

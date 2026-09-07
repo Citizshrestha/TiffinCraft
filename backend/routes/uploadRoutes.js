@@ -1,59 +1,60 @@
 import express from 'express';
-import { uploadMealImage, uploadProfileImage, uploadDocument, uploadChatMedia, uploadBankQr, deleteImage } from '../controllers/uploadController.js';
+import { uploadMealImage, uploadProfileImage, uploadDocument, uploadChatMedia, uploadBankQr } from '../controllers/uploadController.js';
 import { uploadSingle, uploadChatMediaSingle } from '../middleware/uploadMiddleware.js';
 import { protect, roleOnly } from '../middleware/authMiddleware.js';
+import { uploadLimiter } from '../middleware/rateLimiters.js';
 
 const router = express.Router();
 
-// Upload meal image (requires authentication)
+
 router.post(
   '/meal-image',
   protect,
+  roleOnly('cook'),
+  uploadLimiter,
   uploadSingle('image'),
   uploadMealImage
 );
 
-// Upload profile image (requires authentication)
+
 router.post(
   '/profile-image',
   protect,
+  uploadLimiter,
   uploadSingle('image'),
   uploadProfileImage
 );
 
-// Upload document (requires authentication)
+
 router.post(
   '/document',
   protect,
+  roleOnly('customer', 'cook'),
+  uploadLimiter,
   uploadSingle('document'),
   uploadDocument
 );
 
-// Upload a payment QR code (eSewa / Khalti / Bank) — a cook's own receiving
-// QR, or the admin's platform QR (cooks pay commission into it).
+
 router.post(
   '/bank-qr',
   protect,
   roleOnly('cook', 'admin'),
+  uploadLimiter,
   uploadSingle('document'),
   uploadBankQr
 );
 
-// Upload chat image/video (requires authentication)
+
 router.post(
   '/chat-media',
   protect,
+  uploadLimiter,
   uploadChatMediaSingle('media'),
   uploadChatMedia
 );
-// Delete image (requires authentication)
-router.delete(
-  '/image',
-  protect,
-  deleteImage
-);
 
-// Error handling middleware for multer errors
+
 router.use((error, req, res, next) => {
   if (error) {
     return res.status(400).json({

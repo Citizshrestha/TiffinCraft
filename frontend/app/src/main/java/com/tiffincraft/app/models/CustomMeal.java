@@ -51,6 +51,13 @@ public class CustomMeal {
     @SerializedName("created_at")
     private String createdAt;
 
+    @SerializedName("subscription_id")
+    private int subscriptionId;
+    @SerializedName("customer_name")
+    private String customerName;
+    @SerializedName("plan_name")
+    private String planName;
+
     /**
      * Cook's daily list only: the swap is agreed, so this is what to cook.
      * Server-computed rather than derived from `status` on the client so both
@@ -69,6 +76,9 @@ public class CustomMeal {
     public String getResponseNote() { return responseNote; }
     public String getRespondedAt() { return respondedAt; }
     public String getCreatedAt() { return createdAt; }
+    public int getSubscriptionId() { return subscriptionId; }
+    public String getCustomerName() { return customerName; }
+    public String getPlanName() { return planName; }
     public boolean isConfirmed() { return isConfirmed; }
 
     public boolean isPending() { return "pending".equals(status); }

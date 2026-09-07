@@ -110,6 +110,10 @@ public class FcmService extends FirebaseMessagingService {
         if (title == null) title = "TiffinCraft";
         if (body == null) body = "";
 
+        String currentRole = new SessionManager(this).getRole();
+        boolean isCook = "cook".equals(currentRole);
+        boolean isCustomer = "customer".equals(currentRole);
+
         Intent intent;
         // requestCode doubles as the system notification ID. Using a unique
         // value per notification means consecutive alerts (e.g. several
@@ -118,7 +122,7 @@ public class FcmService extends FirebaseMessagingService {
         // they never collide across notification types.
         int requestCode;
 
-        if ("new_order".equals(type) && orderIdStr != null && !orderIdStr.isEmpty()) {
+        if (isCook && "new_order".equals(type) && orderIdStr != null && !orderIdStr.isEmpty()) {
             try {
                 int orderId = Integer.parseInt(orderIdStr);
                 intent = new Intent(this, OrderDetailsCookActivity.class);
@@ -129,7 +133,7 @@ public class FcmService extends FirebaseMessagingService {
                 requestCode = (int) System.currentTimeMillis();
             }
 
-        } else if (isCookSubscriptionInbox(type)
+        } else if (isCook && isCookSubscriptionInbox(type)
                 && subscriptionIdStr != null && !subscriptionIdStr.isEmpty()) {
             // Cook-facing subscription work: land on the request itself, scrolled
             // to and highlighted, instead of the flat notification list.
@@ -142,7 +146,7 @@ public class FcmService extends FirebaseMessagingService {
                 requestCode = (int) System.currentTimeMillis();
             }
 
-        } else if ("custom_meal_request".equals(type)
+        } else if (isCook && "custom_meal_request".equals(type)
                 && subscriptionIdStr != null && !subscriptionIdStr.isEmpty()) {
             // Cook receives this when a customer requests a different meal.
             // Land on the subscription requests inbox scrolled to this subscription
@@ -160,7 +164,7 @@ public class FcmService extends FirebaseMessagingService {
                 requestCode = (int) System.currentTimeMillis();
             }
 
-        } else if (("custom_meal_accepted".equals(type) || "custom_meal_declined".equals(type))
+        } else if (isCustomer && ("custom_meal_accepted".equals(type) || "custom_meal_declined".equals(type))
                 && subscriptionIdStr != null && !subscriptionIdStr.isEmpty()) {
             // Customer receives the cook's response. Open the calendar for that
             // subscription so the customer can see the updated day status.
@@ -176,7 +180,7 @@ public class FcmService extends FirebaseMessagingService {
                 requestCode = (int) System.currentTimeMillis();
             }
 
-        } else if ("subscription_day_skipped".equals(type)
+        } else if (isCook && "subscription_day_skipped".equals(type)
                 && subscriptionIdStr != null && !subscriptionIdStr.isEmpty()) {
             // Cook receives this when a customer skips a delivery day.
             // Land on the subscription calendar so the cook can see which
@@ -193,7 +197,7 @@ public class FcmService extends FirebaseMessagingService {
                 requestCode = (int) System.currentTimeMillis();
             }
 
-        } else if ("cook_approval".equals(type)) {
+        } else if (isCook && "cook_approval".equals(type)) {
             intent = new Intent(this, CookHomeActivity.class);
             intent.putExtra("show_approval_dialog", true);
             requestCode = 40000;

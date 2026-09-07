@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.activities.cook.CookProfileActivity;
 import com.tiffincraft.app.activities.cook.CookReviewsActivity;
+import com.tiffincraft.app.activities.customer.SubscriptionCalendarActivity;
 import com.tiffincraft.app.activities.order.OrderDetailsCookActivity;
 import com.tiffincraft.app.activities.order.OrderDetailsCustomerActivity;
 import com.tiffincraft.app.adapters.NotificationAdapter;
@@ -115,7 +116,9 @@ public class NotificationActivity extends AppCompatActivity {
                 break;
             case "cook_approved":
             case "cook_rejected":
-                intent = new Intent(this, CookProfileActivity.class);
+                if (isCook) {
+                    intent = new Intent(this, CookProfileActivity.class);
+                }
                 break;
             case "chat_message":
                 if (refId != null) {
@@ -132,9 +135,11 @@ public class NotificationActivity extends AppCompatActivity {
                 // on open, so refId is passed only as a hint for the day a cook has
                 // more than one open settlement. A rate change lands here too: the
                 // new rate only matters in the context of what is owed.
-                intent = new Intent(this, com.tiffincraft.app.activities.cook.CommissionSettlementActivity.class);
-                if (refId != null) {
-                    intent.putExtra("settlement_id", (int) refId);
+                if (isCook) {
+                    intent = new Intent(this, com.tiffincraft.app.activities.cook.CommissionSettlementActivity.class);
+                    if (refId != null) {
+                        intent.putExtra("settlement_id", (int) refId);
+                    }
                 }
                 break;
             case "refund_feedback":
@@ -150,8 +155,13 @@ public class NotificationActivity extends AppCompatActivity {
             case "subscription_payment_submitted":
                 // Cook: a customer submitted payment proof — open straight into
                 // the "Needs Review" filter instead of the generic "All" list.
-                intent = new Intent(this, com.tiffincraft.app.activities.cook.CookSubscribersActivity.class);
-                intent.putExtra(com.tiffincraft.app.activities.cook.CookSubscribersActivity.EXTRA_INITIAL_FILTER, "submitted");
+                if (isCook) {
+                    intent = new Intent(this, com.tiffincraft.app.activities.cook.CookSubscribersActivity.class);
+                    intent.putExtra(com.tiffincraft.app.activities.cook.CookSubscribersActivity.EXTRA_INITIAL_FILTER, "submitted");
+                } else if (refId != null && "subscription".equals(notification.getReferenceType())) {
+                    intent = com.tiffincraft.app.activities.customer.SubscriptionStatusActivity
+                            .intentFor(this, refId);
+                }
                 break;
             case "subscription_verified":
             case "subscription_rejected":
@@ -163,22 +173,41 @@ public class NotificationActivity extends AppCompatActivity {
             case "subscription_update":
             case "subscription_paused":
             case "subscription_cancelled":
+                // Subscription lifecycle alerts can be received by either role.
+                // Never send a cook into a customer-only Activity: use the
+                // role-aware calendar when the notification references a
+                // subscription, or the appropriate role's overview as fallback.
+                if (isCook) {
+                    if (refId != null && "subscription".equals(notification.getReferenceType())) {
+                        intent = SubscriptionCalendarActivity.intentFor(this, refId, null);
+                    } else {
+                        intent = new Intent(this, com.tiffincraft.app.activities.cook.CookSubscribersActivity.class);
+                    }
+                } else if (refId != null && "subscription".equals(notification.getReferenceType())) {
+                    intent = com.tiffincraft.app.activities.customer.SubscriptionStatusActivity
+                            .intentFor(this, refId);
+                } else {
+                    intent = new Intent(this, com.tiffincraft.app.activities.customer.CustomerProfileActivity.class);
+                }
+                break;
             case "custom_meal_accepted":
             case "custom_meal_declined":
-                // Customer: their profile's subscription card already reflects the
-                // live status and re-opens SubscriptionPaymentActivity via "Manage"
-                // if action is still needed — reuses that flow instead of trying to
-                // reconstruct plan/price/QR details from just a notification.
-                // The custom_meal_* replies land here too: their referenceId is a
-                // custom_meal_requests row, so there is no subscription id to open
-                // a calendar with (see the trap noted below).
-                intent = new Intent(this, com.tiffincraft.app.activities.customer.CustomerProfileActivity.class);
+                // These normally belong to the customer. The reference id is a
+                // custom_meal_requests row, not a subscription id, so a direct
+                // calendar deep-link is unavailable in the stored inbox row.
+                // Still enforce role safety if malformed data reaches a cook.
+                intent = new Intent(this, isCook
+                        ? com.tiffincraft.app.activities.cook.CookSubscribersActivity.class
+                        : com.tiffincraft.app.activities.customer.CustomerProfileActivity.class);
                 break;
             case "subscription_request":
                 // Cook: the request that needs answering. The inbox scrolls to and
                 // flashes this subscription's card rather than dumping a list.
-                if (refId != null) {
+                if (isCook && refId != null && "subscription".equals(notification.getReferenceType())) {
                     intent = com.tiffincraft.app.activities.cook.SubscriptionRequestsActivity
+                            .intentFor(this, refId);
+                } else if (!isCook && refId != null && "subscription".equals(notification.getReferenceType())) {
+                    intent = com.tiffincraft.app.activities.customer.SubscriptionStatusActivity
                             .intentFor(this, refId);
                 }
                 break;
@@ -200,7 +229,9 @@ public class NotificationActivity extends AppCompatActivity {
             case "custom_meal_request":
                 // referenceId here is a custom_meal_requests row id, NOT a
                 // subscription id — must not go to the calendar.
-                intent = new Intent(this, com.tiffincraft.app.activities.cook.CookSubscribersActivity.class);
+                if (isCook) {
+                    intent = new Intent(this, com.tiffincraft.app.activities.cook.CookSubscribersActivity.class);
+                }
                 break;
             default:
                 break; // system/unrecognized (e.g. admin-only refund_requested) — nothing to navigate to

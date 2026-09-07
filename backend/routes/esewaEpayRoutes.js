@@ -15,12 +15,10 @@ const initiateLimiter = rateLimit({
 
 router.post("/esewa-epay/initiate", protect, roleOnly("customer"), initiateLimiter, initiateEpayPayment);
 
-// Opened directly by an external browser (Chrome) — see the controller for
-// why this is unauthenticated and how it's scoped instead.
+
 router.get("/esewa-epay/checkout/:transactionUuid", serveEpayCheckoutForm);
 
-// Hit by the browser/WebView after eSewa redirects back — no JWT available
-// at that point, authenticity comes from the signature check inside.
+
 router.get("/esewa-epay/return", handleEpayReturn);
 
 export default router;

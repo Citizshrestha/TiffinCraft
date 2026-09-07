@@ -164,10 +164,11 @@ public interface ApiService {
 
     @Multipart
     @POST("upload/document")
-    Call<UploadResponse> uploadDocumentCloudinary(@Header("Authorization") String token, @Part MultipartBody.Part document);
-
-    @DELETE("upload/image")
-    Call<RegisterResponse> deleteImageCloudinary(@Header("Authorization") String token, @Body com.google.gson.JsonObject requestBody);
+    Call<UploadResponse> uploadDocumentCloudinary(
+            @Header("Authorization") String token,
+            @Part("purpose") RequestBody purpose,
+            @Part("reference_id") RequestBody referenceId,
+            @Part MultipartBody.Part document);
 
     @Multipart
     @POST("cook/profile/image")
@@ -239,6 +240,15 @@ public interface ApiService {
 
     @PUT("reviews/{reviewId}/reply")
     Call<RegisterResponse> replyToReview(@Header("Authorization") String token, @Path("reviewId") int reviewId, @Body com.google.gson.JsonObject requestBody);
+
+    @DELETE("reviews/{reviewId}/reply")
+    Call<RegisterResponse> deleteReviewReply(@Header("Authorization") String token, @Path("reviewId") int reviewId);
+
+    @POST("reviews/{reviewId}/like")
+    Call<RegisterResponse> likeReview(@Header("Authorization") String token, @Path("reviewId") int reviewId);
+
+    @DELETE("reviews/{reviewId}/cook")
+    Call<RegisterResponse> deleteCookReview(@Header("Authorization") String token, @Path("reviewId") int reviewId);
 
     @GET("orders/cook/my")
     Call<OrderResponse> getCookOrders(@Header("Authorization") String token);
@@ -635,6 +645,10 @@ public interface ApiService {
     @GET("subscriptions/{id}/custom-meals")
     Call<com.tiffincraft.app.models.CustomMealsResponse> getCustomMealRequests(
             @Header("Authorization") String token, @Path("id") int subscriptionId);
+
+    @GET("subscriptions/cook/custom-meal-requests")
+    Call<com.tiffincraft.app.models.CustomMealsResponse> getCookCustomMealRequests(
+            @Header("Authorization") String token);
 
     /**
      * Cook answers one swap. Body is {action: 'accept'|'decline', note?}.
