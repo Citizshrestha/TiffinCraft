@@ -4,8 +4,8 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "dev": "nodemon server.js",
-    "start": "node server.js",
+    "dev": "node scripts/ensure_subscription_plan_item_active.js && nodemon server.js",
+    "start": "node scripts/ensure_subscription_plan_item_active.js && node server.js",
     "tunnel": "node start-tunnel.js",
     "seed:orders": "node seed-orders.js",
     "seed:admin": "node seed-admin.js"

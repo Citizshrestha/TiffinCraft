@@ -28,6 +28,20 @@ async function replaceMealCategories(executor, mealId, categoryRows) {
     }
 }
 
+// The subscription-plan-items migration is deployed separately from the API
+// on some environments. Keep meal endpoints compatible while that migration
+// is pending, but use the soft-delete flag whenever the column is available.
+async function hasSubscriptionItemActiveColumn() {
+    const [rows] = await db.promise().query(
+        `SELECT COUNT(*) AS column_count
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'subscription_plan_items'
+           AND COLUMN_NAME = 'is_active'`
+    );
+    return Number(rows[0]?.column_count || 0) > 0;
+}
+
 async function attachMealCategories(meals) {
     if (!Array.isArray(meals) || meals.length === 0) return meals;
     const mealIds = meals.map(meal => meal.id);
@@ -161,6 +175,9 @@ export const getMyMeals = async (req, res) => {
         console.log("Cook ID:", cookId);
         console.log("User info:", req.user);
 
+        const hasItemActiveColumn = await hasSubscriptionItemActiveColumn();
+        const itemActivePredicate = hasItemActiveColumn ? "AND spi.is_active = TRUE" : "";
+
         // is_in_subscription is derived from: meals.in_subscription flag
         // (set by "Add to Subscription") OR active plan membership
         const [meals] = await db.promise().query(
@@ -174,7 +191,7 @@ export const getMyMeals = async (req, res) => {
                             SELECT 1 FROM subscription_plan_items spi
                             JOIN subscription_plans sp ON spi.plan_id = sp.id
                             WHERE spi.meal_id = m.id
-                            AND spi.is_active = TRUE
+                            ${itemActivePredicate}
                             AND sp.cook_id = ?
                             AND sp.is_active = TRUE
                         )
@@ -684,13 +701,16 @@ export const addMealToSubscription = async (req, res) => {
         // temporarily removed from subscription availability. This restores
         // each plan's original quantity instead of merely changing the meal
         // flag and leaving the plan short one item.
-        const [restored] = await db.promise().query(
-            `UPDATE subscription_plan_items spi
-             JOIN subscription_plans sp ON spi.plan_id = sp.id
-             SET spi.is_active = TRUE
-             WHERE spi.meal_id = ? AND sp.cook_id = ? AND spi.is_active = FALSE`,
-            [mealId, cookId]
-        );
+        let restored = { affectedRows: 0 };
+        if (await hasSubscriptionItemActiveColumn()) {
+            [restored] = await db.promise().query(
+                `UPDATE subscription_plan_items spi
+                 JOIN subscription_plans sp ON spi.plan_id = sp.id
+                 SET spi.is_active = TRUE
+                 WHERE spi.meal_id = ? AND sp.cook_id = ? AND spi.is_active = FALSE`,
+                [mealId, cookId]
+            );
+        }
 
         res.json({
             success: true,
