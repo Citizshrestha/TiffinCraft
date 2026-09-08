@@ -71,7 +71,7 @@ async function fetchPlanWithItems(planId) {
         `SELECT spi.id, spi.meal_id, spi.quantity, m.name, m.description, m.price, m.image_url, m.is_available
          FROM subscription_plan_items spi
          JOIN meals m ON spi.meal_id = m.id
-         WHERE spi.plan_id = ?
+         WHERE spi.plan_id = ? AND spi.is_active = TRUE
          ORDER BY spi.id ASC`,
         [planId]
     );
@@ -372,7 +372,7 @@ export const getPlansByMeal = async (req, res) => {
             `SELECT DISTINCT sp.id, sp.name, sp.duration, sp.is_active
              FROM subscription_plan_items spi
              JOIN subscription_plans sp ON spi.plan_id = sp.id
-             WHERE spi.meal_id = ? AND sp.cook_id = ?
+             WHERE spi.meal_id = ? AND spi.is_active = TRUE AND sp.cook_id = ?
              ORDER BY sp.name ASC`,
             [mealId, cookId]
         );
@@ -413,7 +413,7 @@ export const removeMealFromPlans = async (req, res) => {
             `SELECT DISTINCT sp.id, sp.name
              FROM subscription_plan_items spi
              JOIN subscription_plans sp ON spi.plan_id = sp.id
-             WHERE spi.meal_id = ? AND sp.cook_id = ?`,
+             WHERE spi.meal_id = ? AND spi.is_active = TRUE AND sp.cook_id = ?`,
             [mealId, cookId]
         );
 
@@ -435,18 +435,20 @@ export const removeMealFromPlans = async (req, res) => {
         try {
             await connection.beginTransaction();
 
-            // Remove the meal from all plans
+            // Keep the original plan item and quantity so adding the meal back
+            // to subscription availability can restore it to every plan.
             const [result] = await connection.query(
-                `DELETE spi FROM subscription_plan_items spi
+                `UPDATE subscription_plan_items spi
                  JOIN subscription_plans sp ON spi.plan_id = sp.id
-                 WHERE spi.meal_id = ? AND sp.cook_id = ?`,
+                 SET spi.is_active = FALSE
+                 WHERE spi.meal_id = ? AND sp.cook_id = ? AND spi.is_active = TRUE`,
                 [mealId, cookId]
             );
 
             // Check if any plans now have zero items and delete them
             for (const plan of affectedPlans) {
                 const [[{ itemCount }]] = await connection.query(
-                    "SELECT COUNT(*) AS itemCount FROM subscription_plan_items WHERE plan_id = ?",
+                    "SELECT COUNT(*) AS itemCount FROM subscription_plan_items WHERE plan_id = ? AND is_active = TRUE",
                     [plan.id]
                 );
                 if (itemCount === 0) {

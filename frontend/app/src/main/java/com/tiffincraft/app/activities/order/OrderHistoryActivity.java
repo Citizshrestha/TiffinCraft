@@ -201,12 +201,15 @@ public class OrderHistoryActivity extends AppCompatActivity {
     }
 
     private void confirmCancelOrder(Order order) {
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("Cancel Order #" + order.getId() + "?")
                 .setMessage("Are you sure you want to cancel this order?")
-                .setPositiveButton("Yes, Cancel", (dialog, which) -> performCancelOrder(order))
+                .setPositiveButton("Yes, Cancel", (ignoredDialog, which) -> performCancelOrder(order))
                 .setNegativeButton("No", null)
-                .show();
+                .create();
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setTextColor(getColor(R.color.error_red)));
+        dialog.show();
     }
 
     private void performCancelOrder(Order order) {

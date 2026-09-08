@@ -85,6 +85,7 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
         private final TextView tvRating;
         private final TextView tvComment;
         private final TextView tvMealName;
+        private final TextView tvCookReplyMeta;
         private final TextView tvCookReply;
         private final View layoutCookReply;
         private final Button btnReply;
@@ -103,6 +104,7 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
             tvRating = itemView.findViewById(R.id.tvRating);
             tvComment = itemView.findViewById(R.id.tvComment);
             tvMealName = itemView.findViewById(R.id.tvMealName);
+            tvCookReplyMeta = itemView.findViewById(R.id.tvCookReplyMeta);
             tvCookReply = itemView.findViewById(R.id.tvCookReply);
             layoutCookReply = itemView.findViewById(R.id.layoutCookReply);
             btnReply = itemView.findViewById(R.id.btnReply);
@@ -135,17 +137,26 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
                     ? R.drawable.ic_favorite : R.drawable.ic_favorite_border);
             btnReviewLike.setColorFilter(context.getResources().getColor(
                     likeCount > 0 ? R.color.error_red : R.color.text_secondary, null));
-            btnReviewLike.setContentDescription(likeCount > 0 ? "Liked review" : "Like review");
-            btnReviewLike.setOnClickListener(v -> {
-                if (listener != null) {
-                    if (likeCount > 0) listener.onUnlikeClick(review);
-                    else listener.onLikeClick(review);
-                }
-            });
+            btnReviewLike.setContentDescription(likeCount > 0 ? "Cook liked this review" : "Cook has not liked this review");
+            btnReviewLike.setVisibility(readOnly && likeCount == 0 ? View.INVISIBLE : View.VISIBLE);
+            btnReviewLike.setEnabled(!readOnly);
+            btnReviewLike.setClickable(!readOnly);
+            btnReviewLike.setFocusable(!readOnly);
+            if (readOnly) {
+                btnReviewLike.setOnClickListener(null);
+            } else {
+                btnReviewLike.setOnClickListener(v -> {
+                    if (listener != null) {
+                        if (likeCount > 0) listener.onUnlikeClick(review);
+                        else listener.onLikeClick(review);
+                    }
+                });
+            }
 
             // Show cook reply if exists
             if (review.getCookReply() != null && !review.getCookReply().isEmpty()) {
                 layoutCookReply.setVisibility(View.VISIBLE);
+                tvCookReplyMeta.setText(buildCookReplyMeta(review));
                 tvCookReply.setText(review.getCookReply());
                 btnReply.setText("Edit Reply");
             } else {
@@ -219,7 +230,9 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
                     "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
                     "yyyy-MM-dd'T'HH:mm:ss'Z'",
                     "yyyy-MM-dd HH:mm:ss",
-                    "yyyy-MM-dd'T'HH:mm:ss"
+                    "yyyy-MM-dd'T'HH:mm:ss",
+                    "MM/dd/yyyy HH:mm:ss",
+                    "M/d/yyyy H:mm:ss"
             };
             for (String pattern : patterns) {
                 try {
@@ -234,6 +247,16 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
                 } catch (Exception ignored) {}
             }
             return rawDate;
+        }
+
+        private String buildCookReplyMeta(Review review) {
+            String cookName = review.getCookName() != null && !review.getCookName().trim().isEmpty()
+                    ? review.getCookName().trim() : "Cook";
+            String replyDate = formatDate(review.getCookReplyAt());
+            if (replyDate == null || replyDate.trim().isEmpty()) {
+                return cookName;
+            }
+            return cookName + " • " + replyDate;
         }
     }
 }

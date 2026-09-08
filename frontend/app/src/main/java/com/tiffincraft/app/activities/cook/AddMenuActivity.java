@@ -24,6 +24,7 @@ import com.tiffincraft.app.databinding.ActivityCookMealAddBinding;
 import com.tiffincraft.app.models.MealRequest;
 import com.tiffincraft.app.models.MealResponse;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.MealCategoryCatalog;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
@@ -33,6 +34,9 @@ import retrofit2.Response;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 public class AddMenuActivity extends AppCompatActivity {
     private static final String TAG = "AddMenuActivity";
@@ -45,7 +49,7 @@ public class AddMenuActivity extends AppCompatActivity {
     private ApiService apiService;
     
     private Uri selectedImageUri;
-    private String selectedCategory = "Lunch Thali";
+    private final Set<String> selectedCategorySlugs = new LinkedHashSet<>();
     private boolean isVeg = true;
     private boolean isSpicy = false;
     private boolean isBestseller = false;
@@ -66,6 +70,7 @@ public class AddMenuActivity extends AppCompatActivity {
     private void setupUI() {
         // Set default veg chip as selected
         updateChipSelection();
+        updateCategorySummary();
     }
     
     private void setupClickListeners() {
@@ -136,15 +141,30 @@ public class AddMenuActivity extends AppCompatActivity {
     }
     
     private void showCategoryDialog() {
-        String[] categories = {"Lunch Thali", "Dinner Thali", "Breakfast", "Snacks", "Dessert", "Beverages"};
-        
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Select Category");
-        builder.setItems(categories, (dialog, which) -> {
-            selectedCategory = categories[which];
-            binding.tvSelectedMealCategory.setText(selectedCategory);
-        });
-        builder.show();
+        boolean[] checked = new boolean[MealCategoryCatalog.SLUGS.length];
+        Set<String> pending = new LinkedHashSet<>(selectedCategorySlugs);
+        for (int i = 0; i < MealCategoryCatalog.SLUGS.length; i++) {
+            checked[i] = pending.contains(MealCategoryCatalog.SLUGS[i]);
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("Select categories")
+                .setMultiChoiceItems(MealCategoryCatalog.LABELS, checked, (dialog, which, isChecked) -> {
+                    String slug = MealCategoryCatalog.SLUGS[which];
+                    if (isChecked) pending.add(slug); else pending.remove(slug);
+                })
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Apply", (dialog, which) -> {
+                    selectedCategorySlugs.clear();
+                    selectedCategorySlugs.addAll(pending);
+                    updateCategorySummary();
+                })
+                .show();
+    }
+
+    private void updateCategorySummary() {
+        binding.tvSelectedMealCategory.setText(
+                MealCategoryCatalog.selectionSummary(selectedCategorySlugs));
     }
     
     private void showImagePickerDialog() {
@@ -266,6 +286,12 @@ public class AddMenuActivity extends AppCompatActivity {
             return;
         }
 
+        if (selectedCategorySlugs.isEmpty()) {
+            Toast.makeText(this, "Select at least one category", Toast.LENGTH_SHORT).show();
+            binding.btnSelectMealCategory.performClick();
+            return;
+        }
+
         double price;
         try {
             price = Double.parseDouble(priceStr);
@@ -368,8 +394,9 @@ public class AddMenuActivity extends AppCompatActivity {
         mealRequest.setName(name);
         mealRequest.setDescription(description);
         mealRequest.setPrice(price);
-        mealRequest.setCategory(selectedCategory);
-        mealRequest.setCuisineType("Indian"); // Set default cuisine type
+        mealRequest.setCategory(MealCategoryCatalog.primaryLegacyLabel(selectedCategorySlugs));
+        mealRequest.setCategories(new ArrayList<>(selectedCategorySlugs));
+        mealRequest.setCuisineType(selectedCategorySlugs.contains("nepali") ? "Nepali" : null);
         mealRequest.setAvailable(isAvailable);
         mealRequest.setVegetarian(isVeg);
         mealRequest.setVegan(false);

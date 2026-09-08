@@ -462,6 +462,8 @@ public class CookMealActivity extends AppCompatActivity implements MealAdapter.O
         intent.putExtra(EditMealActivity.EXTRA_MEAL_DESCRIPTION, meal.getDescription());
         intent.putExtra(EditMealActivity.EXTRA_MEAL_PRICE,       meal.getPrice());
         intent.putExtra(EditMealActivity.EXTRA_MEAL_CATEGORY,    meal.getCategory());
+        intent.putStringArrayListExtra(EditMealActivity.EXTRA_MEAL_CATEGORY_SLUGS,
+                new java.util.ArrayList<>(meal.getCategorySlugs()));
         intent.putExtra(EditMealActivity.EXTRA_MEAL_IS_VEG,      meal.isVegetarian());
         intent.putExtra(EditMealActivity.EXTRA_MEAL_IS_SPICY,    "hot".equalsIgnoreCase(meal.getSpiceLevel()));
         intent.putExtra(EditMealActivity.EXTRA_MEAL_IS_AVAILABLE,meal.isAvailable());

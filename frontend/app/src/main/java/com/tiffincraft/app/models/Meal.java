@@ -2,6 +2,9 @@ package com.tiffincraft.app.models;
 
 import com.google.gson.annotations.SerializedName;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Meal {
     @SerializedName("id")
     private int id;
@@ -20,6 +23,9 @@ public class Meal {
 
     @SerializedName("category")
     private String category;
+
+    @SerializedName("category_slugs")
+    private List<String> categorySlugs;
 
     @SerializedName("cuisine_type")
     private String cuisineType;
@@ -117,6 +123,14 @@ public class Meal {
 
     public void setCategory(String category) {
         this.category = category;
+    }
+
+    public List<String> getCategorySlugs() {
+        return categorySlugs != null ? categorySlugs : new ArrayList<>();
+    }
+
+    public void setCategorySlugs(List<String> categorySlugs) {
+        this.categorySlugs = categorySlugs;
     }
 
     public String getCuisineType() {

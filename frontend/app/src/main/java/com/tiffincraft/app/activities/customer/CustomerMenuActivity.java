@@ -28,10 +28,13 @@ import com.tiffincraft.app.models.CartResponse;
 import com.tiffincraft.app.models.Meal;
 import com.tiffincraft.app.models.MealResponse;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.MealCategoryCatalog;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -43,6 +46,7 @@ public class CustomerMenuActivity extends AppCompatActivity {
 
     /** Which chip to pre-select when arriving via a home-screen "View All" button. */
     public static final String EXTRA_FILTER = "extra_filter";
+    public static final String EXTRA_CATEGORY_SLUGS = "extra_category_slugs";
     public static final String FILTER_POPULAR = "popular";
     public static final String FILTER_RECOMMENDED = "recommended";
 
@@ -59,6 +63,7 @@ public class CustomerMenuActivity extends AppCompatActivity {
     private RecommendedMealAdapter mealAdapter;
     private final List<Meal> allMeals = new ArrayList<>();   // master list from the API
     private final List<Meal> displayedMeals = new ArrayList<>(); // filtered list bound to the adapter
+    private final Set<String> categoryFilterSlugs = new HashSet<>();
     private ApiService apiService;
     private SessionManager sessionManager;
 
@@ -71,6 +76,7 @@ public class CustomerMenuActivity extends AppCompatActivity {
         setupRecyclerView();
         setupListeners();
         setupBottomNavigation();
+        readCategoryFiltersFromIntent();
         preselectFilterFromIntent();
         loadMeals();
     }
@@ -181,6 +187,11 @@ public class CustomerMenuActivity extends AppCompatActivity {
         }
     }
 
+    private void readCategoryFiltersFromIntent() {
+        ArrayList<String> slugs = getIntent().getStringArrayListExtra(EXTRA_CATEGORY_SLUGS);
+        if (slugs != null) categoryFilterSlugs.addAll(slugs);
+    }
+
     private void setupBottomNavigation() {
         bottomNavigation.setSelectedItemId(R.id.nav_menu);
 
@@ -245,17 +256,24 @@ public class CustomerMenuActivity extends AppCompatActivity {
     private void filterMeals(int chipId) {
         displayedMeals.clear();
 
+        List<Meal> categoryMatches = new ArrayList<>();
+        for (Meal meal : allMeals) {
+            if (categoryFilterSlugs.isEmpty() || matchesAnyCategory(meal)) {
+                categoryMatches.add(meal);
+            }
+        }
+
         if (chipId == R.id.chipVeg) {
-            for (Meal meal : allMeals) {
+            for (Meal meal : categoryMatches) {
                 if (meal.isVegetarian()) displayedMeals.add(meal);
             }
         } else if (chipId == R.id.chipNonVeg) {
-            for (Meal meal : allMeals) {
+            for (Meal meal : categoryMatches) {
                 if (!meal.isVegetarian() && !meal.isVegan()) displayedMeals.add(meal);
             }
         } else if (chipId == R.id.chipPopular) {
             // Popular: Only show meals with cook rating >= 4.0 AND that have reviews
-            for (Meal meal : allMeals) {
+            for (Meal meal : categoryMatches) {
                 double rating = meal.getCookRating() != null ? meal.getCookRating() : 0;
                 // Assuming cook has reviews if rating > 0 (in real app, we'd need a review_count field)
                 if (rating >= 4.0 && rating > 0) {
@@ -269,14 +287,26 @@ public class CustomerMenuActivity extends AppCompatActivity {
                 return Double.compare(ratingB, ratingA);
             });
         } else if (chipId == R.id.chipNearby) {
-            displayedMeals.addAll(allMeals);
+            displayedMeals.addAll(categoryMatches);
             Toast.makeText(this, "Nearby filtering coming soon — showing all meals", Toast.LENGTH_SHORT).show();
         } else {
-            displayedMeals.addAll(allMeals);
+            displayedMeals.addAll(categoryMatches);
         }
 
         mealAdapter.notifyDataSetChanged();
         showEmptyState(displayedMeals.isEmpty());
+    }
+
+    private boolean matchesAnyCategory(Meal meal) {
+        Set<String> mealCategories = new HashSet<>(meal.getCategorySlugs());
+        if (mealCategories.isEmpty()) {
+            mealCategories.addAll(MealCategoryCatalog.fromLegacy(
+                    meal.getCategory(), meal.getCuisineType()));
+        }
+        for (String slug : categoryFilterSlugs) {
+            if (mealCategories.contains(slug)) return true;
+        }
+        return false;
     }
 
     private void showLoading(boolean show) {

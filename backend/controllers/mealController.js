@@ -1,6 +1,52 @@
 import db from "../config/db.js";
 import { uploadToCloudinary, deleteFromCloudinary, extractPublicId } from "../services/uploadService.js";
 
+const normalizeCategorySlugs = (value) => {
+    const raw = Array.isArray(value) ? value : (typeof value === "string" ? value.split(",") : []);
+    return [...new Set(raw.map(v => String(v).trim().toLowerCase()).filter(Boolean))];
+};
+
+async function resolveCategoryRows(executor, value) {
+    const slugs = normalizeCategorySlugs(value);
+    if (slugs.length === 0) return { slugs, rows: [], invalid: [] };
+    const [rows] = await executor.query(
+        `SELECT id, slug, name FROM meal_categories
+         WHERE is_active = TRUE AND slug IN (${slugs.map(() => "?").join(",")})`,
+        slugs
+    );
+    const found = new Set(rows.map(row => row.slug));
+    return { slugs, rows, invalid: slugs.filter(slug => !found.has(slug)) };
+}
+
+async function replaceMealCategories(executor, mealId, categoryRows) {
+    await executor.query("DELETE FROM meal_category_map WHERE meal_id = ?", [mealId]);
+    for (const category of categoryRows) {
+        await executor.query(
+            "INSERT INTO meal_category_map (meal_id, category_id) VALUES (?, ?)",
+            [mealId, category.id]
+        );
+    }
+}
+
+async function attachMealCategories(meals) {
+    if (!Array.isArray(meals) || meals.length === 0) return meals;
+    const mealIds = meals.map(meal => meal.id);
+    const [rows] = await db.promise().query(
+        `SELECT mcm.meal_id, mc.slug
+         FROM meal_category_map mcm
+         JOIN meal_categories mc ON mc.id = mcm.category_id
+         WHERE mc.is_active = TRUE
+           AND mcm.meal_id IN (${mealIds.map(() => "?").join(",")})
+         ORDER BY mc.sort_order ASC, mc.id ASC`,
+        mealIds
+    );
+    const byMeal = new Map(mealIds.map(id => [id, []]));
+    for (const row of rows) {
+        if (byMeal.has(row.meal_id)) byMeal.get(row.meal_id).push(row.slug);
+    }
+    return meals.map(meal => ({ ...meal, category_slugs: byMeal.get(meal.id) || [] }));
+}
+
 export const addMeal = async (req, res) => {
     try {
         const cookId = req.user.id;
@@ -16,7 +62,8 @@ export const addMeal = async (req, res) => {
             is_vegetarian,
             is_vegan,
             allergens,
-            image_url
+            image_url,
+            categories
         } = req.body;
 
         console.log("=== addMeal called ===");
@@ -37,7 +84,23 @@ export const addMeal = async (req, res) => {
             });
         }
 
-        const [result] = await db.promise().query(
+        const categorySelection = await resolveCategoryRows(db.promise(), categories);
+        if (categories !== undefined && categorySelection.slugs.length === 0) {
+            return res.status(400).json({ success: false, message: "Select at least one meal category." });
+        }
+        if (categorySelection.invalid.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Unknown meal categories: ${categorySelection.invalid.join(", ")}`
+            });
+        }
+
+        const legacyCategory = category || (categorySelection.rows[0] ? categorySelection.rows[0].name : null);
+        const connection = await db.promise().getConnection();
+        try {
+            await connection.beginTransaction();
+
+        const [result] = await connection.query(
             `INSERT INTO meals (
                 cook_id, name, description, price, category, cuisine_type,
                 is_available, preparation_time, spice_level, is_vegetarian,
@@ -48,7 +111,7 @@ export const addMeal = async (req, res) => {
                 name,
                 description || null,
                 price,
-                category || null,
+                legacyCategory,
                 cuisine_type || null,
                 is_available !== undefined ? is_available : true,
                 preparation_time || null,
@@ -60,6 +123,12 @@ export const addMeal = async (req, res) => {
             ]
         );
 
+        if (categories !== undefined) {
+            await replaceMealCategories(connection, result.insertId, categorySelection.rows);
+        }
+
+        await connection.commit();
+
         console.log("Meal inserted with ID:", result.insertId);
 
         return res.status(201).json({
@@ -67,6 +136,12 @@ export const addMeal = async (req, res) => {
             message: "Meal added successfully!",
             mealId: result.insertId
         });
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
 
     } catch (error) {
         console.error("addMeal error:", error);
@@ -99,6 +174,7 @@ export const getMyMeals = async (req, res) => {
                             SELECT 1 FROM subscription_plan_items spi
                             JOIN subscription_plans sp ON spi.plan_id = sp.id
                             WHERE spi.meal_id = m.id
+                            AND spi.is_active = TRUE
                             AND sp.cook_id = ?
                             AND sp.is_active = TRUE
                         )
@@ -113,11 +189,11 @@ export const getMyMeals = async (req, res) => {
         console.log("Meals data:", JSON.stringify(meals, null, 2));
 
         // Convert DECIMAL price to real number and boolean is_in_subscription
-        const formattedMeals = meals.map(meal => ({
+        const formattedMeals = await attachMealCategories(meals.map(meal => ({
             ...meal,
             price: parseFloat(meal.price),
             is_in_subscription: !!meal.is_in_subscription
-        }));
+        })));
 
         return res.status(200).json({
             success: true,
@@ -152,10 +228,10 @@ export const getMealsByCook = async (req, res) => {
         );
 
         // Convert DECIMAL price to real number
-        const formattedMeals = meals.map(meal => ({
+        const formattedMeals = await attachMealCategories(meals.map(meal => ({
             ...meal,
             price: parseFloat(meal.price)
-        }));
+        })));
 
         return res.status(200).json({
             success: true,
@@ -243,7 +319,7 @@ export const uploadMealImage = async (req, res) => {
 
 export const getAllMeals = async (req, res) => {
     try {
-        const { category, cuisine_type, is_vegetarian, is_vegan, max_price, search, sort } = req.query;
+        const { category, categories, cuisine_type, is_vegetarian, is_vegan, max_price, search, sort } = req.query;
 
         let query = `SELECT m.id, m.cook_id, m.name, m.description, m.price, m.category,
                             m.cuisine_type, m.is_available, m.preparation_time, m.spice_level,
@@ -261,6 +337,19 @@ export const getAllMeals = async (req, res) => {
         if (category) {
             query += ` AND m.category = ?`;
             params.push(category);
+        }
+
+        const categorySlugs = normalizeCategorySlugs(categories);
+        if (categorySlugs.length > 0) {
+            query += ` AND EXISTS (
+                SELECT 1
+                FROM meal_category_map category_map
+                JOIN meal_categories category_def ON category_def.id = category_map.category_id
+                WHERE category_map.meal_id = m.id
+                  AND category_def.is_active = TRUE
+                  AND category_def.slug IN (${categorySlugs.map(() => "?").join(",")})
+            )`;
+            params.push(...categorySlugs);
         }
 
         if (cuisine_type) {
@@ -299,11 +388,11 @@ export const getAllMeals = async (req, res) => {
         const [meals] = await db.promise().query(query, params);
 
         // Convert DECIMAL price and cook_rating to real numbers
-        const formattedMeals = meals.map(meal => ({
+        const formattedMeals = await attachMealCategories(meals.map(meal => ({
             ...meal,
             price: parseFloat(meal.price),
             cook_rating: meal.cook_rating ? parseFloat(meal.cook_rating) : null
-        }));
+        })));
 
         return res.status(200).json({
             success: true,
@@ -348,11 +437,11 @@ export const getMealById = async (req, res) => {
         }
 
         // Convert DECIMAL price and cook_rating to real numbers
-        const formattedMeal = {
+        const [formattedMeal] = await attachMealCategories([{
             ...meals[0],
             price: parseFloat(meals[0].price),
             cook_rating: meals[0].cook_rating ? parseFloat(meals[0].cook_rating) : null
-        };
+        }]);
 
         return res.status(200).json({
             success: true,
@@ -387,7 +476,8 @@ export const updateMeal = async (req, res) => {
             is_vegetarian,
             is_vegan,
             allergens,
-            image_url
+            image_url,
+            categories
         } = req.body;
 
         // Check if meal exists and belongs to this cook
@@ -400,6 +490,18 @@ export const updateMeal = async (req, res) => {
             return res.status(403).json({
                 success: false,
                 message: "Meal not found or you don't have permission."
+            });
+        }
+
+
+        const categorySelection = await resolveCategoryRows(db.promise(), categories);
+        if (categories !== undefined && categorySelection.slugs.length === 0) {
+            return res.status(400).json({ success: false, message: "Select at least one meal category." });
+        }
+        if (categorySelection.invalid.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Unknown meal categories: ${categorySelection.invalid.join(", ")}`
             });
         }
 
@@ -428,6 +530,10 @@ export const updateMeal = async (req, res) => {
         if (category !== undefined) {
             updates.push("category = ?");
             values.push(category);
+        } else if (categories !== undefined && categorySelection.rows[0]) {
+            // Keep the legacy single-value column meaningful for older clients.
+            updates.push("category = ?");
+            values.push(categorySelection.rows[0].name);
         }
         if (cuisine_type !== undefined) {
             updates.push("cuisine_type = ?");
@@ -462,19 +568,33 @@ export const updateMeal = async (req, res) => {
             values.push(image_url);
         }
 
-        if (updates.length === 0) {
+        if (updates.length === 0 && categories === undefined) {
             return res.status(400).json({
                 success: false,
                 message: "No fields to update."
             });
         }
 
-        values.push(mealId);
-
-        await db.promise().query(
-            `UPDATE meals SET ${updates.join(", ")} WHERE id = ?`,
-            values
-        );
+        const connection = await db.promise().getConnection();
+        try {
+            await connection.beginTransaction();
+            if (updates.length > 0) {
+                values.push(mealId);
+                await connection.query(
+                    `UPDATE meals SET ${updates.join(", ")} WHERE id = ?`,
+                    values
+                );
+            }
+            if (categories !== undefined) {
+                await replaceMealCategories(connection, mealId, categorySelection.rows);
+            }
+            await connection.commit();
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
 
         return res.status(200).json({
             success: true,
@@ -560,9 +680,24 @@ export const addMealToSubscription = async (req, res) => {
             [mealId]
         );
 
+        // Re-enable the preserved item rows created when this meal was
+        // temporarily removed from subscription availability. This restores
+        // each plan's original quantity instead of merely changing the meal
+        // flag and leaving the plan short one item.
+        const [restored] = await db.promise().query(
+            `UPDATE subscription_plan_items spi
+             JOIN subscription_plans sp ON spi.plan_id = sp.id
+             SET spi.is_active = TRUE
+             WHERE spi.meal_id = ? AND sp.cook_id = ? AND spi.is_active = FALSE`,
+            [mealId, cookId]
+        );
+
         res.json({
             success: true,
-            message: "Meal successfully added to subscription availability"
+            message: restored.affectedRows > 0
+                ? "Meal added back to subscription availability and restored in its plans"
+                : "Meal successfully added to subscription availability",
+            restored_plan_items: restored.affectedRows
         });
     } catch (error) {
         console.error("Error adding meal to subscription:", error);

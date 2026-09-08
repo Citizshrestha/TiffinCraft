@@ -802,7 +802,7 @@ export const getSubscriptionDetail = async (req, res) => {
         const [items] = await db.promise().query(
             `SELECT m.id, m.name, m.image_url, spi.quantity
              FROM subscription_plan_items spi JOIN meals m ON m.id = spi.meal_id
-             WHERE spi.plan_id = ?`,
+             WHERE spi.plan_id = ? AND spi.is_active = TRUE`,
             [sub.plan_id]
         );
 

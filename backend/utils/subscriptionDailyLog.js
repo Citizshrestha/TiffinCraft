@@ -321,7 +321,7 @@ export async function placeDayOrder(executor, subscription, deliveryDate) {
         `SELECT spi.meal_id, spi.quantity, m.price, m.is_available, m.name AS meal_name
          FROM subscription_plan_items spi
          JOIN meals m ON spi.meal_id = m.id
-         WHERE spi.plan_id = ?`,
+         WHERE spi.plan_id = ? AND spi.is_active = TRUE`,
         [subscription.plan_id]
     );
     if (items.length === 0) {

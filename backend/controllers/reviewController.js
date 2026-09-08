@@ -276,9 +276,11 @@ export const getCookReviews = async (req, res) => {
         const [reviews] = await db.promise().query(
             `SELECT r.*, u.full_name as customer_name,
                     (SELECT COUNT(*) FROM review_likes rl WHERE rl.review_id = r.id) AS like_count,
-                    u.profile_image as customer_image
+                    u.profile_image as customer_image,
+                    cook.full_name as cook_name
              FROM reviews r
              JOIN users u ON r.customer_id = u.id
+             JOIN users cook ON r.cook_id = cook.id
              WHERE r.cook_id = ?
              ORDER BY r.created_at DESC`,
             [cookId]
@@ -357,9 +359,11 @@ export const getMyCookReviews = async (req, res) => {
             `SELECT r.*,
                     (SELECT COUNT(*) FROM review_likes rl WHERE rl.review_id = r.id) AS like_count,
                     u.full_name as customer_name,
-                    u.profile_image as customer_image
+                    u.profile_image as customer_image,
+                    cook.full_name as cook_name
              FROM reviews r
              JOIN users u ON r.customer_id = u.id
+             JOIN users cook ON r.cook_id = cook.id
              WHERE r.cook_id = ?
              ORDER BY r.created_at DESC`,
             [cookId]

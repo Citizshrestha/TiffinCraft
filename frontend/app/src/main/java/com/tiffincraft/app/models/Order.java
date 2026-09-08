@@ -18,6 +18,9 @@ public class Order {
     @SerializedName("total_amount")
     private double totalAmount;
 
+    @SerializedName("combo_id")
+    private Integer comboId;
+
     @SerializedName("delivery_address")
     private String deliveryAddress;
 
@@ -173,6 +176,8 @@ public class Order {
     public int getCustomerId() { return customerId; }
     public int getCookId() { return cookId; }
     public double getTotalAmount() { return totalAmount; }
+    public Integer getComboId() { return comboId; }
+    public boolean isComboOrder() { return comboId != null && comboId > 0; }
     public String getDeliveryAddress() { return deliveryAddress; }
     public String getStatus() { return status; }
     public String getCreatedAt() { return createdAt; }

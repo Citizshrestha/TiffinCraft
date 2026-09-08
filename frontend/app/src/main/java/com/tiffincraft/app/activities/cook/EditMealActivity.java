@@ -30,6 +30,7 @@ import com.tiffincraft.app.models.Meal;
 import com.tiffincraft.app.models.MealRequest;
 import com.tiffincraft.app.models.MealResponse;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.MealCategoryCatalog;
 
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
@@ -41,6 +42,9 @@ import retrofit2.Response;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 public class EditMealActivity extends AppCompatActivity {
 
@@ -50,6 +54,7 @@ public class EditMealActivity extends AppCompatActivity {
     public static final String EXTRA_MEAL_DESCRIPTION = "meal_description";
     public static final String EXTRA_MEAL_PRICE       = "meal_price";
     public static final String EXTRA_MEAL_CATEGORY    = "meal_category";
+    public static final String EXTRA_MEAL_CATEGORY_SLUGS = "meal_category_slugs";
     public static final String EXTRA_MEAL_IS_VEG      = "meal_is_veg";
     public static final String EXTRA_MEAL_IS_SPICY    = "meal_is_spicy";
     public static final String EXTRA_MEAL_IS_AVAILABLE= "meal_is_available";
@@ -70,6 +75,7 @@ public class EditMealActivity extends AppCompatActivity {
     // UI state
     private Uri    selectedImageUri;
     private String selectedCategory;
+    private final Set<String> selectedCategorySlugs = new LinkedHashSet<>();
     private boolean isVeg;
     private boolean isSpicy;
 
@@ -93,11 +99,16 @@ public class EditMealActivity extends AppCompatActivity {
         Intent i = getIntent();
         mealId           = i.getIntExtra(EXTRA_MEAL_ID,   -1);
         selectedCategory = i.getStringExtra(EXTRA_MEAL_CATEGORY);
+        ArrayList<String> categorySlugs = i.getStringArrayListExtra(EXTRA_MEAL_CATEGORY_SLUGS);
+        if (categorySlugs != null) selectedCategorySlugs.addAll(categorySlugs);
         isVeg            = i.getBooleanExtra(EXTRA_MEAL_IS_VEG,  true);
         isSpicy          = i.getBooleanExtra(EXTRA_MEAL_IS_SPICY, false);
         existingImageUrl = i.getStringExtra(EXTRA_MEAL_IMAGE_URL);
 
-        if (selectedCategory == null) selectedCategory = "Lunch Thali";
+        if (selectedCategory == null) selectedCategory = "Lunch";
+        if (selectedCategorySlugs.isEmpty()) {
+            selectedCategorySlugs.addAll(MealCategoryCatalog.fromLegacy(selectedCategory, null));
+        }
 
         if (mealId == -1) {
             Toast.makeText(this, "Invalid meal data", Toast.LENGTH_SHORT).show();
@@ -116,7 +127,7 @@ public class EditMealActivity extends AppCompatActivity {
         binding.etMealName.setText(i.getStringExtra(EXTRA_MEAL_NAME));
         binding.etMealDescription.setText(i.getStringExtra(EXTRA_MEAL_DESCRIPTION));
         binding.etMealPrice.setText(String.valueOf(i.getDoubleExtra(EXTRA_MEAL_PRICE, 0)));
-        binding.tvSelectedMealCategory.setText(selectedCategory);
+        updateCategorySummary();
         binding.switchMealAvailable.setChecked(i.getBooleanExtra(EXTRA_MEAL_IS_AVAILABLE, true));
 
         updateChipSelection();
@@ -193,14 +204,29 @@ public class EditMealActivity extends AppCompatActivity {
 
     // ── Category picker ───────────────────────────────────────────────────────
     private void showCategoryDialog() {
-        String[] categories = {"Lunch Thali", "Dinner Thali", "Breakfast", "Snacks", "Dessert", "Beverages"};
+        boolean[] checked = new boolean[MealCategoryCatalog.SLUGS.length];
+        Set<String> pending = new LinkedHashSet<>(selectedCategorySlugs);
+        for (int i = 0; i < MealCategoryCatalog.SLUGS.length; i++) {
+            checked[i] = pending.contains(MealCategoryCatalog.SLUGS[i]);
+        }
         new AlertDialog.Builder(this)
-                .setTitle("Select Category")
-                .setItems(categories, (dialog, which) -> {
-                    selectedCategory = categories[which];
-                    binding.tvSelectedMealCategory.setText(selectedCategory);
+                .setTitle("Select categories")
+                .setMultiChoiceItems(MealCategoryCatalog.LABELS, checked, (dialog, which, isChecked) -> {
+                    String slug = MealCategoryCatalog.SLUGS[which];
+                    if (isChecked) pending.add(slug); else pending.remove(slug);
+                })
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Apply", (dialog, which) -> {
+                    selectedCategorySlugs.clear();
+                    selectedCategorySlugs.addAll(pending);
+                    updateCategorySummary();
                 })
                 .show();
+    }
+
+    private void updateCategorySummary() {
+        binding.tvSelectedMealCategory.setText(
+                MealCategoryCatalog.selectionSummary(selectedCategorySlugs));
     }
 
     // ── Image picker ──────────────────────────────────────────────────────────
@@ -309,6 +335,12 @@ public class EditMealActivity extends AppCompatActivity {
             return;
         }
 
+        if (selectedCategorySlugs.isEmpty()) {
+            Toast.makeText(this, "Select at least one category", Toast.LENGTH_SHORT).show();
+            binding.btnSelectMealCategory.performClick();
+            return;
+        }
+
         double price;
         try {
             price = Double.parseDouble(priceStr);
@@ -408,8 +440,9 @@ public class EditMealActivity extends AppCompatActivity {
         request.setName(name);
         request.setDescription(description);
         request.setPrice(price);
-        request.setCategory(selectedCategory);
-        request.setCuisineType("Indian");
+        request.setCategory(MealCategoryCatalog.primaryLegacyLabel(selectedCategorySlugs));
+        request.setCategories(new ArrayList<>(selectedCategorySlugs));
+        request.setCuisineType(selectedCategorySlugs.contains("nepali") ? "Nepali" : null);
         request.setAvailable(isAvailable);
         request.setVegetarian(isVeg);
         request.setVegan(false);

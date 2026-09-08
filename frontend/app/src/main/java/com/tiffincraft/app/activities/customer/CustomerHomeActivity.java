@@ -47,11 +47,14 @@ import com.tiffincraft.app.models.MealResponse;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.ChatPanelManager;
 import com.tiffincraft.app.utils.ImageUrlHelper;
+import com.tiffincraft.app.utils.MealCategoryCatalog;
 
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -110,6 +113,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
     // Data
     private List<Category> categories;
+    private final List<Meal> allHomeMeals = new ArrayList<>();
     private List<Meal> popularMeals;
     private List<Meal> recommendedMeals;
     private List<CookProfile> popularCooks;
@@ -469,17 +473,10 @@ public class CustomerHomeActivity extends AppCompatActivity {
     }
 
     private void loadCategories() {
-        categories = new ArrayList<>();
-        categories.add(new Category("🍛", "Nepali"));
-        categories.add(new Category("🍕", "Fast Food"));
-        categories.add(new Category("🥗", "Healthy"));
-        categories.add(new Category("🥟", "Snacks"));
-        categories.add(new Category("🥘", "Lunch"));
-        categories.add(new Category("🍰", "Desserts"));
+        categories = new ArrayList<>(MealCategoryCatalog.homeCategories());
 
         categoryAdapter = new CategoryAdapter(categories, (category, position) -> {
-            Toast.makeText(this, "Category: " + category.getName(), Toast.LENGTH_SHORT).show();
-            // TODO: Filter meals by category
+            applyCategoryFilters();
         });
 
         rvCategories.setAdapter(categoryAdapter);
@@ -524,23 +521,11 @@ public class CustomerHomeActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<MealResponse> call, Response<MealResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                    List<Meal> meals = response.body().getMeals();
-
-                    // "Popular Near You": highest-rated cooks' meals first.
-                    List<Meal> byRating = new ArrayList<>(meals);
-                    Collections.sort(byRating, (a, b) -> {
-                        double ratingA = a.getCookRating() != null ? a.getCookRating() : 0;
-                        double ratingB = b.getCookRating() != null ? b.getCookRating() : 0;
-                        return Double.compare(ratingB, ratingA);
-                    });
-                    popularMeals.clear();
-                    popularMeals.addAll(byRating);
-                    popularMealAdapter.notifyDataSetChanged();
-
-                    // "Recommended For You": top 5 only on the home screen; "View All" shows the rest.
-                    recommendedMeals.clear();
-                    recommendedMeals.addAll(meals.subList(0, Math.min(5, meals.size())));
-                    recommendedMealAdapter.notifyDataSetChanged();
+                    allHomeMeals.clear();
+                    if (response.body().getMeals() != null) {
+                        allHomeMeals.addAll(response.body().getMeals());
+                    }
+                    applyCategoryFilters();
                 } else {
                     Log.e(TAG, "Failed to load meals: " + response.code());
                 }
@@ -551,6 +536,61 @@ public class CustomerHomeActivity extends AppCompatActivity {
                 Log.e(TAG, "Network error loading meals", t);
             }
         });
+    }
+
+    /** Rebuilds both home rows from the same category-filtered source list. */
+    private void applyCategoryFilters() {
+        Set<String> selected = new HashSet<>();
+        if (categories != null) {
+            for (Category category : categories) {
+                if (category.isSelected() && !MealCategoryCatalog.ALL.equals(category.getSlug())) {
+                    selected.add(category.getSlug());
+                }
+            }
+        }
+
+        List<Meal> filtered = new ArrayList<>();
+        for (Meal meal : allHomeMeals) {
+            if (selected.isEmpty() || matchesAnyCategory(meal, selected)) filtered.add(meal);
+        }
+
+        // Popular keeps its existing rating-first ranking inside the selected categories.
+        List<Meal> byRating = new ArrayList<>(filtered);
+        Collections.sort(byRating, (a, b) -> {
+            double ratingA = a.getCookRating() != null ? a.getCookRating() : 0;
+            double ratingB = b.getCookRating() != null ? b.getCookRating() : 0;
+            return Double.compare(ratingB, ratingA);
+        });
+        popularMeals.clear();
+        popularMeals.addAll(byRating);
+        popularMealAdapter.notifyDataSetChanged();
+
+        // Recommended keeps the API's ranking and limits the home row to five.
+        recommendedMeals.clear();
+        recommendedMeals.addAll(filtered.subList(0, Math.min(5, filtered.size())));
+        recommendedMealAdapter.notifyDataSetChanged();
+    }
+
+    private boolean matchesAnyCategory(Meal meal, Set<String> selected) {
+        Set<String> mealCategories = new HashSet<>(meal.getCategorySlugs());
+        if (mealCategories.isEmpty()) {
+            mealCategories.addAll(MealCategoryCatalog.fromLegacy(meal.getCategory(), meal.getCuisineType()));
+        }
+        for (String slug : selected) {
+            if (mealCategories.contains(slug)) return true;
+        }
+        return false;
+    }
+
+    private ArrayList<String> getSelectedCategorySlugs() {
+        ArrayList<String> selected = new ArrayList<>();
+        if (categories == null) return selected;
+        for (Category category : categories) {
+            if (category.isSelected() && !MealCategoryCatalog.ALL.equals(category.getSlug())) {
+                selected.add(category.getSlug());
+            }
+        }
+        return selected;
     }
 
     private void loadPopularCooks() {
@@ -661,12 +701,16 @@ public class CustomerHomeActivity extends AppCompatActivity {
         // View All buttons
         tvViewAllPopular.setOnClickListener(v -> {
             startActivity(new Intent(this, CustomerMenuActivity.class)
-                    .putExtra(CustomerMenuActivity.EXTRA_FILTER, CustomerMenuActivity.FILTER_POPULAR));
+                    .putExtra(CustomerMenuActivity.EXTRA_FILTER, CustomerMenuActivity.FILTER_POPULAR)
+                    .putStringArrayListExtra(CustomerMenuActivity.EXTRA_CATEGORY_SLUGS,
+                            getSelectedCategorySlugs()));
         });
 
         tvViewAllRecommended.setOnClickListener(v -> {
             startActivity(new Intent(this, CustomerMenuActivity.class)
-                    .putExtra(CustomerMenuActivity.EXTRA_FILTER, CustomerMenuActivity.FILTER_RECOMMENDED));
+                    .putExtra(CustomerMenuActivity.EXTRA_FILTER, CustomerMenuActivity.FILTER_RECOMMENDED)
+                    .putStringArrayListExtra(CustomerMenuActivity.EXTRA_CATEGORY_SLUGS,
+                            getSelectedCategorySlugs()));
         });
 
         tvViewAllCooks.setOnClickListener(v -> {

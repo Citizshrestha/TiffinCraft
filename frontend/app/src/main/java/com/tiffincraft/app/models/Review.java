@@ -16,6 +16,7 @@ public class Review {
     // Additional fields from JOIN queries
     private String customer_name;
     private String customer_image;
+    private String cook_name;
     private String meal_name;
     private int like_count;
 
@@ -122,6 +123,14 @@ public class Review {
 
     public void setCustomerImage(String customer_image) {
         this.customer_image = customer_image;
+    }
+
+    public String getCookName() {
+        return cook_name;
+    }
+
+    public void setCookName(String cook_name) {
+        this.cook_name = cook_name;
     }
 
     public String getMealName() {

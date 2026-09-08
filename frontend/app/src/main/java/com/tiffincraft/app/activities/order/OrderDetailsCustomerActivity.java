@@ -330,9 +330,27 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
         binding.tvSubtotal.setText(CurrencyUtils.formatRupees(subtotal));
         binding.tvTotalAmount.setText(CurrencyUtils.formatRupees(order.getTotalAmount()));
 
+        if (order.isComboOrder()) {
+            // A combo has a real item subtotal and a separate fixed bundle
+            // price. Showing the difference as "Other charges" makes the
+            // discount look like a fee, while repeating "Total paid / Online
+            // Payment" adds no useful information on this summary card.
+            binding.layoutOtherChargesRow.setVisibility(View.VISIBLE);
+            binding.tvOtherChargesLabel.setText("Combo Price");
+            binding.tvOtherCharges.setText(CurrencyUtils.formatRupees(order.getTotalAmount()));
+            binding.tvOtherCharges.setTextColor(getColor(R.color.green_primary_dark));
+            binding.layoutTotalPaidRow.setVisibility(View.GONE);
+            binding.tvPaymentMethod.setVisibility(View.GONE);
+            return;
+        }
+
         // Delivery fees/discounts (and legacy price drift) make the order total differ
         // from the sum of the lines; show the gap rather than letting the two numbers
         // silently disagree.
+        binding.tvOtherChargesLabel.setText("Other charges");
+        binding.tvOtherCharges.setTextColor(getColor(R.color.text_on_light));
+        binding.layoutTotalPaidRow.setVisibility(View.VISIBLE);
+        binding.tvPaymentMethod.setVisibility(View.VISIBLE);
         double other = order.getTotalAmount() - subtotal;
         boolean showOther = Math.abs(other) >= 1;
         binding.layoutOtherChargesRow.setVisibility(showOther ? View.VISIBLE : View.GONE);

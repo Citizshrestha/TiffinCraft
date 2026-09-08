@@ -16,9 +16,8 @@ import com.tiffincraft.app.models.Category;
 import java.util.List;
 
 public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.CategoryViewHolder> {
-    private List<Category> categories;
-    private OnCategoryClickListener listener;
-    private int selectedPosition = 0;
+    private final List<Category> categories;
+    private final OnCategoryClickListener listener;
 
     public interface OnCategoryClickListener {
         void onCategoryClick(Category category, int position);
@@ -48,13 +47,6 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
         return categories.size();
     }
 
-    public void setSelectedPosition(int position) {
-        int previousPosition = selectedPosition;
-        selectedPosition = position;
-        notifyItemChanged(previousPosition);
-        notifyItemChanged(selectedPosition);
-    }
-
     class CategoryViewHolder extends RecyclerView.ViewHolder {
         private MaterialCardView categoryCard;
         private TextView tvCategoryEmoji;
@@ -72,7 +64,7 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
             tvCategoryName.setText(category.getName());
 
             // Update UI based on selection
-            if (position == selectedPosition) {
+            if (category.isSelected()) {
                 categoryCard.setCardBackgroundColor(itemView.getContext().getColor(R.color.green_primary));
                 tvCategoryName.setTextColor(itemView.getContext().getColor(android.R.color.white));
                 categoryCard.setStrokeWidth(0);
@@ -86,13 +78,46 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
                 tvCategoryName.setTextColor(itemView.getContext().getColor(R.color.text_secondary));
                 categoryCard.setStrokeWidth(0);
             }
+            categoryCard.setSelected(category.isSelected());
+            categoryCard.setContentDescription(category.getName()
+                    + (category.isSelected() ? ", selected" : ", not selected"));
 
             categoryCard.setOnClickListener(v -> {
                 if (listener != null) {
-                    setSelectedPosition(getAdapterPosition());
-                    listener.onCategoryClick(category, getAdapterPosition());
+                    int adapterPosition = getBindingAdapterPosition();
+                    if (adapterPosition == RecyclerView.NO_POSITION) return;
+                    toggleSelection(adapterPosition);
+                    listener.onCategoryClick(categories.get(adapterPosition), adapterPosition);
                 }
             });
         }
+    }
+
+    private void toggleSelection(int position) {
+        Category clicked = categories.get(position);
+        if ("all".equals(clicked.getSlug())) {
+            for (Category category : categories) {
+                category.setSelected("all".equals(category.getSlug()));
+            }
+        } else {
+            clicked.setSelected(!clicked.isSelected());
+            for (Category category : categories) {
+                if ("all".equals(category.getSlug())) category.setSelected(false);
+            }
+
+            boolean anySpecificSelected = false;
+            for (Category category : categories) {
+                if (!"all".equals(category.getSlug()) && category.isSelected()) {
+                    anySpecificSelected = true;
+                    break;
+                }
+            }
+            if (!anySpecificSelected) {
+                for (Category category : categories) {
+                    if ("all".equals(category.getSlug())) category.setSelected(true);
+                }
+            }
+        }
+        notifyDataSetChanged();
     }
 }

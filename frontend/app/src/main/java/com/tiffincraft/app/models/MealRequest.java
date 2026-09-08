@@ -2,6 +2,8 @@ package com.tiffincraft.app.models;
 
 import com.google.gson.annotations.SerializedName;
 
+import java.util.List;
+
 public class MealRequest {
     @SerializedName("name")
     private String name;
@@ -14,6 +16,9 @@ public class MealRequest {
 
     @SerializedName("category")
     private String category;
+
+    @SerializedName("categories")
+    private List<String> categories;
 
     @SerializedName("cuisine_type")
     private String cuisineType;
@@ -87,6 +92,14 @@ public class MealRequest {
 
     public void setCategory(String category) {
         this.category = category;
+    }
+
+    public List<String> getCategories() {
+        return categories;
+    }
+
+    public void setCategories(List<String> categories) {
+        this.categories = categories;
     }
 
     public String getCuisineType() {
