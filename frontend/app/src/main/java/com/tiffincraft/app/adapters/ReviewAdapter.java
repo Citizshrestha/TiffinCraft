@@ -34,6 +34,7 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
         default void onEditClick(Review review) {}
         default void onDeleteClick(Review review) {}
         default void onLikeClick(Review review) {}
+        default void onUnlikeClick(Review review) {}
     }
 
     public ReviewAdapter(Context context, List<Review> reviews, OnReviewActionListener listener) {
@@ -136,7 +137,10 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
                     likeCount > 0 ? R.color.error_red : R.color.text_secondary, null));
             btnReviewLike.setContentDescription(likeCount > 0 ? "Liked review" : "Like review");
             btnReviewLike.setOnClickListener(v -> {
-                if (listener != null) listener.onLikeClick(review);
+                if (listener != null) {
+                    if (likeCount > 0) listener.onUnlikeClick(review);
+                    else listener.onLikeClick(review);
+                }
             });
 
             // Show cook reply if exists
@@ -180,19 +184,28 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewView
         private void showCookActions(Review review) {
             PopupMenu popup = new PopupMenu(context, btnReviewMore);
             popup.getMenuInflater().inflate(R.menu.menu_review_actions, popup.getMenu());
+            popup.getMenu().findItem(R.id.action_like_review)
+                    .setTitle(review.getLikeCount() > 0 ? "Unlike review" : "Like review");
             popup.setOnMenuItemClickListener(item -> {
                 if (item.getItemId() == R.id.action_like_review) {
-                    if (listener != null) listener.onLikeClick(review);
+                    if (listener != null) {
+                        if (review.getLikeCount() > 0) listener.onUnlikeClick(review);
+                        else listener.onLikeClick(review);
+                    }
                     return true;
                 }
                 if (item.getItemId() == R.id.action_delete_review) {
-                    new androidx.appcompat.app.AlertDialog.Builder(context)
+                    androidx.appcompat.app.AlertDialog deleteDialog = new androidx.appcompat.app.AlertDialog.Builder(context)
                             .setTitle("Delete customer review?")
                             .setMessage("This permanently removes the review and updates your kitchen rating.")
                             .setNegativeButton("Cancel", null)
                             .setPositiveButton("Delete", (dialog, which) -> {
                                 if (listener != null) listener.onDeleteClick(review);
-                            }).show();
+                            }).create();
+                    deleteDialog.setOnShowListener(ignored -> deleteDialog.getButton(
+                            androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE).setTextColor(
+                            context.getResources().getColor(R.color.error_red, null)));
+                    deleteDialog.show();
                     return true;
                 }
                 return false;

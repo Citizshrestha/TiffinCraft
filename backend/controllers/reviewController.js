@@ -482,6 +482,28 @@ export const likeReview = async (req, res) => {
     }
 };
 
+// DELETE /api/reviews/:reviewId/like — remove the owning cook's acknowledgement.
+export const unlikeReview = async (req, res) => {
+    try {
+        const cookId = req.user.id;
+        const { reviewId } = req.params;
+        const [reviews] = await db.promise().query(
+            "SELECT id FROM reviews WHERE id = ? AND cook_id = ?",
+            [reviewId, cookId]
+        );
+        if (reviews.length === 0) return res.status(404).json({ success: false, message: "Review not found." });
+
+        await db.promise().query(
+            "DELETE FROM review_likes WHERE review_id = ? AND cook_id = ?",
+            [reviewId, cookId]
+        );
+        return res.status(200).json({ success: true, message: "Review unliked." });
+    } catch (error) {
+        console.error("unlikeReview error:", error);
+        return res.status(500).json({ success: false, message: "Server error." });
+    }
+};
+
 // DELETE /api/reviews/:reviewId/cook — a cook may moderate only feedback left for their kitchen.
 export const deleteCookReview = async (req, res) => {
     const connection = await db.promise().getConnection();

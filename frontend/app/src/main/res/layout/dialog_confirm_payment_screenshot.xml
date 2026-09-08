@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Confirm payment screenshot"
+        android:textColor="@color/text_ink"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Check that the amount, date and payment status are clearly visible."
+        android:textColor="@color/text_subtitle"
+        android:textSize="13sp" />
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="210dp"
+        android:layout_marginTop="16dp"
+        app:cardBackgroundColor="#F6F8F5"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        app:strokeColor="#E4E9E2"
+        app:strokeWidth="1dp">
+
+        <ImageView
+            android:id="@+id/ivSelectedScreenshot"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="Selected payment screenshot"
+            android:padding="6dp"
+            android:scaleType="fitCenter" />
+    </com.google.android.material.card.MaterialCardView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_selected_screenshot"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="12dp">
+
+        <ImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:contentDescription="Selected"
+            android:src="@drawable/ic_check_circle"
+            app:tint="@color/green_primary_dark" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Selected screenshot"
+                android:textColor="@color/green_primary_dark"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvSelectedScreenshotName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="middle"
+                android:maxLines="1"
+                android:text="payment-screenshot.jpg"
+                android:textColor="@color/text_ink"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSendScreenshot"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_marginTop="18dp"
+        android:backgroundTint="@color/green_primary_dark"
+        android:text="Send to cook"
+        android:textAllCaps="false"
+        android:textColor="@color/white"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        app:cornerRadius="12dp"
+        app:icon="@drawable/ic_upload"
+        app:iconGravity="textStart"
+        app:iconTint="@color/white" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnChooseAnotherScreenshot"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="Choose another"
+        android:textAllCaps="false"
+        android:textColor="@color/sub_info_icon"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        app:cornerRadius="12dp"
+        app:strokeColor="@color/sub_info_icon" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCancelScreenshot"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="2dp"
+        android:text="Cancel"
+        android:textAllCaps="false"
+        android:textColor="@color/text_secondary"
+        android:textSize="14sp" />
+
+</LinearLayout>

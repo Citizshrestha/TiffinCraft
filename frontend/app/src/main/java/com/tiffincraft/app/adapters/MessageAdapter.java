@@ -230,7 +230,6 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                         .into(vh.ivMedia);
                 vh.viewVideoScrim.setVisibility(View.VISIBLE);
                 vh.ivVideoPlay.setVisibility(View.VISIBLE);
-                vh.tvVideoBadge.setVisibility(View.VISIBLE);
             } else {
                 vh.ivMedia.setContentDescription("Chat image");
                 Glide.with(context)
@@ -240,7 +239,6 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                         .into(vh.ivMedia);
                 vh.viewVideoScrim.setVisibility(View.GONE);
                 vh.ivVideoPlay.setVisibility(View.GONE);
-                vh.tvVideoBadge.setVisibility(View.GONE);
             }
 
             if ((msg.getViewType() == ChatMessage.TYPE_IMAGE_RECEIVED
@@ -449,14 +447,13 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         ImageView ivMedia, ivAvatar;
         ImageView ivVideoPlay;
         View viewVideoScrim;
-        TextView tvVideoBadge, tvTimestamp;
+        TextView tvTimestamp;
         MediaViewHolder(@NonNull View itemView) {
             super(itemView);
             ivMedia = itemView.findViewById(R.id.ivMedia);
             ivAvatar = itemView.findViewById(R.id.ivAvatar);
             viewVideoScrim = itemView.findViewById(R.id.viewVideoScrim);
             ivVideoPlay = itemView.findViewById(R.id.ivVideoPlay);
-            tvVideoBadge = itemView.findViewById(R.id.tvVideoBadge);
             tvTimestamp = itemView.findViewById(R.id.tvTimestamp);
         }
     }

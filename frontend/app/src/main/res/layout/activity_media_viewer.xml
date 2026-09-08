@@ -32,13 +32,6 @@
         android:layout_gravity="center"
         android:indeterminateTint="#FFFFFF" />
 
-    <!-- Top scrim so the close button stays legible over any image -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="110dp"
-        android:layout_gravity="top"
-        android:background="@drawable/scrim_top_dark" />
-
     <ImageView
         android:id="@+id/btnCloseMediaViewer"
         android:layout_width="42dp"

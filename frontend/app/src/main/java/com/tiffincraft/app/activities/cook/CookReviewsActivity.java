@@ -238,6 +238,20 @@ public class CookReviewsActivity extends AppCompatActivity implements ReviewAdap
     }
 
     @Override
+    public void onUnlikeClick(Review review) {
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.unlikeReview(token, review.getId()).enqueue(new Callback<com.tiffincraft.app.models.RegisterResponse>() {
+            @Override public void onResponse(@NonNull Call<com.tiffincraft.app.models.RegisterResponse> call, @NonNull Response<com.tiffincraft.app.models.RegisterResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    Toast.makeText(CookReviewsActivity.this, "Review unliked", Toast.LENGTH_SHORT).show();
+                    loadReviews();
+                } else Toast.makeText(CookReviewsActivity.this, "Could not unlike review", Toast.LENGTH_SHORT).show();
+            }
+            @Override public void onFailure(@NonNull Call<com.tiffincraft.app.models.RegisterResponse> call, @NonNull Throwable t) { Toast.makeText(CookReviewsActivity.this, "Could not unlike review", Toast.LENGTH_SHORT).show(); }
+        });
+    }
+
+    @Override
     public void onDeleteClick(Review review) {
         String token = "Bearer " + sessionManager.getToken();
         apiService.deleteCookReview(token, review.getId()).enqueue(new Callback<com.tiffincraft.app.models.RegisterResponse>() {

@@ -10,6 +10,7 @@ import {
     replyToReview,
     deleteReviewReply,
     likeReview,
+    unlikeReview,
     deleteCookReview
 } from "../controllers/reviewController.js";
 
@@ -24,6 +25,7 @@ router.get("/cook/my", protect, roleOnly("cook"), getMyCookReviews);
 router.put("/:reviewId/reply", protect, roleOnly("cook"), replyToReview);
 router.delete("/:reviewId/reply", protect, roleOnly("cook"), deleteReviewReply);
 router.post("/:reviewId/like", protect, roleOnly("cook"), likeReview);
+router.delete("/:reviewId/like", protect, roleOnly("cook"), unlikeReview);
 router.delete("/:reviewId/cook", protect, roleOnly("cook"), deleteCookReview);
 
 router.get("/cook/:cookId", getCookReviews);

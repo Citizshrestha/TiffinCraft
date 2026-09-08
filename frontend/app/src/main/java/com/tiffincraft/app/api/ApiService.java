@@ -247,6 +247,9 @@ public interface ApiService {
     @POST("reviews/{reviewId}/like")
     Call<RegisterResponse> likeReview(@Header("Authorization") String token, @Path("reviewId") int reviewId);
 
+    @DELETE("reviews/{reviewId}/like")
+    Call<RegisterResponse> unlikeReview(@Header("Authorization") String token, @Path("reviewId") int reviewId);
+
     @DELETE("reviews/{reviewId}/cook")
     Call<RegisterResponse> deleteCookReview(@Header("Authorization") String token, @Path("reviewId") int reviewId);
 
