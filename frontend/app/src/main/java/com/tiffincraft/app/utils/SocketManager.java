@@ -296,6 +296,11 @@ public class SocketManager {
         attachListener("chatNotification", listener);
     }
 
+    /** Fired to a user's personal room when a non-chat inbox notification arrives. */
+    public void onNewNotification(Emitter.Listener listener) {
+        attachListener("newNotification", listener);
+    }
+
     /** Fired when the other participant reads the conversation. */
     public void onChatMessagesRead(Emitter.Listener listener) {
         attachListener("chatMessagesRead", listener);

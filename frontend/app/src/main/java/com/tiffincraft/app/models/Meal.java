@@ -73,6 +73,18 @@ public class Meal {
     @SerializedName("cook_rating")
     private Double cookRating;
 
+    @SerializedName("is_favorite")
+    private boolean favoriteCook;
+
+    @SerializedName("is_bestseller")
+    private boolean bestseller;
+
+    @SerializedName("completed_order_units")
+    private int completedOrderUnits;
+
+    @SerializedName("distance_km")
+    private Double distanceKm;
+
     @SerializedName(value = "is_in_subscription", alternate = {"in_subscription"})
     private boolean isInSubscription;
 
@@ -250,6 +262,30 @@ public class Meal {
 
     public void setCookRating(Double cookRating) {
         this.cookRating = cookRating;
+    }
+
+    public boolean isFavoriteCook() {
+        return favoriteCook;
+    }
+
+    public void setFavoriteCook(boolean favoriteCook) {
+        this.favoriteCook = favoriteCook;
+    }
+
+    public boolean isBestseller() {
+        return bestseller;
+    }
+
+    public int getCompletedOrderUnits() {
+        return completedOrderUnits;
+    }
+
+    public Double getDistanceKm() {
+        return distanceKm;
+    }
+
+    public void setDistanceKm(Double distanceKm) {
+        this.distanceKm = distanceKm;
     }
 
     public boolean isInSubscription() {

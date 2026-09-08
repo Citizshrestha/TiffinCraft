@@ -7,6 +7,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
@@ -15,6 +16,7 @@ import com.tiffincraft.app.models.Meal;
 import com.tiffincraft.app.utils.ImageUrlHelper;
 
 import java.util.List;
+import java.util.Locale;
 
 public class RecommendedMealAdapter extends RecyclerView.Adapter<RecommendedMealAdapter.MealViewHolder> {
     private List<Meal> meals;
@@ -97,12 +99,7 @@ public class RecommendedMealAdapter extends RecyclerView.Adapter<RecommendedMeal
                 tvRating.setText("⭐ N/A");
             }
 
-            // Delivery time
-            if (meal.getPreparationTime() != null) {
-                tvDeliveryTime.setText(meal.getPreparationTime() + " min");
-            } else {
-                tvDeliveryTime.setText("30 min");
-            }
+            tvDeliveryTime.setText(formatDistance(meal.getDistanceKm()));
 
             // Food type badge
             if (meal.isVegetarian()) {
@@ -118,6 +115,12 @@ public class RecommendedMealAdapter extends RecyclerView.Adapter<RecommendedMeal
 
             // Load meal image (tunnel-safe + relative /uploads paths)
             ImageUrlHelper.load(imgMealPhoto, meal.getImageUrl(), R.drawable.meal_placeholder, 48);
+
+            btnFavorite.setImageResource(meal.isFavoriteCook()
+                    ? R.drawable.ic_favorite : R.drawable.ic_favorite_border);
+            btnFavorite.setColorFilter(ContextCompat.getColor(itemView.getContext(), R.color.red));
+            btnFavorite.setContentDescription(meal.isFavoriteCook()
+                    ? "Remove cook from favorites" : "Add cook to favorites");
 
             // Click listeners
             itemView.setOnClickListener(v -> {
@@ -137,6 +140,12 @@ public class RecommendedMealAdapter extends RecyclerView.Adapter<RecommendedMeal
                     listener.onAddToCartClick(meal);
                 }
             });
+        }
+
+        private String formatDistance(Double distanceKm) {
+            if (distanceKm == null) return "Distance unavailable";
+            if (distanceKm < 1) return String.format(Locale.getDefault(), "%d m away", Math.round(distanceKm * 1000));
+            return String.format(Locale.getDefault(), "%.1f km away", distanceKm);
         }
     }
 }

@@ -7,6 +7,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.card.MaterialCardView;
@@ -15,6 +16,7 @@ import com.tiffincraft.app.models.Meal;
 import com.tiffincraft.app.utils.ImageUrlHelper;
 
 import java.util.List;
+import java.util.Locale;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
@@ -88,23 +90,24 @@ public class PopularMealAdapter extends RecyclerView.Adapter<PopularMealAdapter.
                 tvRating.setText("⭐ N/A");
             }
 
-            // Delivery time
-            if (meal.getPreparationTime() != null) {
-                tvDeliveryTime.setText(meal.getPreparationTime() + " min");
-            } else {
-                tvDeliveryTime.setText("30 min");
-            }
+            tvDeliveryTime.setText(formatDistance(meal.getDistanceKm()));
 
             // Load meal + cook images (tunnel-safe + relative /uploads paths)
             ImageUrlHelper.load(imgMealPhoto, meal.getImageUrl(), R.drawable.meal_placeholder, 48);
             ImageUrlHelper.load(imgCookPhoto, meal.getCookImage(), R.drawable.avatar_cook);
 
-            // Show best seller badge (you can add logic based on rating or sales)
-            if (meal.getCookRating() != null && meal.getCookRating() >= 4.5) {
+            // The server awards this only from verified completed-order demand.
+            if (meal.isBestseller()) {
                 tvBestSeller.setVisibility(View.VISIBLE);
             } else {
                 tvBestSeller.setVisibility(View.GONE);
             }
+
+            btnFavorite.setImageResource(meal.isFavoriteCook()
+                    ? R.drawable.ic_favorite : R.drawable.ic_favorite_border);
+            btnFavorite.setColorFilter(ContextCompat.getColor(itemView.getContext(), R.color.red));
+            btnFavorite.setContentDescription(meal.isFavoriteCook()
+                    ? "Remove cook from favorites" : "Add cook to favorites");
 
             // Click listeners
             itemView.setOnClickListener(v -> {
@@ -118,6 +121,12 @@ public class PopularMealAdapter extends RecyclerView.Adapter<PopularMealAdapter.
                     listener.onFavoriteClick(meal, position);
                 }
             });
+        }
+
+        private String formatDistance(Double distanceKm) {
+            if (distanceKm == null) return "Distance unavailable";
+            if (distanceKm < 1) return String.format(Locale.getDefault(), "%d m away", Math.round(distanceKm * 1000));
+            return String.format(Locale.getDefault(), "%.1f km away", distanceKm);
         }
     }
 }

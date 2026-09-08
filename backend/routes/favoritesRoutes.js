@@ -1,5 +1,5 @@
 import express from 'express';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, roleOnly } from '../middleware/authMiddleware.js';
 import {
     getFavorites,
     addFavorite,
@@ -9,7 +9,7 @@ import {
 
 const router = express.Router();
 
-router.use(protect);
+router.use(protect, roleOnly('customer'));
 
 router.get('/', getFavorites);
 

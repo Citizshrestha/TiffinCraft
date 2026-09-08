@@ -1,6 +1,8 @@
 package com.tiffincraft.app.activities.customer;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -10,6 +12,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -17,6 +22,10 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
+import com.google.gson.JsonObject;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.activities.common.CartActivity;
 import com.tiffincraft.app.activities.meal.CookDetailsActivity;
@@ -25,7 +34,9 @@ import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
 import com.tiffincraft.app.models.AddToCartRequest;
 import com.tiffincraft.app.models.CartResponse;
+import com.tiffincraft.app.models.FavoriteResponse;
 import com.tiffincraft.app.models.Meal;
+import com.tiffincraft.app.models.MealDiscoveryResponse;
 import com.tiffincraft.app.models.MealResponse;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.MealCategoryCatalog;
@@ -62,10 +73,26 @@ public class CustomerMenuActivity extends AppCompatActivity {
 
     private RecommendedMealAdapter mealAdapter;
     private final List<Meal> allMeals = new ArrayList<>();   // master list from the API
+    private final List<Meal> nearbyMeals = new ArrayList<>();
     private final List<Meal> displayedMeals = new ArrayList<>(); // filtered list bound to the adapter
     private final Set<String> categoryFilterSlugs = new HashSet<>();
+    private final Set<Integer> favoriteUpdatesInFlight = new HashSet<>();
     private ApiService apiService;
     private SessionManager sessionManager;
+    private FusedLocationProviderClient fusedLocationClient;
+    private boolean nearbyRequestInFlight = false;
+    private boolean rankedPopularSource = false;
+
+    private final ActivityResultLauncher<String[]> locationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                boolean granted = Boolean.TRUE.equals(result.get(Manifest.permission.ACCESS_FINE_LOCATION))
+                        || Boolean.TRUE.equals(result.get(Manifest.permission.ACCESS_COARSE_LOCATION));
+                if (granted) {
+                    requestNearbyMeals();
+                } else {
+                    clearNearbyFilter("Location permission is needed to show nearby meals");
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -87,6 +114,9 @@ public class CustomerMenuActivity extends AppCompatActivity {
         if (bottomNavigation != null) {
             bottomNavigation.setSelectedItemId(R.id.nav_menu);
         }
+        if (!allMeals.isEmpty() || !nearbyMeals.isEmpty()) {
+            loadFavoriteStates();
+        }
     }
 
     private void init() {
@@ -100,6 +130,7 @@ public class CustomerMenuActivity extends AppCompatActivity {
 
         apiService = RetrofitClient.getInstance(this).getApiService();
         sessionManager = new SessionManager(this);
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
     }
 
     private void setupRecyclerView() {
@@ -114,7 +145,7 @@ public class CustomerMenuActivity extends AppCompatActivity {
 
             @Override
             public void onFavoriteClick(Meal meal, int position) {
-                openCookForMeal(meal);
+                toggleFavoriteCook(meal);
             }
 
             @Override
@@ -179,7 +210,7 @@ public class CustomerMenuActivity extends AppCompatActivity {
     /** "View All" from the home screen arrives with a filter hint — pre-check the matching chip. */
     private void preselectFilterFromIntent() {
         String filter = getIntent().getStringExtra(EXTRA_FILTER);
-        if (FILTER_POPULAR.equals(filter) || FILTER_RECOMMENDED.equals(filter)) {
+        if (FILTER_POPULAR.equals(filter)) {
             Chip chipPopular = findViewById(R.id.chipPopular);
             if (chipPopular != null) {
                 chipPopular.setChecked(true);
@@ -224,6 +255,45 @@ public class CustomerMenuActivity extends AppCompatActivity {
     private void loadMeals() {
         showLoading(true);
 
+        String requestedFilter = getIntent().getStringExtra(EXTRA_FILTER);
+        if (FILTER_POPULAR.equals(requestedFilter) || FILTER_RECOMMENDED.equals(requestedFilter)) {
+            loadRankedMeals(requestedFilter);
+        } else {
+            loadAllMeals();
+        }
+    }
+
+    private void loadRankedMeals(String requestedFilter) {
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.getMealDiscovery(token).enqueue(new Callback<MealDiscoveryResponse>() {
+            @Override
+            public void onResponse(Call<MealDiscoveryResponse> call,
+                                   Response<MealDiscoveryResponse> response) {
+                showLoading(false);
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    List<Meal> rankedMeals = FILTER_POPULAR.equals(requestedFilter)
+                            ? response.body().getPopular() : response.body().getRecommended();
+                    rankedPopularSource = FILTER_POPULAR.equals(requestedFilter);
+                    allMeals.clear();
+                    if (rankedMeals != null) allMeals.addAll(rankedMeals);
+                    applyCurrentFilter();
+                } else {
+                    Log.e(TAG, "Failed to load ranked meals: " + response.code());
+                    loadAllMeals();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<MealDiscoveryResponse> call, Throwable t) {
+                Log.e(TAG, "Network error loading ranked meals", t);
+                loadAllMeals();
+            }
+        });
+    }
+
+    private void loadAllMeals() {
+        rankedPopularSource = false;
+
         apiService.getAllMeals().enqueue(new Callback<MealResponse>() {
             @Override
             public void onResponse(Call<MealResponse> call, Response<MealResponse> response) {
@@ -232,6 +302,7 @@ public class CustomerMenuActivity extends AppCompatActivity {
                     allMeals.clear();
                     allMeals.addAll(response.body().getMeals());
                     applyCurrentFilter();
+                    loadFavoriteStates();
                 } else {
                     Log.e(TAG, "Failed to load meals: " + response.code());
                     showEmptyState(true);
@@ -272,6 +343,12 @@ public class CustomerMenuActivity extends AppCompatActivity {
                 if (!meal.isVegetarian() && !meal.isVegan()) displayedMeals.add(meal);
             }
         } else if (chipId == R.id.chipPopular) {
+            if (rankedPopularSource) {
+                displayedMeals.addAll(categoryMatches);
+                mealAdapter.notifyDataSetChanged();
+                showEmptyState(displayedMeals.isEmpty());
+                return;
+            }
             // Popular: Only show meals with cook rating >= 4.0 AND that have reviews
             for (Meal meal : categoryMatches) {
                 double rating = meal.getCookRating() != null ? meal.getCookRating() : 0;
@@ -287,14 +364,176 @@ public class CustomerMenuActivity extends AppCompatActivity {
                 return Double.compare(ratingB, ratingA);
             });
         } else if (chipId == R.id.chipNearby) {
-            displayedMeals.addAll(categoryMatches);
-            Toast.makeText(this, "Nearby filtering coming soon — showing all meals", Toast.LENGTH_SHORT).show();
+            requestNearbyMeals();
+            return;
         } else {
             displayedMeals.addAll(categoryMatches);
         }
 
         mealAdapter.notifyDataSetChanged();
         showEmptyState(displayedMeals.isEmpty());
+    }
+
+    /** Requests the user's location only after they explicitly choose Nearby. */
+    private void requestNearbyMeals() {
+        if (nearbyRequestInFlight) return;
+        if (!hasLocationPermission()) {
+            locationPermissionLauncher.launch(new String[]{
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+            });
+            return;
+        }
+
+        nearbyRequestInFlight = true;
+        showLoading(true);
+        fusedLocationClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+                .addOnSuccessListener(location -> {
+                    nearbyRequestInFlight = false;
+                    if (location == null) {
+                        showLoading(false);
+                        clearNearbyFilter("Couldn't get your location. Turn on location services and try again.");
+                        return;
+                    }
+                    loadNearbyMeals(location.getLatitude(), location.getLongitude());
+                })
+                .addOnFailureListener(error -> {
+                    nearbyRequestInFlight = false;
+                    showLoading(false);
+                    clearNearbyFilter("Couldn't get your location. Please try again.");
+                });
+    }
+
+    private boolean hasLocationPermission() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void loadNearbyMeals(double latitude, double longitude) {
+        apiService.getNearbyMeals(latitude, longitude, 10).enqueue(new Callback<MealResponse>() {
+            @Override
+            public void onResponse(Call<MealResponse> call, Response<MealResponse> response) {
+                showLoading(false);
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    nearbyMeals.clear();
+                    nearbyMeals.addAll(response.body().getMeals());
+                    loadFavoriteStates();
+                    if (chipGroupFilter.getCheckedChipId() == R.id.chipNearby) {
+                        filterNearbyMeals();
+                    } else {
+                        applyCurrentFilter();
+                    }
+                } else {
+                    clearNearbyFilter("Couldn't load nearby meals. Please try again.");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<MealResponse> call, Throwable t) {
+                showLoading(false);
+                Log.e(TAG, "Network error loading nearby meals", t);
+                clearNearbyFilter("Couldn't load nearby meals. Please try again.");
+            }
+        });
+    }
+
+    private void loadFavoriteStates() {
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.getFavorites(token).enqueue(new Callback<FavoriteResponse>() {
+            @Override
+            public void onResponse(Call<FavoriteResponse> call, Response<FavoriteResponse> response) {
+                if (!response.isSuccessful() || response.body() == null || !response.body().isSuccess()) return;
+                Set<Integer> favoriteCookIds = new HashSet<>();
+                if (response.body().getFavorites() != null) {
+                    for (FavoriteResponse.FavoriteCook cook : response.body().getFavorites()) {
+                        favoriteCookIds.add(cook.getCookId());
+                    }
+                }
+                for (Meal meal : allMeals) {
+                    meal.setFavoriteCook(favoriteCookIds.contains(meal.getCookId()));
+                }
+                for (Meal meal : nearbyMeals) {
+                    meal.setFavoriteCook(favoriteCookIds.contains(meal.getCookId()));
+                }
+                mealAdapter.notifyDataSetChanged();
+            }
+
+            @Override
+            public void onFailure(Call<FavoriteResponse> call, Throwable t) {
+                Log.e(TAG, "Unable to refresh favorite cooks", t);
+            }
+        });
+    }
+
+    private void filterNearbyMeals() {
+        displayedMeals.clear();
+        for (Meal meal : nearbyMeals) {
+            if (categoryFilterSlugs.isEmpty() || matchesAnyCategory(meal)) {
+                displayedMeals.add(meal);
+            }
+        }
+        mealAdapter.notifyDataSetChanged();
+        showEmptyState(displayedMeals.isEmpty());
+    }
+
+    private void clearNearbyFilter(String message) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        chipGroupFilter.clearCheck();
+        filterMeals(View.NO_ID);
+    }
+
+    private void toggleFavoriteCook(Meal meal) {
+        if (meal == null || meal.getCookId() <= 0 || favoriteUpdatesInFlight.contains(meal.getCookId())) {
+            return;
+        }
+        final int cookId = meal.getCookId();
+        final boolean removing = meal.isFavoriteCook();
+        favoriteUpdatesInFlight.add(cookId);
+        String token = "Bearer " + sessionManager.getToken();
+        Call<FavoriteResponse> request;
+        if (removing) {
+            request = apiService.removeFromFavorites(token, cookId);
+        } else {
+            JsonObject body = new JsonObject();
+            body.addProperty("cook_id", cookId);
+            request = apiService.addToFavorites(token, body);
+        }
+
+        request.enqueue(new Callback<FavoriteResponse>() {
+            @Override
+            public void onResponse(Call<FavoriteResponse> call, Response<FavoriteResponse> response) {
+                favoriteUpdatesInFlight.remove(cookId);
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    updateFavoriteCookState(cookId, !removing);
+                    Toast.makeText(CustomerMenuActivity.this,
+                            removing ? "Removed cook from favorites" : "Cook added to favorites",
+                            Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(CustomerMenuActivity.this,
+                            "Could not update favorites", Toast.LENGTH_SHORT).show();
+                    loadFavoriteStates();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<FavoriteResponse> call, Throwable t) {
+                favoriteUpdatesInFlight.remove(cookId);
+                Toast.makeText(CustomerMenuActivity.this,
+                        "Could not update favorites", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void updateFavoriteCookState(int cookId, boolean favorite) {
+        for (Meal candidate : allMeals) {
+            if (candidate.getCookId() == cookId) candidate.setFavoriteCook(favorite);
+        }
+        for (Meal candidate : nearbyMeals) {
+            if (candidate.getCookId() == cookId) candidate.setFavoriteCook(favorite);
+        }
+        mealAdapter.notifyDataSetChanged();
     }
 
     private boolean matchesAnyCategory(Meal meal) {

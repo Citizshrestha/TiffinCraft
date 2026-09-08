@@ -1,5 +1,5 @@
 import db from "../config/db.js";
-import { notifyNewReview } from "../utils/notificationHelper.js";
+import { notifyNewReview, notifyReviewReply } from "../utils/notificationHelper.js";
 
 export const addReview = async (req, res) => {
     const connection = await db.promise().getConnection();
@@ -416,7 +416,10 @@ export const replyToReview = async (req, res) => {
 
         // Check if review exists and belongs to this cook
         const [reviews] = await db.promise().query(
-            'SELECT id, cook_id FROM reviews WHERE id = ?',
+            `SELECT r.id, r.cook_id, r.customer_id, cook.full_name AS cook_name
+             FROM reviews r
+             JOIN users cook ON cook.id = r.cook_id
+             WHERE r.id = ?`,
             [reviewId]
         );
 
@@ -438,6 +441,29 @@ export const replyToReview = async (req, res) => {
             'UPDATE reviews SET cook_reply = ?, cook_reply_at = NOW() WHERE id = ?',
             [cook_reply.trim(), reviewId]
         );
+
+        const review = reviews[0];
+        const cookName = review.cook_name || "Your cook";
+        const title = "Cook Replied to Your Review";
+        const message = `${cookName} replied to your review`;
+
+        // Creates the customer's inbox notification and, when their device
+        // has an FCM token, sends the matching push notification.
+        await notifyReviewReply(review.customer_id, reviewId, cookName);
+
+        // Let an already-open customer app refresh its notification badge
+        // immediately instead of waiting for the next screen resume.
+        const io = req.app.get("io");
+        if (io) {
+            io.to(`user_${review.customer_id}`).emit("newNotification", {
+                type: "review",
+                title,
+                message,
+                reference_id: Number(reviewId),
+                reference_type: "review",
+                created_at: new Date().toISOString()
+            });
+        }
 
         return res.status(200).json({
             success: true,

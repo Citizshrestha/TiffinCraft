@@ -22,6 +22,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.google.gson.JsonObject;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.card.MaterialCardView;
 import com.tiffincraft.app.R;
@@ -42,16 +43,18 @@ import com.tiffincraft.app.models.CookProfile;
 import com.tiffincraft.app.models.CookProfileResponse;
 import com.tiffincraft.app.models.CustomerProfile;
 import com.tiffincraft.app.models.CustomerProfileResponse;
+import com.tiffincraft.app.models.FavoriteResponse;
 import com.tiffincraft.app.models.Meal;
+import com.tiffincraft.app.models.MealDiscoveryResponse;
 import com.tiffincraft.app.models.MealResponse;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.ChatPanelManager;
 import com.tiffincraft.app.utils.ImageUrlHelper;
 import com.tiffincraft.app.utils.MealCategoryCatalog;
+import com.tiffincraft.app.utils.SocketManager;
 
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -59,6 +62,7 @@ import java.util.Set;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
+import io.socket.emitter.Emitter;
 
 public class CustomerHomeActivity extends AppCompatActivity {
 
@@ -96,6 +100,8 @@ public class CustomerHomeActivity extends AppCompatActivity {
     private TextView tvViewAllPopular;
     private TextView tvViewAllRecommended;
     private TextView tvViewAllCooks;
+    private TextView tvPopularTitle;
+    private TextView tvRecommendedTitle;
 
     // Bottom Navigation
     private BottomNavigationView bottomNavigation;
@@ -113,10 +119,13 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
     // Data
     private List<Category> categories;
-    private final List<Meal> allHomeMeals = new ArrayList<>();
+    private final List<Meal> allPopularMeals = new ArrayList<>();
+    private final List<Meal> allRecommendedMeals = new ArrayList<>();
     private List<Meal> popularMeals;
     private List<Meal> recommendedMeals;
     private List<CookProfile> popularCooks;
+    private final Set<Integer> favoriteUpdatesInFlight = new HashSet<>();
+    private boolean hasResumedOnce;
 
     // Session and API
     private SessionManager sessionManager;
@@ -140,6 +149,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
             // Fetch and send FCM token for push notifications
             fetchAndSendFcmToken();
+            listenForInboxNotifications();
 
             initViews();
             setupRecyclerViews();
@@ -175,6 +185,11 @@ public class CustomerHomeActivity extends AppCompatActivity {
         }
         fetchUnreadNotifications();
         refreshCartBadge();
+        if (hasResumedOnce) {
+            loadMeals();
+        } else {
+            hasResumedOnce = true;
+        }
     }
 
     /** Bell badge: count of unread rows in the notifications table (incl. chat messages). */
@@ -199,6 +214,16 @@ public class CustomerHomeActivity extends AppCompatActivity {
             @Override
             public void onFailure(Call<com.tiffincraft.app.models.NotificationResponse> call, Throwable t) {
                 Log.e(TAG, "Error fetching unread notification count", t);
+            }
+        });
+    }
+
+    /** Refresh the bell immediately when the server delivers an inbox event. */
+    private void listenForInboxNotifications() {
+        SocketManager.getInstance(this).onNewNotification(new Emitter.Listener() {
+            @Override
+            public void call(Object... args) {
+                runOnUiThread(CustomerHomeActivity.this::fetchUnreadNotifications);
             }
         });
     }
@@ -250,6 +275,8 @@ public class CustomerHomeActivity extends AppCompatActivity {
             tvViewAllPopular = findViewById(R.id.tvViewAllPopular);
             tvViewAllRecommended = findViewById(R.id.tvViewAllRecommended);
             tvViewAllCooks = findViewById(R.id.tvViewAllCooks);
+            tvPopularTitle = findViewById(R.id.tvPopularTitle);
+            tvRecommendedTitle = findViewById(R.id.tvRecommendedTitle);
 
             // Bottom Navigation
             bottomNavigation = findViewById(R.id.bottomNavigation);
@@ -492,8 +519,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
             @Override
             public void onFavoriteClick(Meal meal, int position) {
-                Toast.makeText(CustomerHomeActivity.this, "Open cook to save favorites", Toast.LENGTH_SHORT).show();
-                openCookForMeal(meal);
+                toggleFavoriteCook(meal);
             }
         });
         rvPopularMeals.setAdapter(popularMealAdapter);
@@ -507,7 +533,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
             @Override
             public void onFavoriteClick(Meal meal, int position) {
-                openCookForMeal(meal);
+                toggleFavoriteCook(meal);
             }
 
             @Override
@@ -517,23 +543,90 @@ public class CustomerHomeActivity extends AppCompatActivity {
         }, true);
         rvRecommendedMeals.setAdapter(recommendedMealAdapter);
 
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.getMealDiscovery(token).enqueue(new Callback<MealDiscoveryResponse>() {
+            @Override
+            public void onResponse(Call<MealDiscoveryResponse> call,
+                                   Response<MealDiscoveryResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    allPopularMeals.clear();
+                    allRecommendedMeals.clear();
+                    if (response.body().getPopular() != null) {
+                        allPopularMeals.addAll(response.body().getPopular());
+                    }
+                    if (response.body().getRecommended() != null) {
+                        allRecommendedMeals.addAll(response.body().getRecommended());
+                    }
+                    tvPopularTitle.setText(response.body().isLocationApplied()
+                            ? "Popular Near You" : "Popular Meals");
+                    tvRecommendedTitle.setText(response.body().isPersonalized()
+                            ? "Recommended For You" : "Top Picks For You");
+                    applyCategoryFilters();
+                } else {
+                    Log.e(TAG, "Failed to load discovery: " + response.code());
+                    loadLegacyMeals();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<MealDiscoveryResponse> call, Throwable t) {
+                Log.e(TAG, "Network error loading discovery", t);
+                loadLegacyMeals();
+            }
+        });
+    }
+
+    private void loadLegacyMeals() {
         apiService.getAllMeals().enqueue(new Callback<MealResponse>() {
             @Override
             public void onResponse(Call<MealResponse> call, Response<MealResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                    allHomeMeals.clear();
+                    allPopularMeals.clear();
+                    allRecommendedMeals.clear();
                     if (response.body().getMeals() != null) {
-                        allHomeMeals.addAll(response.body().getMeals());
+                        allPopularMeals.addAll(response.body().getMeals());
+                        allRecommendedMeals.addAll(response.body().getMeals());
                     }
+                    tvPopularTitle.setText("Popular Meals");
+                    tvRecommendedTitle.setText("Top Picks For You");
                     applyCategoryFilters();
+                    loadFavoriteStates();
                 } else {
-                    Log.e(TAG, "Failed to load meals: " + response.code());
+                    Log.e(TAG, "Fallback meal loading failed: " + response.code());
                 }
             }
 
             @Override
             public void onFailure(Call<MealResponse> call, Throwable t) {
-                Log.e(TAG, "Network error loading meals", t);
+                Log.e(TAG, "Fallback meal loading network error", t);
+            }
+        });
+    }
+
+    private void loadFavoriteStates() {
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.getFavorites(token).enqueue(new Callback<FavoriteResponse>() {
+            @Override
+            public void onResponse(Call<FavoriteResponse> call, Response<FavoriteResponse> response) {
+                if (!response.isSuccessful() || response.body() == null || !response.body().isSuccess()) return;
+                Set<Integer> favoriteCookIds = new HashSet<>();
+                if (response.body().getFavorites() != null) {
+                    for (FavoriteResponse.FavoriteCook cook : response.body().getFavorites()) {
+                        favoriteCookIds.add(cook.getCookId());
+                    }
+                }
+                for (Meal meal : allPopularMeals) {
+                    meal.setFavoriteCook(favoriteCookIds.contains(meal.getCookId()));
+                }
+                for (Meal meal : allRecommendedMeals) {
+                    meal.setFavoriteCook(favoriteCookIds.contains(meal.getCookId()));
+                }
+                applyCategoryFilters();
+            }
+
+            @Override
+            public void onFailure(Call<FavoriteResponse> call, Throwable t) {
+                Log.e(TAG, "Unable to refresh favorite cooks", t);
             }
         });
     }
@@ -549,26 +642,76 @@ public class CustomerHomeActivity extends AppCompatActivity {
             }
         }
 
-        List<Meal> filtered = new ArrayList<>();
-        for (Meal meal : allHomeMeals) {
-            if (selected.isEmpty() || matchesAnyCategory(meal, selected)) filtered.add(meal);
-        }
-
-        // Popular keeps its existing rating-first ranking inside the selected categories.
-        List<Meal> byRating = new ArrayList<>(filtered);
-        Collections.sort(byRating, (a, b) -> {
-            double ratingA = a.getCookRating() != null ? a.getCookRating() : 0;
-            double ratingB = b.getCookRating() != null ? b.getCookRating() : 0;
-            return Double.compare(ratingB, ratingA);
-        });
+        List<Meal> filteredPopular = filterByCategory(allPopularMeals, selected);
         popularMeals.clear();
-        popularMeals.addAll(byRating);
+        popularMeals.addAll(filteredPopular.subList(0, Math.min(5, filteredPopular.size())));
         popularMealAdapter.notifyDataSetChanged();
 
-        // Recommended keeps the API's ranking and limits the home row to five.
+        List<Meal> filteredRecommended = filterByCategory(allRecommendedMeals, selected);
         recommendedMeals.clear();
-        recommendedMeals.addAll(filtered.subList(0, Math.min(5, filtered.size())));
+        recommendedMeals.addAll(filteredRecommended.subList(
+                0, Math.min(5, filteredRecommended.size())));
         recommendedMealAdapter.notifyDataSetChanged();
+    }
+
+    private List<Meal> filterByCategory(List<Meal> source, Set<String> selected) {
+        List<Meal> filtered = new ArrayList<>();
+        for (Meal meal : source) {
+            if (selected.isEmpty() || matchesAnyCategory(meal, selected)) filtered.add(meal);
+        }
+        return filtered;
+    }
+
+    private void toggleFavoriteCook(Meal meal) {
+        if (meal == null || meal.getCookId() <= 0 || favoriteUpdatesInFlight.contains(meal.getCookId())) {
+            return;
+        }
+        final int cookId = meal.getCookId();
+        final boolean removing = meal.isFavoriteCook();
+        favoriteUpdatesInFlight.add(cookId);
+        String token = "Bearer " + sessionManager.getToken();
+        Call<FavoriteResponse> request;
+        if (removing) {
+            request = apiService.removeFromFavorites(token, cookId);
+        } else {
+            JsonObject body = new JsonObject();
+            body.addProperty("cook_id", cookId);
+            request = apiService.addToFavorites(token, body);
+        }
+
+        request.enqueue(new Callback<FavoriteResponse>() {
+            @Override
+            public void onResponse(Call<FavoriteResponse> call, Response<FavoriteResponse> response) {
+                favoriteUpdatesInFlight.remove(cookId);
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    updateFavoriteCookState(cookId, !removing);
+                    Toast.makeText(CustomerHomeActivity.this,
+                            removing ? "Removed cook from favorites" : "Cook added to favorites",
+                            Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(CustomerHomeActivity.this,
+                            "Could not update favorites", Toast.LENGTH_SHORT).show();
+                    loadFavoriteStates();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<FavoriteResponse> call, Throwable t) {
+                favoriteUpdatesInFlight.remove(cookId);
+                Toast.makeText(CustomerHomeActivity.this,
+                        "Could not update favorites", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void updateFavoriteCookState(int cookId, boolean favorite) {
+        for (Meal candidate : allPopularMeals) {
+            if (candidate.getCookId() == cookId) candidate.setFavoriteCook(favorite);
+        }
+        for (Meal candidate : allRecommendedMeals) {
+            if (candidate.getCookId() == cookId) candidate.setFavoriteCook(favorite);
+        }
+        applyCategoryFilters();
     }
 
     private boolean matchesAnyCategory(Meal meal, Set<String> selected) {

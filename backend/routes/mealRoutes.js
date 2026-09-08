@@ -6,6 +6,7 @@ import {
     getMyMeals,
     getMealsByCook,
     getAllMeals,
+    getMealDiscovery,
     getMealById,
     updateMeal,
     deleteMeal,
@@ -20,6 +21,8 @@ router.get("/my", protect, roleOnly("cook"), getMyMeals);
 router.put("/:mealId", protect, roleOnly("cook"), updateMeal);
 router.delete("/:mealId", protect, roleOnly("cook"), deleteMeal);
 router.post("/:mealId/subscription", protect, roleOnly("cook"), addMealToSubscription);
+
+router.get("/discovery", protect, roleOnly("customer"), getMealDiscovery);
 
 router.post(
     "/:mealId/image",

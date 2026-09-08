@@ -11,6 +11,7 @@ import com.tiffincraft.app.models.LoginRequest;
 import com.tiffincraft.app.models.LoginResponse;
 import com.tiffincraft.app.models.MealRequest;
 import com.tiffincraft.app.models.MealResponse;
+import com.tiffincraft.app.models.MealDiscoveryResponse;
 import com.tiffincraft.app.models.NotificationResponse;
 import com.tiffincraft.app.models.Order;
 import com.tiffincraft.app.models.OrderResponse;
@@ -131,6 +132,14 @@ public interface ApiService {
 
     @GET("meals")
     Call<MealResponse> getAllMeals();
+
+    @GET("meals/discovery")
+    Call<MealDiscoveryResponse> getMealDiscovery(@Header("Authorization") String token);
+
+    @GET("meals")
+    Call<MealResponse> getNearbyMeals(@Query("lat") double latitude,
+                                      @Query("lng") double longitude,
+                                      @Query("radius_km") double radiusKm);
 
     @GET("meals/cook/{cookId}")
     Call<MealResponse> getMealsByCook(@Path("cookId") int cookId);

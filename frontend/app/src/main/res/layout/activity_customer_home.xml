@@ -706,6 +706,7 @@
                         android:background="@drawable/bg_accent_bar" />
 
                     <TextView
+                        android:id="@+id/tvPopularTitle"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="10dp"
@@ -767,6 +768,7 @@
                         android:background="@drawable/bg_accent_bar" />
 
                     <TextView
+                        android:id="@+id/tvRecommendedTitle"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="10dp"

@@ -1,5 +1,6 @@
 import db from "../config/db.js";
 import { uploadToCloudinary, deleteFromCloudinary, extractPublicId } from "../services/uploadService.js";
+import { legacyCategorySlugs, rankMealDiscovery } from "../utils/mealDiscoveryRanking.js";
 
 const normalizeCategorySlugs = (value) => {
     const raw = Array.isArray(value) ? value : (typeof value === "string" ? value.split(",") : []);
@@ -334,22 +335,172 @@ export const uploadMealImage = async (req, res) => {
     }
 };
 
+// Customer home discovery: real demand drives Popular, while order-category
+// history and favorite cooks drive Recommended. Scores are computed server-side
+// so every client sees the same ordering and cannot manufacture popularity.
+export const getMealDiscovery = async (req, res) => {
+    try {
+        const customerId = req.user.id;
+        const [customerResult, mealResult, preferenceResult, affinityResult, favoriteResult] = await Promise.all([
+            db.promise().query(
+                "SELECT latitude, longitude FROM users WHERE id = ? LIMIT 1",
+                [customerId]
+            ),
+            db.promise().query(
+                `SELECT m.id, m.cook_id, m.name, m.description, m.price, m.category,
+                        m.cuisine_type, m.is_available, m.preparation_time, m.spice_level,
+                        m.is_vegetarian, m.is_vegan, m.allergens, m.image_url,
+                        m.created_at, m.updated_at,
+                        u.full_name AS cook_name, u.profile_image AS cook_image,
+                        u.latitude, u.longitude, cp.kitchen_name,
+                        CASE WHEN review_stats.review_count > 0
+                             THEN review_stats.average_rating ELSE cp.rating END AS cook_rating,
+                        COALESCE(review_stats.review_count, 0) AS cook_review_count,
+                        COALESCE(order_stats.completed_order_units, 0) AS completed_order_units,
+                        COALESCE(order_stats.recent_order_units, 0) AS recent_order_units,
+                        COALESCE(favorite_stats.cook_favorite_count, 0) AS cook_favorite_count
+                 FROM meals m
+                 JOIN users u ON u.id = m.cook_id
+                 JOIN cook_profiles cp ON cp.user_id = m.cook_id
+                 LEFT JOIN (
+                    SELECT oi.meal_id,
+                           SUM(CASE WHEN o.status IN ('delivered', 'completed')
+                                    THEN oi.quantity ELSE 0 END) AS completed_order_units,
+                           SUM(CASE WHEN o.status IN ('delivered', 'completed')
+                                         AND COALESCE(o.delivered_at, o.updated_at, o.created_at)
+                                             >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY)
+                                    THEN oi.quantity ELSE 0 END) AS recent_order_units
+                    FROM order_items oi
+                    JOIN orders o ON o.id = oi.order_id
+                    GROUP BY oi.meal_id
+                 ) order_stats ON order_stats.meal_id = m.id
+                 LEFT JOIN (
+                    SELECT cook_id, COUNT(*) AS review_count, AVG(rating) AS average_rating
+                    FROM reviews
+                    GROUP BY cook_id
+                 ) review_stats ON review_stats.cook_id = m.cook_id
+                 LEFT JOIN (
+                    SELECT cook_id, COUNT(*) AS cook_favorite_count
+                    FROM favorites
+                    GROUP BY cook_id
+                 ) favorite_stats ON favorite_stats.cook_id = m.cook_id
+                 WHERE m.is_available = TRUE
+                   AND u.is_active = TRUE
+                   AND cp.is_approved = TRUE
+                   AND COALESCE(cp.is_holiday_mode, FALSE) = FALSE`
+            ),
+            db.promise().query(
+                `SELECT mc.slug, m.category, m.cuisine_type, SUM(oi.quantity) AS units
+                 FROM orders o
+                 JOIN order_items oi ON oi.order_id = o.id
+                 JOIN meals m ON m.id = oi.meal_id
+                 LEFT JOIN meal_category_map mcm ON mcm.meal_id = m.id
+                 LEFT JOIN meal_categories mc ON mc.id = mcm.category_id AND mc.is_active = TRUE
+                 WHERE o.customer_id = ? AND o.status IN ('delivered', 'completed')
+                 GROUP BY mc.slug, m.category, m.cuisine_type`,
+                [customerId]
+            ),
+            db.promise().query(
+                `SELECT cook_id, COUNT(*) AS orders_count
+                 FROM orders
+                 WHERE customer_id = ? AND status IN ('delivered', 'completed')
+                 GROUP BY cook_id`,
+                [customerId]
+            ),
+            db.promise().query(
+                "SELECT cook_id FROM favorites WHERE customer_id = ?",
+                [customerId]
+            )
+        ]);
+
+        const customer = customerResult[0][0] || {};
+        const meals = await attachMealCategories(mealResult[0].map(meal => ({
+            ...meal,
+            price: parseFloat(meal.price),
+            cook_rating: parseFloat(meal.cook_rating) || 0,
+            cook_review_count: Number(meal.cook_review_count) || 0,
+            completed_order_units: Number(meal.completed_order_units) || 0,
+            recent_order_units: Number(meal.recent_order_units) || 0,
+            cook_favorite_count: Number(meal.cook_favorite_count) || 0
+        })));
+
+        const categoryPreferences = {};
+        for (const row of preferenceResult[0]) {
+            const slugs = row.slug
+                ? [row.slug]
+                : legacyCategorySlugs(row.category, row.cuisine_type);
+            for (const slug of slugs) {
+                categoryPreferences[slug] = (categoryPreferences[slug] || 0) + Number(row.units || 0);
+            }
+        }
+        const cookAffinity = Object.fromEntries(
+            affinityResult[0].map(row => [row.cook_id, Number(row.orders_count) || 0])
+        );
+        const favoriteCookIds = favoriteResult[0].map(row => Number(row.cook_id));
+        const ranked = rankMealDiscovery(meals, {
+            latitude: customer.latitude,
+            longitude: customer.longitude,
+            categoryPreferences,
+            cookAffinity,
+            favoriteCookIds
+        });
+
+        return res.status(200).json({
+            success: true,
+            personalized: ranked.personalized,
+            location_applied: ranked.locationApplied,
+            popular: ranked.popular,
+            recommended: ranked.recommended
+        });
+    } catch (error) {
+        console.error("getMealDiscovery error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Unable to load meal recommendations"
+        });
+    }
+};
+
 export const getAllMeals = async (req, res) => {
     try {
-        const { category, categories, cuisine_type, is_vegetarian, is_vegan, max_price, search, sort } = req.query;
+        const { category, categories, cuisine_type, is_vegetarian, is_vegan, max_price, search, sort, lat, lng, radius_km } = req.query;
+        const hasLocation = lat !== undefined || lng !== undefined;
+        const latitude = parseFloat(lat);
+        const longitude = parseFloat(lng);
+        let radiusKm = radius_km !== undefined ? parseFloat(radius_km) : 10;
+
+        if (hasLocation && (Number.isNaN(latitude) || Number.isNaN(longitude)
+                || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)) {
+            return res.status(400).json({ success: false, message: "lat and lng must be valid coordinates." });
+        }
+        if (hasLocation && (Number.isNaN(radiusKm) || radiusKm <= 0)) {
+            return res.status(400).json({ success: false, message: "radius_km must be a positive number." });
+        }
+        radiusKm = Math.min(radiusKm, 20);
+
+        const distanceSelect = hasLocation
+            ? `, (6371 * ACOS(LEAST(1, GREATEST(-1,
+                    COS(RADIANS(?)) * COS(RADIANS(u.latitude)) *
+                    COS(RADIANS(u.longitude) - RADIANS(?)) +
+                    SIN(RADIANS(?)) * SIN(RADIANS(u.latitude))
+                )))) AS distance_km`
+            : "";
+        const params = hasLocation ? [latitude, longitude, latitude] : [];
 
         let query = `SELECT m.id, m.cook_id, m.name, m.description, m.price, m.category,
                             m.cuisine_type, m.is_available, m.preparation_time, m.spice_level,
                             m.is_vegetarian, m.is_vegan, m.allergens, m.image_url,
                             m.created_at, m.updated_at,
                             u.full_name as cook_name, u.profile_image as cook_image,
-                            cp.rating as cook_rating, cp.kitchen_name as kitchen_name
+                            cp.rating as cook_rating, cp.kitchen_name as kitchen_name${distanceSelect}
                      FROM meals m
                      JOIN users u ON m.cook_id = u.id
                      JOIN cook_profiles cp ON u.id = cp.user_id
                      WHERE m.is_available = TRUE AND u.is_active = TRUE`;
 
-        const params = [];
+        if (hasLocation) {
+            query += " AND u.latitude IS NOT NULL AND u.longitude IS NOT NULL";
+        }
 
         if (category) {
             query += ` AND m.category = ?`;
@@ -392,7 +543,14 @@ export const getAllMeals = async (req, res) => {
             params.push(search, search, search, search);
         }
 
-        if (sort === 'price_asc') {
+        if (hasLocation) {
+            query += " HAVING distance_km <= ?";
+            params.push(radiusKm);
+        }
+
+        if (hasLocation) {
+            query += ` ORDER BY distance_km ASC, cp.rating DESC, m.created_at DESC`;
+        } else if (sort === 'price_asc') {
             query += ` ORDER BY m.price ASC`;
         } else if (sort === 'price_desc') {
             query += ` ORDER BY m.price DESC`;
@@ -408,7 +566,8 @@ export const getAllMeals = async (req, res) => {
         const formattedMeals = await attachMealCategories(meals.map(meal => ({
             ...meal,
             price: parseFloat(meal.price),
-            cook_rating: meal.cook_rating ? parseFloat(meal.cook_rating) : null
+            cook_rating: meal.cook_rating ? parseFloat(meal.cook_rating) : null,
+            distance_km: meal.distance_km === undefined ? undefined : Math.round(parseFloat(meal.distance_km) * 100) / 100
         })));
 
         return res.status(200).json({
