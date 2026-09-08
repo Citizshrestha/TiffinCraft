@@ -88,9 +88,17 @@ public class CustomerMenuActivity extends AppCompatActivity {
                 boolean granted = Boolean.TRUE.equals(result.get(Manifest.permission.ACCESS_FINE_LOCATION))
                         || Boolean.TRUE.equals(result.get(Manifest.permission.ACCESS_COARSE_LOCATION));
                 if (granted) {
-                    requestNearbyMeals();
+                    if (chipGroupFilter.getCheckedChipId() == R.id.chipNearby) {
+                        requestNearbyMeals();
+                    } else {
+                        loadMealsForCurrentLocation();
+                    }
                 } else {
-                    clearNearbyFilter("Location permission is needed to show nearby meals");
+                    if (chipGroupFilter.getCheckedChipId() == R.id.chipNearby) {
+                        clearNearbyFilter("Location permission is needed to show nearby meals");
+                    } else {
+                        loadMeals();
+                    }
                 }
             });
 
@@ -105,7 +113,7 @@ public class CustomerMenuActivity extends AppCompatActivity {
         setupBottomNavigation();
         readCategoryFiltersFromIntent();
         preselectFilterFromIntent();
-        loadMeals();
+        loadMealsForCurrentLocation();
     }
 
     @Override
@@ -257,15 +265,63 @@ public class CustomerMenuActivity extends AppCompatActivity {
 
         String requestedFilter = getIntent().getStringExtra(EXTRA_FILTER);
         if (FILTER_POPULAR.equals(requestedFilter) || FILTER_RECOMMENDED.equals(requestedFilter)) {
-            loadRankedMeals(requestedFilter);
+            loadRankedMeals(requestedFilter, null, null);
         } else {
             loadAllMeals();
         }
     }
 
-    private void loadRankedMeals(String requestedFilter) {
+    /** Loads normal browse results with device distances when location is available. */
+    private void loadMealsForCurrentLocation() {
+        if (!hasLocationPermission()) {
+            locationPermissionLauncher.launch(new String[]{
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+            });
+            return;
+        }
+        fusedLocationClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+                .addOnSuccessListener(location -> {
+                    if (location == null) {
+                        loadMeals();
+                        return;
+                    }
+                    String requestedFilter = getIntent().getStringExtra(EXTRA_FILTER);
+                    if (FILTER_POPULAR.equals(requestedFilter) || FILTER_RECOMMENDED.equals(requestedFilter)) {
+                        loadRankedMeals(requestedFilter, location.getLatitude(), location.getLongitude());
+                    } else {
+                        loadMealsWithDistance(location.getLatitude(), location.getLongitude());
+                    }
+                })
+                .addOnFailureListener(error -> loadMeals());
+    }
+
+    private void loadMealsWithDistance(double latitude, double longitude) {
+        showLoading(true);
+        apiService.getAllMealsWithDistance(latitude, longitude).enqueue(new Callback<MealResponse>() {
+            @Override
+            public void onResponse(Call<MealResponse> call, Response<MealResponse> response) {
+                showLoading(false);
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    allMeals.clear();
+                    allMeals.addAll(response.body().getMeals());
+                    applyCurrentFilter();
+                    loadFavoriteStates();
+                } else {
+                    loadMeals();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<MealResponse> call, Throwable t) {
+                loadMeals();
+            }
+        });
+    }
+
+    private void loadRankedMeals(String requestedFilter, Double latitude, Double longitude) {
         String token = "Bearer " + sessionManager.getToken();
-        apiService.getMealDiscovery(token).enqueue(new Callback<MealDiscoveryResponse>() {
+        apiService.getMealDiscovery(token, latitude, longitude).enqueue(new Callback<MealDiscoveryResponse>() {
             @Override
             public void onResponse(Call<MealDiscoveryResponse> call,
                                    Response<MealDiscoveryResponse> response) {

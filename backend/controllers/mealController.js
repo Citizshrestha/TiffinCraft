@@ -341,6 +341,14 @@ export const uploadMealImage = async (req, res) => {
 export const getMealDiscovery = async (req, res) => {
     try {
         const customerId = req.user.id;
+        const hasCurrentLocation = req.query.lat !== undefined || req.query.lng !== undefined;
+        const currentLatitude = parseFloat(req.query.lat);
+        const currentLongitude = parseFloat(req.query.lng);
+        if (hasCurrentLocation && (Number.isNaN(currentLatitude) || Number.isNaN(currentLongitude)
+                || currentLatitude < -90 || currentLatitude > 90
+                || currentLongitude < -180 || currentLongitude > 180)) {
+            return res.status(400).json({ success: false, message: "lat and lng must be valid coordinates." });
+        }
         const [customerResult, mealResult, preferenceResult, affinityResult, favoriteResult] = await Promise.all([
             db.promise().query(
                 "SELECT latitude, longitude FROM users WHERE id = ? LIMIT 1",
@@ -438,8 +446,8 @@ export const getMealDiscovery = async (req, res) => {
         );
         const favoriteCookIds = favoriteResult[0].map(row => Number(row.cook_id));
         const ranked = rankMealDiscovery(meals, {
-            latitude: customer.latitude,
-            longitude: customer.longitude,
+            latitude: hasCurrentLocation ? currentLatitude : customer.latitude,
+            longitude: hasCurrentLocation ? currentLongitude : customer.longitude,
             categoryPreferences,
             cookAffinity,
             favoriteCookIds
@@ -465,6 +473,7 @@ export const getAllMeals = async (req, res) => {
     try {
         const { category, categories, cuisine_type, is_vegetarian, is_vegan, max_price, search, sort, lat, lng, radius_km } = req.query;
         const hasLocation = lat !== undefined || lng !== undefined;
+        const nearbyOnly = radius_km !== undefined;
         const latitude = parseFloat(lat);
         const longitude = parseFloat(lng);
         let radiusKm = radius_km !== undefined ? parseFloat(radius_km) : 10;
@@ -473,7 +482,7 @@ export const getAllMeals = async (req, res) => {
                 || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)) {
             return res.status(400).json({ success: false, message: "lat and lng must be valid coordinates." });
         }
-        if (hasLocation && (Number.isNaN(radiusKm) || radiusKm <= 0)) {
+        if (nearbyOnly && (Number.isNaN(radiusKm) || radiusKm <= 0)) {
             return res.status(400).json({ success: false, message: "radius_km must be a positive number." });
         }
         radiusKm = Math.min(radiusKm, 20);
@@ -543,7 +552,7 @@ export const getAllMeals = async (req, res) => {
             params.push(search, search, search, search);
         }
 
-        if (hasLocation) {
+        if (nearbyOnly) {
             query += " HAVING distance_km <= ?";
             params.push(radiusKm);
         }
@@ -567,7 +576,7 @@ export const getAllMeals = async (req, res) => {
             ...meal,
             price: parseFloat(meal.price),
             cook_rating: meal.cook_rating ? parseFloat(meal.cook_rating) : null,
-            distance_km: meal.distance_km === undefined ? undefined : Math.round(parseFloat(meal.distance_km) * 100) / 100
+            distance_km: meal.distance_km == null ? null : Math.round(parseFloat(meal.distance_km) * 100) / 100
         })));
 
         return res.status(200).json({

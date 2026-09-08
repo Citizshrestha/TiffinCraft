@@ -1,6 +1,8 @@
 package com.tiffincraft.app.activities.customer;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -15,6 +17,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -25,6 +29,9 @@ import com.bumptech.glide.Glide;
 import com.google.gson.JsonObject;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.card.MaterialCardView;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.activities.common.CartActivity;
 import com.tiffincraft.app.activities.common.NotificationActivity;
@@ -131,6 +138,18 @@ public class CustomerHomeActivity extends AppCompatActivity {
     private SessionManager sessionManager;
     private ApiService apiService;
     private ChatPanelManager chatPanelManager;
+    private FusedLocationProviderClient fusedLocationClient;
+
+    private final ActivityResultLauncher<String[]> mealLocationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                boolean granted = Boolean.TRUE.equals(result.get(Manifest.permission.ACCESS_FINE_LOCATION))
+                        || Boolean.TRUE.equals(result.get(Manifest.permission.ACCESS_COARSE_LOCATION));
+                if (granted) {
+                    loadMealsForCurrentLocation();
+                } else {
+                    loadMeals(null, null);
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -146,6 +165,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
             sessionManager = new SessionManager(this);
             apiService = RetrofitClient.getInstance(this).getApiService();
+            fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
             // Fetch and send FCM token for push notifications
             fetchAndSendFcmToken();
@@ -157,7 +177,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
             setupBottomNavigation();
             loadUserData();
             loadCategories();
-            loadMeals();
+            loadMealsForCurrentLocation();
             loadPopularCooks();
             setupBackPressHandler();
 
@@ -186,7 +206,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
         fetchUnreadNotifications();
         refreshCartBadge();
         if (hasResumedOnce) {
-            loadMeals();
+            loadMealsForCurrentLocation();
         } else {
             hasResumedOnce = true;
         }
@@ -509,7 +529,31 @@ public class CustomerHomeActivity extends AppCompatActivity {
         rvCategories.setAdapter(categoryAdapter);
     }
 
-    private void loadMeals() {
+    /** Uses the phone's current location only for this discovery request. */
+    private void loadMealsForCurrentLocation() {
+        boolean hasPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
+        if (!hasPermission) {
+            mealLocationPermissionLauncher.launch(new String[]{
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+            });
+            return;
+        }
+        fusedLocationClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+                .addOnSuccessListener(location -> {
+                    if (location == null) {
+                        loadMeals(null, null);
+                    } else {
+                        loadMeals(location.getLatitude(), location.getLongitude());
+                    }
+                })
+                .addOnFailureListener(error -> loadMeals(null, null));
+    }
+
+    private void loadMeals(Double latitude, Double longitude) {
         popularMeals = new ArrayList<>();
         popularMealAdapter = new PopularMealAdapter(popularMeals, new PopularMealAdapter.OnMealClickListener() {
             @Override
@@ -544,7 +588,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
         rvRecommendedMeals.setAdapter(recommendedMealAdapter);
 
         String token = "Bearer " + sessionManager.getToken();
-        apiService.getMealDiscovery(token).enqueue(new Callback<MealDiscoveryResponse>() {
+        apiService.getMealDiscovery(token, latitude, longitude).enqueue(new Callback<MealDiscoveryResponse>() {
             @Override
             public void onResponse(Call<MealDiscoveryResponse> call,
                                    Response<MealDiscoveryResponse> response) {
@@ -564,20 +608,23 @@ public class CustomerHomeActivity extends AppCompatActivity {
                     applyCategoryFilters();
                 } else {
                     Log.e(TAG, "Failed to load discovery: " + response.code());
-                    loadLegacyMeals();
+                    loadLegacyMeals(latitude, longitude);
                 }
             }
 
             @Override
             public void onFailure(Call<MealDiscoveryResponse> call, Throwable t) {
                 Log.e(TAG, "Network error loading discovery", t);
-                loadLegacyMeals();
+                loadLegacyMeals(latitude, longitude);
             }
         });
     }
 
-    private void loadLegacyMeals() {
-        apiService.getAllMeals().enqueue(new Callback<MealResponse>() {
+    private void loadLegacyMeals(Double latitude, Double longitude) {
+        Call<MealResponse> request = latitude != null && longitude != null
+                ? apiService.getAllMealsWithDistance(latitude, longitude)
+                : apiService.getAllMeals();
+        request.enqueue(new Callback<MealResponse>() {
             @Override
             public void onResponse(Call<MealResponse> call, Response<MealResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {

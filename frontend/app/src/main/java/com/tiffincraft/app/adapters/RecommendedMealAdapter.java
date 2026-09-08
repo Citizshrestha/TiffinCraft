@@ -143,7 +143,7 @@ public class RecommendedMealAdapter extends RecyclerView.Adapter<RecommendedMeal
         }
 
         private String formatDistance(Double distanceKm) {
-            if (distanceKm == null) return "Distance unavailable";
+            if (distanceKm == null) return "Enable location";
             if (distanceKm < 1) return String.format(Locale.getDefault(), "%d m away", Math.round(distanceKm * 1000));
             return String.format(Locale.getDefault(), "%.1f km away", distanceKm);
         }

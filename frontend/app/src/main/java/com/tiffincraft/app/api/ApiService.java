@@ -133,8 +133,14 @@ public interface ApiService {
     @GET("meals")
     Call<MealResponse> getAllMeals();
 
+    @GET("meals")
+    Call<MealResponse> getAllMealsWithDistance(@Query("lat") double latitude,
+                                               @Query("lng") double longitude);
+
     @GET("meals/discovery")
-    Call<MealDiscoveryResponse> getMealDiscovery(@Header("Authorization") String token);
+    Call<MealDiscoveryResponse> getMealDiscovery(@Header("Authorization") String token,
+                                                 @Query("lat") Double latitude,
+                                                 @Query("lng") Double longitude);
 
     @GET("meals")
     Call<MealResponse> getNearbyMeals(@Query("lat") double latitude,
