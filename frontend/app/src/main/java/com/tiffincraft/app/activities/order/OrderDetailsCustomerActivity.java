@@ -33,6 +33,8 @@ import com.tiffincraft.app.databinding.ActivityOrderDetailsCustomerBinding;
 import com.tiffincraft.app.models.Order;
 import com.tiffincraft.app.models.OrderResponse;
 import com.tiffincraft.app.models.RegisterResponse;
+import com.tiffincraft.app.models.Review;
+import com.tiffincraft.app.models.ReviewResponse;
 import com.tiffincraft.app.models.UploadResponse;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.CurrencyUtils;
@@ -64,6 +66,7 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
     private String kitchenName;
     private String paymentMethod, paymentStatus, paymentScreenshotUrl, cookEsewaQrUrl;
     private boolean esewaConfirmed;
+    private Review existingReview;
 
     private static final int PICK_IMAGE_REQUEST = 9001;
 
@@ -82,13 +85,7 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
 
         try {
             binding.btnRateReview.setVisibility(android.view.View.GONE);
-            binding.btnRateReview.setOnClickListener(v -> {
-                Intent intent = new Intent(this, RateReviewActivity.class);
-                intent.putExtra(RateReviewActivity.EXTRA_ORDER_ID, orderId);
-                intent.putExtra(RateReviewActivity.EXTRA_COOK_ID, cookId);
-                intent.putExtra(RateReviewActivity.EXTRA_KITCHEN_NAME, kitchenName);
-                startActivity(intent);
-            });
+            binding.btnRateReview.setOnClickListener(v -> openReview());
         } catch (NullPointerException ignored) {}
 
         try {
@@ -176,8 +173,20 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
                 ? order.getKitchenName() : order.getCookName();
 
         try {
-            binding.btnRateReview.setVisibility(
-                    "delivered".equals(order.getStatus()) ? android.view.View.VISIBLE : android.view.View.GONE);
+            // The API permits reviews for either terminal order state. Keep the
+            // customer UI aligned so a legacy "completed" order never hides an
+            // already-submitted review.
+            boolean canReview = "delivered".equals(order.getStatus())
+                    || "completed".equals(order.getStatus());
+            binding.btnRateReview.setVisibility(canReview ? View.VISIBLE : View.GONE);
+            if (canReview) {
+                // Do not send a customer straight to a blank form while their
+                // existing review is still being checked. A review is unique per
+                // order, so this lookup is the source of truth for this button.
+                binding.btnRateReview.setEnabled(false);
+                binding.btnRateReview.setText("Checking your review…");
+                loadExistingReview();
+            }
         } catch (NullPointerException ignored) {}
 
         paymentMethod = order.getPaymentMethod();
@@ -276,6 +285,66 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
                 }
             }
         }
+    }
+
+    /**
+     * Finds only the signed-in customer's review for the current order. The
+     * server scopes /reviews/my to the session user, then this screen scopes it
+     * again by order id before deciding whether to create or edit.
+     */
+    private void loadExistingReview() {
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.getMyReviews(token).enqueue(new Callback<ReviewResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<ReviewResponse> call,
+                                   @NonNull Response<ReviewResponse> response) {
+                existingReview = null;
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().isSuccess() && response.body().getReviews() != null) {
+                    for (Review review : response.body().getReviews()) {
+                        if (review.getOrderId() == orderId) {
+                            existingReview = review;
+                            break;
+                        }
+                    }
+                }
+                updateReviewButton();
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<ReviewResponse> call, @NonNull Throwable t) {
+                // Preserve the normal review route on a transient network
+                // failure; the server remains the final duplicate-review guard.
+                existingReview = null;
+                updateReviewButton();
+            }
+        });
+    }
+
+    private void updateReviewButton() {
+        if (binding.btnRateReview == null) return;
+        binding.btnRateReview.setEnabled(true);
+        if (existingReview == null) {
+            binding.btnRateReview.setText("Rate & Review");
+        } else {
+            binding.btnRateReview.setText(String.format(java.util.Locale.getDefault(),
+                    "Your review · %.1f ★", (float) existingReview.getRating()));
+        }
+    }
+
+    private void openReview() {
+        Intent intent = new Intent(this, RateReviewActivity.class);
+        intent.putExtra(RateReviewActivity.EXTRA_ORDER_ID, orderId);
+        intent.putExtra(RateReviewActivity.EXTRA_COOK_ID, cookId);
+        intent.putExtra(RateReviewActivity.EXTRA_KITCHEN_NAME, kitchenName);
+        if (existingReview != null) {
+            // RateReviewActivity has a dedicated edit mode: it renders these
+            // saved stars and text instead of an empty rating form.
+            intent.putExtra(RateReviewActivity.EXTRA_REVIEW_ID, existingReview.getId());
+            intent.putExtra(RateReviewActivity.EXTRA_EXISTING_RATING, existingReview.getRating());
+            intent.putExtra(RateReviewActivity.EXTRA_EXISTING_COMMENT, existingReview.getComment());
+        }
+        startActivity(intent);
     }
 
     /**

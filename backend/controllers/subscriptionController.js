@@ -990,7 +990,12 @@ export const getSubscriptionCalendar = async (req, res) => {
             days.push({
                 date,
                 status,
-                label: DAY_STATUS_LABELS[status] || status,
+                // "You skipped" is correct only for the customer who took the
+                // action. The same calendar is also used by the cook, where that
+                // wording wrongly implies the cook skipped the delivery.
+                label: status === DAY_STATUS.CUSTOMER_SKIPPED
+                    ? (isCustomer ? "You skipped" : "Customer skipped")
+                    : (DAY_STATUS_LABELS[status] || status),
                 toggled_by: toggledBy,
                 reason,
                 credit_deducted: creditDeducted,

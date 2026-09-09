@@ -257,9 +257,15 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         applyDayChip(day, tvChip, accent);
 
         if (day.getReason() != null && !day.getReason().trim().isEmpty()) {
-            tvReason.setText("cook".equals(day.getToggledBy())
-                    ? "Cook's note: " + day.getReason()
-                    : "Your note: " + day.getReason());
+            String notePrefix;
+            if ("cook".equals(day.getToggledBy())) {
+                notePrefix = isCustomerView ? "Cook's note: " : "Your note: ";
+            } else if ("customer".equals(day.getToggledBy())) {
+                notePrefix = isCustomerView ? "Your note: " : "Customer's note: ";
+            } else {
+                notePrefix = "Schedule note: ";
+            }
+            tvReason.setText(notePrefix + day.getReason());
             layoutReason.setVisibility(View.VISIBLE);
         } else {
             layoutReason.setVisibility(View.GONE);
