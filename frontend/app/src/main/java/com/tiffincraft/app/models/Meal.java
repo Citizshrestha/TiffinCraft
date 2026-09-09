@@ -42,7 +42,7 @@ public class Meal {
     private String spiceLevel;
 
     @SerializedName("is_vegetarian")
-    private int isVegetarianInt; // Backend sends 0 or 1
+    private Integer isVegetarianInt; // Backend sends 0, 1, or null when untagged
     
     private transient boolean isVegetarian; // Computed field
 
@@ -183,7 +183,12 @@ public class Meal {
     }
 
     public boolean isVegetarian() {
-        return isVegetarianInt == 1;
+        return Integer.valueOf(1).equals(isVegetarianInt);
+    }
+
+    /** True when the cook supplied a Veg/Non-Veg tag at all. */
+    public boolean hasDietaryTag() {
+        return isVegetarianInt != null;
     }
 
     public void setVegetarian(boolean vegetarian) {
@@ -191,7 +196,7 @@ public class Meal {
         this.isVegetarianInt = vegetarian ? 1 : 0;
     }
     
-    public void setVegetarianInt(int isVegetarianInt) {
+    public void setVegetarianInt(Integer isVegetarianInt) {
         this.isVegetarianInt = isVegetarianInt;
     }
 

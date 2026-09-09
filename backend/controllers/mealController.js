@@ -130,9 +130,9 @@ export const addMeal = async (req, res) => {
                 cuisine_type || null,
                 is_available !== undefined ? is_available : true,
                 preparation_time || null,
-                spice_level || 'medium',
-                is_vegetarian || false,
-                is_vegan || false,
+                spice_level !== undefined ? spice_level : null,
+                is_vegetarian !== undefined ? is_vegetarian : null,
+                is_vegan !== undefined ? is_vegan : null,
                 allergens || null,
                 image_url || null
             ]
@@ -659,6 +659,7 @@ export const updateMeal = async (req, res) => {
             preparation_time,
             spice_level,
             is_vegetarian,
+            clear_is_vegetarian,
             is_vegan,
             allergens,
             image_url,
@@ -736,9 +737,9 @@ export const updateMeal = async (req, res) => {
             updates.push("spice_level = ?");
             values.push(spice_level);
         }
-        if (is_vegetarian !== undefined) {
+        if (is_vegetarian !== undefined || clear_is_vegetarian === true) {
             updates.push("is_vegetarian = ?");
-            values.push(is_vegetarian);
+            values.push(clear_is_vegetarian === true ? null : is_vegetarian);
         }
         if (is_vegan !== undefined) {
             updates.push("is_vegan = ?");

@@ -56,6 +56,7 @@ public class EditMealActivity extends AppCompatActivity {
     public static final String EXTRA_MEAL_CATEGORY    = "meal_category";
     public static final String EXTRA_MEAL_CATEGORY_SLUGS = "meal_category_slugs";
     public static final String EXTRA_MEAL_IS_VEG      = "meal_is_veg";
+    public static final String EXTRA_MEAL_HAS_DIETARY_TAG = "meal_has_dietary_tag";
     public static final String EXTRA_MEAL_IS_SPICY    = "meal_is_spicy";
     public static final String EXTRA_MEAL_IS_AVAILABLE= "meal_is_available";
     public static final String EXTRA_MEAL_IMAGE_URL   = "meal_image_url";
@@ -76,7 +77,7 @@ public class EditMealActivity extends AppCompatActivity {
     private Uri    selectedImageUri;
     private String selectedCategory;
     private final Set<String> selectedCategorySlugs = new LinkedHashSet<>();
-    private boolean isVeg;
+    private Boolean isVeg;
     private boolean isSpicy;
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -101,7 +102,8 @@ public class EditMealActivity extends AppCompatActivity {
         selectedCategory = i.getStringExtra(EXTRA_MEAL_CATEGORY);
         ArrayList<String> categorySlugs = i.getStringArrayListExtra(EXTRA_MEAL_CATEGORY_SLUGS);
         if (categorySlugs != null) selectedCategorySlugs.addAll(categorySlugs);
-        isVeg            = i.getBooleanExtra(EXTRA_MEAL_IS_VEG,  true);
+        boolean hasDietaryTag = i.getBooleanExtra(EXTRA_MEAL_HAS_DIETARY_TAG, true);
+        isVeg            = hasDietaryTag ? i.getBooleanExtra(EXTRA_MEAL_IS_VEG, true) : null;
         isSpicy          = i.getBooleanExtra(EXTRA_MEAL_IS_SPICY, false);
         existingImageUrl = i.getStringExtra(EXTRA_MEAL_IMAGE_URL);
 
@@ -159,35 +161,33 @@ public class EditMealActivity extends AppCompatActivity {
         binding.btnSelectMealCategory.setOnClickListener(v -> showCategoryDialog());
 
         binding.chipVeg.setOnClickListener(v -> {
-            isVeg = true;
+            isVeg = Boolean.TRUE.equals(isVeg) ? null : true;
             updateChipSelection();
         });
         binding.chipNonVeg.setOnClickListener(v -> {
-            isVeg = false;
+            isVeg = Boolean.FALSE.equals(isVeg) ? null : false;
             updateChipSelection();
         });
         binding.chipSpicy.setOnClickListener(v -> {
             isSpicy = !isSpicy;
             updateChipSelection();
         });
-        // Bestseller chip is read-only in edit (managed via reviews)
-        binding.chipBestseller.setOnClickListener(v ->
-                Toast.makeText(this, "Bestseller is set automatically via ratings", Toast.LENGTH_SHORT).show());
-
         binding.btnSaveMeal.setOnClickListener(v -> validateAndUpdate());
     }
 
     // ── Chip visuals ──────────────────────────────────────────────────────────
     private void updateChipSelection() {
         int unselectedText = ContextCompat.getColor(this, android.R.color.darker_gray);
+        boolean vegSelected = Boolean.TRUE.equals(isVeg);
+        boolean nonVegSelected = Boolean.FALSE.equals(isVeg);
         binding.chipVeg.setBackground(ContextCompat.getDrawable(this,
-                isVeg ? R.drawable.chip_selected_green : R.drawable.chip_unselected));
-        binding.chipVeg.setTextColor(isVeg
+                vegSelected ? R.drawable.chip_selected_green : R.drawable.chip_unselected));
+        binding.chipVeg.setTextColor(vegSelected
                 ? ContextCompat.getColor(this, R.color.dark_green) : unselectedText);
         binding.chipNonVeg.setBackground(ContextCompat.getDrawable(this,
-                isVeg ? R.drawable.chip_unselected : R.drawable.chip_selected_red));
-        binding.chipNonVeg.setTextColor(isVeg
-                ? unselectedText : ContextCompat.getColor(this, R.color.error));
+                nonVegSelected ? R.drawable.chip_selected_red : R.drawable.chip_unselected));
+        binding.chipNonVeg.setTextColor(nonVegSelected
+                ? ContextCompat.getColor(this, R.color.error) : unselectedText);
 
         // Spicy chip
         if (isSpicy) {
@@ -198,8 +198,6 @@ public class EditMealActivity extends AppCompatActivity {
             binding.chipSpicy.setTextColor(unselectedText);
         }
 
-        binding.chipBestseller.setBackground(ContextCompat.getDrawable(this, R.drawable.chip_unselected));
-        binding.chipBestseller.setTextColor(unselectedText);
     }
 
     // ── Category picker ───────────────────────────────────────────────────────
@@ -445,8 +443,9 @@ public class EditMealActivity extends AppCompatActivity {
         request.setCuisineType(selectedCategorySlugs.contains("nepali") ? "Nepali" : null);
         request.setAvailable(isAvailable);
         request.setVegetarian(isVeg);
+        request.setClearVegetarian(isVeg == null);
         request.setVegan(false);
-        request.setSpiceLevel(isSpicy ? "hot" : "mild");
+        request.setSpiceLevel(isSpicy ? "hot" : null);
         request.setPreparationTime(30);
 
         // Set image URL (either new Cloudinary URL or existing URL)

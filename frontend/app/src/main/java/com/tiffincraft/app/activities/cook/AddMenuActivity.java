@@ -50,7 +50,7 @@ public class AddMenuActivity extends AppCompatActivity {
     
     private Uri selectedImageUri;
     private final Set<String> selectedCategorySlugs = new LinkedHashSet<>();
-    private boolean isVeg = true;
+    private Boolean isVeg = null;
     private boolean isSpicy = false;
     
     @Override
@@ -86,11 +86,11 @@ public class AddMenuActivity extends AppCompatActivity {
         
         // Dietary tags chips
         binding.chipVeg.setOnClickListener(v -> {
-            isVeg = true;
+            isVeg = Boolean.TRUE.equals(isVeg) ? null : true;
             updateChipSelection();
         });
         binding.chipNonVeg.setOnClickListener(v -> {
-            isVeg = false;
+            isVeg = Boolean.FALSE.equals(isVeg) ? null : false;
             updateChipSelection();
         });
         
@@ -108,12 +108,14 @@ public class AddMenuActivity extends AppCompatActivity {
     private void updateChipSelection() {
         int selectedText = ContextCompat.getColor(this, R.color.dark_green);
         int unselectedText = ContextCompat.getColor(this, android.R.color.darker_gray);
+        boolean vegSelected = Boolean.TRUE.equals(isVeg);
+        boolean nonVegSelected = Boolean.FALSE.equals(isVeg);
         binding.chipVeg.setBackground(ContextCompat.getDrawable(this,
-                isVeg ? R.drawable.chip_selected_green : R.drawable.chip_unselected));
-        binding.chipVeg.setTextColor(isVeg ? selectedText : unselectedText);
+                vegSelected ? R.drawable.chip_selected_green : R.drawable.chip_unselected));
+        binding.chipVeg.setTextColor(vegSelected ? selectedText : unselectedText);
         binding.chipNonVeg.setBackground(ContextCompat.getDrawable(this,
-                isVeg ? R.drawable.chip_unselected : R.drawable.chip_selected_red));
-        binding.chipNonVeg.setTextColor(isVeg ? unselectedText : ContextCompat.getColor(this, R.color.error));
+                nonVegSelected ? R.drawable.chip_selected_red : R.drawable.chip_unselected));
+        binding.chipNonVeg.setTextColor(nonVegSelected ? ContextCompat.getColor(this, R.color.error) : unselectedText);
         
         // Spicy chip
         if (isSpicy) {
@@ -386,7 +388,7 @@ public class AddMenuActivity extends AppCompatActivity {
         mealRequest.setAvailable(isAvailable);
         mealRequest.setVegetarian(isVeg);
         mealRequest.setVegan(false);
-        mealRequest.setSpiceLevel(isSpicy ? "hot" : "mild");
+        mealRequest.setSpiceLevel(isSpicy ? "hot" : null);
         mealRequest.setPreparationTime(30); // Default 30 minutes
 
         // Set the Cloudinary image URL

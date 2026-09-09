@@ -33,7 +33,11 @@ public class MealRequest {
     private String spiceLevel;
 
     @SerializedName("is_vegetarian")
-    private boolean isVegetarian;
+    private Boolean isVegetarian;
+
+    // Used by the edit flow when a previously selected tag is intentionally cleared.
+    @SerializedName("clear_is_vegetarian")
+    private Boolean clearVegetarian;
 
     @SerializedName("is_vegan")
     private boolean isVegan;
@@ -134,12 +138,16 @@ public class MealRequest {
         this.spiceLevel = spiceLevel;
     }
 
-    public boolean isVegetarian() {
+    public Boolean isVegetarian() {
         return isVegetarian;
     }
 
-    public void setVegetarian(boolean vegetarian) {
+    public void setVegetarian(Boolean vegetarian) {
         isVegetarian = vegetarian;
+    }
+
+    public void setClearVegetarian(boolean clearVegetarian) {
+        this.clearVegetarian = clearVegetarian;
     }
 
     public boolean isVegan() {

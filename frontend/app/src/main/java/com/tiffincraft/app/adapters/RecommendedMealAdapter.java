@@ -102,7 +102,9 @@ public class RecommendedMealAdapter extends RecyclerView.Adapter<RecommendedMeal
             tvDeliveryTime.setText(formatDistance(meal.getDistanceKm()));
 
             // Food type badge
-            if (meal.isVegetarian()) {
+            if (!meal.hasDietaryTag()) {
+                tvFoodType.setVisibility(View.GONE);
+            } else if (meal.isVegetarian()) {
                 tvFoodType.setText("🌱 Veg");
                 tvFoodType.setVisibility(View.VISIBLE);
             } else if (meal.isVegan()) {

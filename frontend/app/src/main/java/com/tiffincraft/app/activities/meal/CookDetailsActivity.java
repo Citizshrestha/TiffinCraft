@@ -501,12 +501,16 @@ public class CookDetailsActivity extends AppCompatActivity {
             MaterialButton btnAdd = row.findViewById(R.id.btnAdd);
 
             tvName.setText(meal.getName());
-            boolean isVegetarian = meal.isVegetarian();
-            tvDietaryTag.setText(isVegetarian ? "Veg" : "Non-Veg");
-            tvDietaryTag.setBackgroundResource(isVegetarian
-                    ? R.drawable.chip_selected_green : R.drawable.chip_selected_red);
-            tvDietaryTag.setTextColor(ContextCompat.getColor(this,
-                    isVegetarian ? R.color.dark_green : R.color.error));
+            boolean hasDietaryTag = meal.hasDietaryTag();
+            tvDietaryTag.setVisibility(hasDietaryTag ? View.VISIBLE : View.GONE);
+            if (hasDietaryTag) {
+                boolean isVegetarian = meal.isVegetarian();
+                tvDietaryTag.setText(isVegetarian ? "Veg" : "Non-Veg");
+                tvDietaryTag.setBackgroundResource(isVegetarian
+                        ? R.drawable.chip_selected_green : R.drawable.chip_selected_red);
+                tvDietaryTag.setTextColor(ContextCompat.getColor(this,
+                        isVegetarian ? R.color.dark_green : R.color.error));
+            }
             tvPrice.setText(String.format("₹%.0f", meal.getPrice()));
 
             ImageUrlHelper.load(imgMeal, meal.getImageUrl(), R.drawable.ic_food);

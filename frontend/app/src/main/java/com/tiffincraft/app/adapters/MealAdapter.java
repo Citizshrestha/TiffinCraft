@@ -52,12 +52,16 @@ public class MealAdapter extends RecyclerView.Adapter<MealAdapter.MealViewHolder
         holder.tvMealName.setText(meal.getName());
         holder.tvMealDescription.setText(meal.getDescription());
         holder.tvMealPrice.setText(CurrencyUtils.formatRupees(meal.getPrice()));
-        boolean isVegetarian = meal.isVegetarian();
-        holder.tvDietaryTag.setText(isVegetarian ? "Veg" : "Non-Veg");
-        holder.tvDietaryTag.setBackgroundResource(isVegetarian
-                ? R.drawable.chip_selected_green : R.drawable.chip_selected_red);
-        holder.tvDietaryTag.setTextColor(context.getColor(isVegetarian
-                ? R.color.dark_green : R.color.error));
+        boolean hasDietaryTag = meal.hasDietaryTag();
+        holder.tvDietaryTag.setVisibility(hasDietaryTag ? View.VISIBLE : View.GONE);
+        if (hasDietaryTag) {
+            boolean isVegetarian = meal.isVegetarian();
+            holder.tvDietaryTag.setText(isVegetarian ? "Veg" : "Non-Veg");
+            holder.tvDietaryTag.setBackgroundResource(isVegetarian
+                    ? R.drawable.chip_selected_green : R.drawable.chip_selected_red);
+            holder.tvDietaryTag.setTextColor(context.getColor(isVegetarian
+                    ? R.color.dark_green : R.color.error));
+        }
         
         // Load meal image with category-based placeholders
         int placeholderImage = R.drawable.meal_veg_thali; // Default
