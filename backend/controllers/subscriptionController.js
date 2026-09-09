@@ -6,6 +6,7 @@ import {
     notifySubscriptionRejected,
     notifySubscriptionScheduled,
     notifySkipDay,
+    notifySkipDayUndone,
     formatDeliveryDate
 } from "../utils/notificationHelper.js";
 import {
@@ -1006,6 +1007,12 @@ export const getSubscriptionCalendar = async (req, res) => {
                 // it AND the cutoff hasn't passed. Days the cook already closed
                 // are excluded — there's nothing left to skip.
                 can_skip: isLive && !locked && status === DAY_STATUS.SCHEDULED,
+                // Only the owning customer may reverse their own advance skip,
+                // and only while the same delivery-change cutoff is still open.
+                // Cook closures and settled days are deliberately excluded.
+                can_unskip: isCustomer && isLive && !locked
+                    && status === DAY_STATUS.CUSTOMER_SKIPPED
+                    && toggledBy === "customer",
                 // The swap already on this day, if any. `can_request_custom` uses
                 // exactly the same conditions the create endpoint enforces
                 // (delivering day, before cutoff, nothing already asked for), so
@@ -1322,6 +1329,197 @@ export const skipDay = async (req, res) => {
         });
     } catch (error) {
         console.error("skipDay error:", error);
+        return res.status(500).json({ success: false, message: "Server error.", error: error.message });
+    }
+};
+
+/**
+ * DELETE /api/subscriptions/:id/skip-day/:date — customer only.
+ *
+ * Restores one future day that this customer skipped and reverses exactly one
+ * day of the matching end-date extension. The subscription row is locked before
+ * the day row is inspected, making a double tap/concurrent retry idempotent.
+ */
+export const undoSkipDay = async (req, res) => {
+    try {
+        const customerId = req.user.id;
+        const { id } = req.params;
+        const target = String(req.params.date || "").trim();
+
+        if (!isValidDateString(target)) {
+            return res.status(400).json({
+                success: false,
+                message: "date must be a real calendar date in YYYY-MM-DD form."
+            });
+        }
+
+        const cutoffHour = await getCutoffHour();
+        const today = getNptToday();
+        if (daysBetween(today, target) < 0) {
+            return res.status(400).json({ success: false, message: "That date has already passed." });
+        }
+        if (isDateLocked(target, cutoffHour)) {
+            return res.status(409).json({
+                success: false,
+                code: "cutoff_passed",
+                message: target === today
+                    ? `Too late to restore today's meal — the cutoff was ${formatCutoffLabel(cutoffHour)} yesterday.`
+                    : `Too late to restore ${target === getNptTomorrow() ? "tomorrow's" : `the meal on ${target}`} — cutoff was ${formatCutoffLabel(cutoffHour)} on ${addDays(target, -1)}.`,
+                cutoff: { hour: cutoffHour, label: formatCutoffLabel(cutoffHour) }
+            });
+        }
+
+        const connection = await db.promise().getConnection();
+        let sub;
+        let newEndDate;
+        let endDateShortened = false;
+        try {
+            await connection.beginTransaction();
+
+            const [subs] = await connection.query(
+                `SELECT s.id, s.customer_id, s.cook_id, s.status,
+                        DATE_FORMAT(s.start_date, '%Y-%m-%d') AS start_date,
+                        DATE_FORMAT(s.end_date, '%Y-%m-%d') AS end_date,
+                        p.name AS plan_name, p.duration
+                 FROM subscriptions s
+                 JOIN subscription_plans p ON p.id = s.plan_id
+                 WHERE s.id = ?
+                 FOR UPDATE`,
+                [id]
+            );
+            if (subs.length === 0) {
+                await connection.rollback();
+                return res.status(404).json({ success: false, message: "Subscription not found." });
+            }
+            sub = subs[0];
+            if (sub.customer_id !== customerId) {
+                await connection.rollback();
+                return res.status(403).json({ success: false, message: "This subscription does not belong to you." });
+            }
+            if (!["active", "scheduled"].includes(sub.status)) {
+                await connection.rollback();
+                return res.status(400).json({
+                    success: false,
+                    message: `Only a running or scheduled subscription can restore a skipped day — this one is "${sub.status.replace(/_/g, " ")}".`
+                });
+            }
+            if (sub.start_date && daysBetween(sub.start_date, target) < 0) {
+                await connection.rollback();
+                return res.status(400).json({ success: false, message: `${target} is before this subscription starts.` });
+            }
+            if (sub.end_date && daysBetween(sub.end_date, target) > 0) {
+                await connection.rollback();
+                return res.status(400).json({ success: false, message: `${target} is past this subscription's current end date.` });
+            }
+
+            const [[dayRow]] = await connection.query(
+                `SELECT status, toggled_by
+                 FROM subscription_daily_log
+                 WHERE subscription_id = ? AND delivery_date = ?
+                 FOR UPDATE`,
+                [sub.id, target]
+            );
+
+            if (!dayRow || dayRow.status !== DAY_STATUS.CUSTOMER_SKIPPED || dayRow.toggled_by !== "customer") {
+                await connection.rollback();
+                if (dayRow?.status === DAY_STATUS.SCHEDULED) {
+                    return res.status(200).json({
+                        success: true,
+                        code: "already_restored",
+                        message: `${target} is already back on your schedule. Nothing changed.`,
+                        day: { date: target, status: DAY_STATUS.SCHEDULED }
+                    });
+                }
+                return res.status(409).json({
+                    success: false,
+                    code: "not_customer_skipped",
+                    message: `Only a day you skipped can be restored. ${target} is currently "${dayRow?.status || "scheduled"}".`
+                });
+            }
+
+            const outcome = await applyDayStatus(connection, {
+                subscriptionId: sub.id,
+                deliveryDate: target,
+                status: DAY_STATUS.SCHEDULED,
+                toggledBy: "customer",
+                reason: "Customer restored this delivery",
+                creditDeducted: false,
+                onlyFrom: [DAY_STATUS.CUSTOMER_SKIPPED]
+            });
+            if (!outcome.applied) {
+                await connection.rollback();
+                return res.status(409).json({
+                    success: false,
+                    code: "restore_raced",
+                    message: "That day changed while it was being restored. Refresh the schedule and try again."
+                });
+            }
+
+            newEndDate = sub.end_date;
+            if (sub.end_date && sub.start_date) {
+                const originalEndDate = addDays(sub.start_date, getDurationDays(sub.duration) - 1);
+                const candidate = addDays(sub.end_date, -1);
+                // Never let legacy/inconsistent data shrink the paid plan below
+                // the duration selected by the customer.
+                newEndDate = daysBetween(originalEndDate, candidate) < 0 ? originalEndDate : candidate;
+                endDateShortened = newEndDate !== sub.end_date;
+            }
+
+            await connection.query(
+                `UPDATE subscriptions
+                 SET end_date = ?,
+                     next_delivery_date = CASE
+                         WHEN next_delivery_date IS NULL OR next_delivery_date > ? THEN ?
+                         ELSE next_delivery_date
+                     END
+                 WHERE id = ?`,
+                [newEndDate, target, target, sub.id]
+            );
+
+            await logDayEvent({
+                subscriptionId: sub.id,
+                event: "day_skip_reversed",
+                actor: "customer",
+                detail: `Customer restored ${target}. Day back to scheduled.`
+                    + (endDateShortened
+                        ? ` End date moved back ${sub.end_date} → ${newEndDate}.`
+                        : " End date left at the plan's minimum paid duration."),
+                executor: connection
+            });
+
+            await connection.commit();
+        } catch (err) {
+            await connection.rollback();
+            throw err;
+        } finally {
+            connection.release();
+        }
+
+        const [[customer]] = await db.promise().query("SELECT full_name FROM users WHERE id = ?", [customerId]);
+        const customerName = customer?.full_name || "A customer";
+        await notifySkipDayUndone(sub.cook_id, sub.id, customerName, sub.plan_name, target);
+
+        const io = req.app.get("io");
+        if (io) {
+            io.to(`user_${sub.cook_id}`).emit("subscriptionDaySkipUndone", {
+                subscriptionId: sub.id,
+                planName: sub.plan_name,
+                customerName,
+                deliveryDate: target
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: endDateShortened
+                ? `${target} restored — your cook will prepare it, and your subscription now ends on ${newEndDate}.`
+                : `${target} restored — your cook will prepare it as scheduled.`,
+            day: { date: target, status: DAY_STATUS.SCHEDULED, credit_deducted: false },
+            end_date: newEndDate || null,
+            shortened: endDateShortened
+        });
+    } catch (error) {
+        console.error("undoSkipDay error:", error);
         return res.status(500).json({ success: false, message: "Server error.", error: error.message });
     }
 };

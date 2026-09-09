@@ -221,6 +221,9 @@ public class SubscriptionCalendarResponse {
         @SerializedName("can_skip")
         private boolean canSkip;
 
+        @SerializedName("can_unskip")
+        private boolean canUnskip;
+
         /** Why this day can't be changed. Non-null exactly when isLocked. */
         @SerializedName("locked_message")
         private String lockedMessage;
@@ -271,6 +274,7 @@ public class SubscriptionCalendarResponse {
         public boolean isPast() { return isPast; }
         public boolean isLocked() { return isLocked; }
         public boolean canSkip() { return canSkip; }
+        public boolean canUnskip() { return canUnskip; }
         public String getLockedMessage() { return lockedMessage; }
         public CustomMeal getCustomMeal() { return customMeal; }
         public boolean canRequestCustom() { return canRequestCustom; }

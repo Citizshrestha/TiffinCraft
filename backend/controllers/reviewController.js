@@ -1,5 +1,5 @@
 import db from "../config/db.js";
-import { notifyNewReview, notifyReviewReply } from "../utils/notificationHelper.js";
+import { notifyNewReview, notifyReviewLiked, notifyReviewReply } from "../utils/notificationHelper.js";
 
 export const addReview = async (req, res) => {
     const connection = await db.promise().getConnection();
@@ -502,9 +502,44 @@ export const likeReview = async (req, res) => {
     try {
         const cookId = req.user.id;
         const { reviewId } = req.params;
-        const [reviews] = await db.promise().query("SELECT id FROM reviews WHERE id = ? AND cook_id = ?", [reviewId, cookId]);
+        // Read the recipient from the review itself, rather than trusting any
+        // client-supplied customer id. This is the authorization boundary that
+        // keeps a cook's acknowledgement scoped to the review author.
+        const [reviews] = await db.promise().query(
+            `SELECT r.id, r.customer_id, u.full_name AS cook_name
+             FROM reviews r
+             JOIN users u ON u.id = r.cook_id
+             WHERE r.id = ? AND r.cook_id = ?`,
+            [reviewId, cookId]
+        );
         if (reviews.length === 0) return res.status(404).json({ success: false, message: "Review not found." });
-        await db.promise().query("INSERT IGNORE INTO review_likes (review_id, cook_id) VALUES (?, ?)", [reviewId, cookId]);
+
+        // INSERT IGNORE makes re-taps safe; only a newly inserted like earns a
+        // notification, so a customer is never spammed by an idempotent retry.
+        const [likeResult] = await db.promise().query(
+            "INSERT IGNORE INTO review_likes (review_id, cook_id) VALUES (?, ?)",
+            [reviewId, cookId]
+        );
+
+        if (likeResult.affectedRows > 0) {
+            const review = reviews[0];
+            const cookName = review.cook_name || "Your cook";
+            await notifyReviewLiked(review.customer_id, reviewId, cookName);
+
+            // Keep an already-open customer session in sync with the persisted
+            // inbox notification. The reference is the review, never a profile.
+            const io = req.app.get("io");
+            if (io) {
+                io.to(`user_${review.customer_id}`).emit("newNotification", {
+                    type: "review",
+                    title: "Cook Liked Your Review",
+                    message: `${cookName} liked your review`,
+                    reference_id: Number(reviewId),
+                    reference_type: "review",
+                    created_at: new Date().toISOString()
+                });
+            }
+        }
         return res.status(200).json({ success: true, message: "Review liked." });
     } catch (error) {
         console.error("likeReview error:", error);

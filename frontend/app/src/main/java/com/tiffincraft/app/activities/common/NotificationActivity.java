@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.activities.cook.CookProfileActivity;
 import com.tiffincraft.app.activities.cook.CookReviewsActivity;
+import com.tiffincraft.app.activities.customer.CustomerReviewDetailActivity;
 import com.tiffincraft.app.activities.customer.SubscriptionCalendarActivity;
 import com.tiffincraft.app.activities.order.OrderDetailsCookActivity;
 import com.tiffincraft.app.activities.order.OrderDetailsCustomerActivity;
@@ -110,9 +111,12 @@ public class NotificationActivity extends AppCompatActivity {
             case "review":
                 if (isCook) {
                     intent = new Intent(this, CookReviewsActivity.class);
+                } else if (refId != null && "review".equals(notification.getReferenceType())) {
+                    // Both a cook's reply and a like point to the review that
+                    // belongs to this signed-in customer. The detail screen
+                    // re-fetches only their own review list before displaying it.
+                    intent = CustomerReviewDetailActivity.intentFor(this, refId);
                 }
-                // No single-review view exists on the customer side yet — a
-                // "reply" notification just stays on this list for them.
                 break;
             case "cook_approved":
             case "cook_rejected":
@@ -214,6 +218,7 @@ public class NotificationActivity extends AppCompatActivity {
             case "subscription_meal_sent":
             case "subscription_meal_received":
             case "subscription_day_skipped":
+            case "subscription_day_skip_undone":
             case "subscription_delivery_skipped":
             case "cook_unavailable":
                 // Day-level events belong on the calendar, and it works for both

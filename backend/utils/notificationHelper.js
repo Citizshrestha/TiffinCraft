@@ -265,6 +265,29 @@ export const notifyReviewReply = async (customerId, reviewId, cookName) => {
 };
 
 /**
+ * Let the customer know that the cook acknowledged their review. The review
+ * id is deliberately carried in both the inbox row and push payload so either
+ * entry point can open the exact review, never a profile belonging to another
+ * user.
+ */
+export const notifyReviewLiked = async (customerId, reviewId, cookName) => {
+    return createNotification(
+        customerId,
+        'Cook Liked Your Review',
+        `${cookName} liked your review`,
+        'review',
+        reviewId,
+        'review',
+        {
+            pushData: {
+                type: 'review_liked',
+                reviewId: String(reviewId)
+            }
+        }
+    );
+};
+
+/**
  * Create a notification for cook approval/rejection by admin (sent to cook).
  * Reuses createNotification which now also sends FCM push.
  */
@@ -662,6 +685,25 @@ export const notifySkipDay = async (cookId, subscriptionId, customerName, planNa
     );
 };
 
+/** Customer restored a delivery they had previously skipped. */
+export const notifySkipDayUndone = async (cookId, subscriptionId, customerName, planName, deliveryDate) => {
+    return createNotification(
+        cookId,
+        'Skipped Delivery Restored',
+        `${customerName} restored their "${planName}" delivery on ${formatDeliveryDate(deliveryDate)}. Please prepare this meal as originally scheduled.`,
+        'subscription_day_skip_undone',
+        subscriptionId,
+        'subscription',
+        {
+            pushData: {
+                type: 'subscription_day_skip_undone',
+                subscriptionId: String(subscriptionId),
+                deliveryDate: String(deliveryDate)
+            }
+        }
+    );
+};
+
 /**
  * Customer requested a different meal on their subscription delivery day.
  * Sent to the COOK — they must accept or decline before the cutoff.
@@ -855,6 +897,7 @@ export default {
     notifyOrderCancelled,
     notifyNewReview,
     notifyReviewReply,
+    notifyReviewLiked,
     notifyCookApprovalUpdate,
     notifyPaymentConfirmed,
     notifyRefundRequested,
@@ -872,6 +915,7 @@ export default {
     notifySubscriptionVerified,
     notifySubscriptionRejected,
     notifySkipDay,
+    notifySkipDayUndone,
     notifyCustomMealRequest,
     notifyCustomMealResponse,
     notifyCookUnavailable,

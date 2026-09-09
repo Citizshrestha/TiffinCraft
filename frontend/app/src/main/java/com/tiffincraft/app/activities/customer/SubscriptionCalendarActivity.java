@@ -341,6 +341,14 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             return;
         }
 
+        if (day.canUnskip()) {
+            btn.setVisibility(View.VISIBLE);
+            btn.setEnabled(true);
+            btn.setText("Cancel skip");
+            btn.setOnClickListener(v -> confirmUndoSkip(day));
+            return;
+        }
+
         btn.setVisibility(View.GONE);
 
         if (day.isCustomerSkipped()) {
@@ -543,6 +551,43 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
                 Toast.makeText(SubscriptionCalendarActivity.this, "Network error. Try again.", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void confirmUndoSkip(SubscriptionCalendarResponse.Day day) {
+        String pretty = DeliveryDateUtils.formatLongDate(day.getDate());
+        new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
+                .setTitle("Restore " + pretty + "?")
+                .setMessage("This delivery will be scheduled again and your plan end date will move back by one day.")
+                .setPositiveButton("Restore delivery", (d, w) -> undoSkip(day))
+                .setNegativeButton("Keep skipped", null)
+                .show();
+    }
+
+    private void undoSkip(SubscriptionCalendarResponse.Day day) {
+        if (actionInFlight) return;
+        actionInFlight = true;
+
+        String token = "Bearer " + sessionManager.getToken();
+        apiService.undoSubscriptionSkip(token, subscriptionId, day.getDate())
+                .enqueue(new Callback<DayActionResponse>() {
+                    @Override
+                    public void onResponse(@NonNull Call<DayActionResponse> call,
+                                           @NonNull Response<DayActionResponse> response) {
+                        actionInFlight = false;
+                        DayActionResponse body = response.body();
+                        String message = body != null && body.getMessage() != null
+                                ? body.getMessage()
+                                : "Couldn't restore that day. Please try again.";
+                        Toast.makeText(SubscriptionCalendarActivity.this, message, Toast.LENGTH_LONG).show();
+                        loadCalendar();
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull Call<DayActionResponse> call, @NonNull Throwable t) {
+                        actionInFlight = false;
+                        Toast.makeText(SubscriptionCalendarActivity.this, "Network error. Try again.", Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 
     private void confirmMarkSent(SubscriptionCalendarResponse.Day day) {

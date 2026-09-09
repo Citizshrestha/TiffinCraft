@@ -18,6 +18,7 @@ import com.tiffincraft.app.activities.common.NotificationActivity;
 import com.tiffincraft.app.activities.cook.CookHomeActivity;
 import com.tiffincraft.app.activities.cook.ManageOrdersActivity;
 import com.tiffincraft.app.activities.cook.SubscriptionRequestsActivity;
+import com.tiffincraft.app.activities.customer.CustomerReviewDetailActivity;
 import com.tiffincraft.app.activities.order.OrderDetailsCookActivity;
 import com.tiffincraft.app.session.SessionManager;
 import com.tiffincraft.app.utils.SocketManager;
@@ -59,6 +60,7 @@ public class FcmService extends FirebaseMessagingService {
         String conversationIdStr = null;
         String subscriptionIdStr = null;
         String requestIdStr = null;
+        String reviewIdStr = null;
 
         // Extract from data payload first (server-sent), fall back to notification payload
         if (data != null && !data.isEmpty()) {
@@ -73,6 +75,7 @@ public class FcmService extends FirebaseMessagingService {
             subscriptionIdStr = data.get("subscriptionId");
             // custom_meal_request / accepted / declined also carry requestId
             requestIdStr = data.get("requestId");
+            reviewIdStr = data.get("reviewId");
         }
 
         if (title == null && remoteMessage.getNotification() != null) {
@@ -89,7 +92,7 @@ public class FcmService extends FirebaseMessagingService {
             return;
         }
 
-        showNotification(title, body, type, orderIdStr, conversationIdStr, subscriptionIdStr, requestIdStr);
+        showNotification(title, body, type, orderIdStr, conversationIdStr, subscriptionIdStr, requestIdStr, reviewIdStr);
     }
 
     /**
@@ -106,7 +109,8 @@ public class FcmService extends FirebaseMessagingService {
      */
     private void showNotification(String title, String body, String type,
                                   String orderIdStr, String conversationIdStr,
-                                  String subscriptionIdStr, String requestIdStr) {
+                                  String subscriptionIdStr, String requestIdStr,
+                                  String reviewIdStr) {
         if (title == null) title = "TiffinCraft";
         if (body == null) body = "";
 
@@ -122,7 +126,18 @@ public class FcmService extends FirebaseMessagingService {
         // they never collide across notification types.
         int requestCode;
 
-        if (isCook && "new_order".equals(type) && orderIdStr != null && !orderIdStr.isEmpty()) {
+        if (isCustomer && ("review_reply".equals(type) || "review_liked".equals(type))
+                && reviewIdStr != null && !reviewIdStr.isEmpty()) {
+            try {
+                int reviewId = Integer.parseInt(reviewIdStr);
+                intent = CustomerReviewDetailActivity.intentFor(this, reviewId);
+                requestCode = 70000 + reviewId;
+            } catch (NumberFormatException e) {
+                intent = new Intent(this, NotificationActivity.class);
+                requestCode = (int) System.currentTimeMillis();
+            }
+
+        } else if (isCook && "new_order".equals(type) && orderIdStr != null && !orderIdStr.isEmpty()) {
             try {
                 int orderId = Integer.parseInt(orderIdStr);
                 intent = new Intent(this, OrderDetailsCookActivity.class);
@@ -180,9 +195,10 @@ public class FcmService extends FirebaseMessagingService {
                 requestCode = (int) System.currentTimeMillis();
             }
 
-        } else if (isCook && "subscription_day_skipped".equals(type)
+        } else if (isCook && ("subscription_day_skipped".equals(type)
+                || "subscription_day_skip_undone".equals(type))
                 && subscriptionIdStr != null && !subscriptionIdStr.isEmpty()) {
-            // Cook receives this when a customer skips a delivery day.
+            // Cook receives this when a customer skips or restores a delivery day.
             // Land on the subscription calendar so the cook can see which
             // day was skipped at a glance.
             try {

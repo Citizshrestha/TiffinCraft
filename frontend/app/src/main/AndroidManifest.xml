@@ -241,6 +241,10 @@
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 
         <activity
+            android:name=".activities.customer.CustomerReviewDetailActivity"
+            android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
+
+        <activity
             android:name=".activities.customer.EditCustomerProfileActivity"
             android:theme="@style/Theme.TiffinCraft.NoActionBar"/>
 

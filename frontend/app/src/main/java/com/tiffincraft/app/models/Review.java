@@ -17,6 +17,7 @@ public class Review {
     private String customer_name;
     private String customer_image;
     private String cook_name;
+    private String kitchen_name;
     private String meal_name;
     private int like_count;
 
@@ -131,6 +132,14 @@ public class Review {
 
     public void setCookName(String cook_name) {
         this.cook_name = cook_name;
+    }
+
+    public String getKitchenName() {
+        return kitchen_name;
+    }
+
+    public void setKitchenName(String kitchen_name) {
+        this.kitchen_name = kitchen_name;
     }
 
     public String getMealName() {

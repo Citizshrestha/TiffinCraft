@@ -238,6 +238,10 @@ public interface ApiService {
     @GET("reviews/cook/my")
     Call<com.tiffincraft.app.models.ReviewResponse> getMyCookReviews(@Header("Authorization") String token);
 
+    /** The signed-in customer's own reviews, including any cook response. */
+    @GET("reviews/my")
+    Call<ReviewResponse> getMyReviews(@Header("Authorization") String token);
+
     /** Public — reviews for a cook's profile page. No auth required. */
     @GET("reviews/cook/{cookId}")
     Call<ReviewResponse> getCookReviews(@Path("cookId") int cookId);
@@ -509,6 +513,12 @@ public interface ApiService {
     Call<com.tiffincraft.app.models.DayActionResponse> skipSubscriptionDay(
             @Header("Authorization") String token, @Path("id") int subscriptionId,
             @Body com.google.gson.JsonObject requestBody);
+
+    /** Restores a future customer-skipped day and reverses its one-day extension. */
+    @DELETE("subscriptions/{id}/skip-day/{date}")
+    Call<com.tiffincraft.app.models.DayActionResponse> undoSubscriptionSkip(
+            @Header("Authorization") String token, @Path("id") int subscriptionId,
+            @Path("date") String date);
 
     /**
      * Cook states that one day's meal has left the kitchen. Body is

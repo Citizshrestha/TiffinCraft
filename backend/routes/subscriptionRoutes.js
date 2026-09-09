@@ -8,6 +8,7 @@ import {
     pauseSubscription,
     resumeSubscription,
     skipDay,
+    undoSkipDay,
     markDaySent,
     markDayReceived,
     getSubscriptionCalendar,
@@ -70,6 +71,7 @@ router.put("/:id/resume", protect, resumeSubscription);
 
 
 router.post("/:id/skip-day", protect, roleOnly("customer"), skipDayLimiter, skipDay);
+router.delete("/:id/skip-day/:date", protect, roleOnly("customer"), skipDayLimiter, undoSkipDay);
 
 
 router.put("/:id/skip", protect, roleOnly("customer"), skipDayLimiter, skipDay);

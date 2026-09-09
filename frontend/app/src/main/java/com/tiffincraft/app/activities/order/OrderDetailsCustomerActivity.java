@@ -475,16 +475,19 @@ public class OrderDetailsCustomerActivity extends AppCompatActivity {
         String[] reasonValues = {"failed_delivery", "cook_mistake", "customer_cancelled", "other"};
         spinnerReason.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, reasonLabels));
 
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("Request a Refund")
                 .setView(dialogView)
-                .setPositiveButton("Submit", (dialog, which) -> {
+                .setPositiveButton("Submit", (ignoredDialog, which) -> {
                     String reason = reasonValues[spinnerReason.getSelectedItemPosition()];
                     String notes = etNotes.getText() != null ? etNotes.getText().toString().trim() : null;
                     submitRefundRequest(reason, notes);
                 })
                 .setNegativeButton("Cancel", null)
-                .show();
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                .setTextColor(getColor(R.color.error_red)));
+        dialog.show();
     }
 
     private void submitRefundRequest(String reason, String notes) {
