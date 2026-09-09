@@ -145,24 +145,9 @@ export const announceSubscriptionEvent = async ({
     let conversationId = null;
     let messageId = null;
 
-    // Channel 1+2 — in-app row and FCM push, both inside createNotification.
-    // Attempted first because it is the channel the recipient is guaranteed to
-    // see even with no chat history and no socket connection.
-    try {
-        await createNotification(recipientId, title, body, notifType, referenceId, referenceType, {
-            pushData: {
-                type: notifType,
-                subscriptionId: String(referenceType === "subscription" ? referenceId : (metadata?.subscription_id ?? "")),
-                referenceId: String(referenceId ?? ""),
-                referenceType: referenceType || "",
-                ...pushData
-            }
-        });
-    } catch (err) {
-        console.error("announceSubscriptionEvent: notification channel failed:", err.message);
-    }
-
-    // Channel 3 — the chat card.
+    // Create the conversation/card first so the notification can carry the
+    // exact conversation ID. A cook tapping a custom-meal alert must land on
+    // the chat card with Accept/Decline, not a generic subscribers list.
     try {
         conversationId = await ensureConversation(customerId, cookId);
         const message = await postCard({
@@ -172,6 +157,24 @@ export const announceSubscriptionEvent = async ({
         messageId = message ? message.id : null;
     } catch (err) {
         console.error("announceSubscriptionEvent: chat channel failed:", err.message);
+    }
+
+    // In-app row and FCM push. If the chat channel failed, the notification is
+    // still created with conversationId omitted and the client uses its safe
+    // legacy fallback.
+    try {
+        await createNotification(recipientId, title, body, notifType, referenceId, referenceType, {
+            pushData: {
+                type: notifType,
+                subscriptionId: String(referenceType === "subscription" ? referenceId : (metadata?.subscription_id ?? "")),
+                referenceId: String(referenceId ?? ""),
+                referenceType: referenceType || "",
+                ...(conversationId ? { conversationId: String(conversationId) } : {}),
+                ...pushData
+            }
+        });
+    } catch (err) {
+        console.error("announceSubscriptionEvent: notification channel failed:", err.message);
     }
 
     return { conversationId, messageId };

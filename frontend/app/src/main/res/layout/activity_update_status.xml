@@ -55,7 +55,7 @@
             android:layout_height="wrap_content"
             android:background="@drawable/otp_input_bg"
             android:padding="16dp"
-            android:text="Delivered" />
+            android:text="Completed" />
     </RadioGroup>
 
     <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />

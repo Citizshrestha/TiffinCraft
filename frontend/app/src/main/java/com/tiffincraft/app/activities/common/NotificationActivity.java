@@ -235,9 +235,17 @@ public class NotificationActivity extends AppCompatActivity {
                 break;
             case "custom_meal_request":
                 // referenceId here is a custom_meal_requests row id, NOT a
-                // subscription id — must not go to the calendar.
+                // subscription id. The notification API resolves its matching
+                // chat conversation so the cook lands on the actionable card.
                 if (isCook) {
-                    intent = new Intent(this, com.tiffincraft.app.activities.cook.CookSubscribersActivity.class);
+                    Integer conversationId = notification.getConversationId();
+                    if (conversationId != null && conversationId > 0) {
+                        intent = new Intent(this, ChatActivity.class);
+                        intent.putExtra(ChatActivity.EXTRA_CONVERSATION_ID, conversationId);
+                    } else {
+                        // Older rows may predate conversation_id enrichment.
+                        intent = new Intent(this, com.tiffincraft.app.activities.cook.CookSubscribersActivity.class);
+                    }
                 }
                 break;
             default:

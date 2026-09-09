@@ -103,7 +103,7 @@ public class FcmService extends FirebaseMessagingService {
      * - "chat_message"            → ChatActivity (specific conversation)
      * - "subscription_request" / proof types → SubscriptionRequestsActivity (cook)
      * - "subscription_day_skipped" → SubscriptionCalendarActivity
-     * - "custom_meal_request"     → SubscriptionRequestsActivity (cook inbox)
+     * - "custom_meal_request"     → ChatActivity (cook's actionable card)
      * - "custom_meal_accepted" / "custom_meal_declined" → SubscriptionCalendarActivity (customer)
      * - default                   → NotificationActivity
      */
@@ -161,14 +161,21 @@ public class FcmService extends FirebaseMessagingService {
                 requestCode = (int) System.currentTimeMillis();
             }
 
-        } else if (isCook && "custom_meal_request".equals(type)
-                && subscriptionIdStr != null && !subscriptionIdStr.isEmpty()) {
+        } else if (isCook && "custom_meal_request".equals(type)) {
             // Cook receives this when a customer requests a different meal.
-            // Land on the subscription requests inbox scrolled to this subscription
-            // so the cook can tap Accept/Decline immediately.
+            // Prefer the exact chat card; older pushes without a conversation ID
+            // retain the subscription-inbox fallback.
             try {
-                int subscriptionId = Integer.parseInt(subscriptionIdStr);
-                intent = SubscriptionRequestsActivity.intentFor(this, subscriptionId);
+                if (conversationIdStr != null && !conversationIdStr.isEmpty()) {
+                    int conversationId = Integer.parseInt(conversationIdStr);
+                    intent = new Intent(this, ChatActivity.class);
+                    intent.putExtra(ChatActivity.EXTRA_CONVERSATION_ID, conversationId);
+                } else if (subscriptionIdStr != null && !subscriptionIdStr.isEmpty()) {
+                    int subscriptionId = Integer.parseInt(subscriptionIdStr);
+                    intent = SubscriptionRequestsActivity.intentFor(this, subscriptionId);
+                } else {
+                    intent = new Intent(this, NotificationActivity.class);
+                }
                 // Use requestId for uniqueness so back-to-back requests for the
                 // same subscription don't collapse into a single notification.
                 int rId = 0;

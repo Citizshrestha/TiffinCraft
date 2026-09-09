@@ -52,7 +52,6 @@ public class AddMenuActivity extends AppCompatActivity {
     private final Set<String> selectedCategorySlugs = new LinkedHashSet<>();
     private boolean isVeg = true;
     private boolean isSpicy = false;
-    private boolean isBestseller = false;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -100,11 +99,6 @@ public class AddMenuActivity extends AppCompatActivity {
             updateChipSelection();
         });
         
-        binding.chipBestseller.setOnClickListener(v -> {
-            isBestseller = !isBestseller;
-            updateChipSelection();
-        });
-        
         // Save meal button
         if (binding.btnSaveMeal != null) {
             binding.btnSaveMeal.setOnClickListener(v -> validateAndSaveMeal());
@@ -130,14 +124,6 @@ public class AddMenuActivity extends AppCompatActivity {
             binding.chipSpicy.setTextColor(unselectedText);
         }
         
-        // Bestseller chip
-        if (isBestseller) {
-            binding.chipBestseller.setBackground(ContextCompat.getDrawable(this, R.drawable.chip_selected_green));
-            binding.chipBestseller.setTextColor(ContextCompat.getColor(this, R.color.dark_green));
-        } else {
-            binding.chipBestseller.setBackground(ContextCompat.getDrawable(this, R.drawable.chip_unselected));
-            binding.chipBestseller.setTextColor(unselectedText);
-        }
     }
     
     private void showCategoryDialog() {

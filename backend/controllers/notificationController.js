@@ -5,7 +5,21 @@ export const getUserNotifications = (req, res) => {
     // Assuming auth middleware puts user data in req.user
     const userId = req.user.id;
 
-    const sql = 'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC';
+    // Custom meal notifications point at the request row. Resolve the
+    // customer/cook conversation here so an inbox tap can open the exact chat
+    // card, including Accept/Decline, instead of the generic subscribers list.
+    const sql = `
+        SELECT n.*,
+               CASE WHEN n.type = 'custom_meal_request' THEN c.id ELSE NULL END AS conversation_id
+        FROM notifications n
+        LEFT JOIN custom_meal_requests r
+               ON n.type = 'custom_meal_request'
+              AND n.reference_type = 'custom_meal_request'
+              AND n.reference_id = r.id
+        LEFT JOIN conversations c
+               ON c.customer_id = r.customer_id AND c.cook_id = r.cook_id
+        WHERE n.user_id = ?
+        ORDER BY n.created_at DESC`;
     db.query(sql, [userId], (err, results) => {
         if (err) {
             console.error('Error fetching notifications:', err);

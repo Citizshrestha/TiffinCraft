@@ -30,6 +30,9 @@ public class Notification {
     @SerializedName("reference_type")
     private String referenceType;
 
+    @SerializedName("conversation_id")
+    private Integer conversationId;
+
     // Getters
     public int getId() { return id; }
     public int getUserId() { return userId; }
@@ -40,6 +43,7 @@ public class Notification {
     public String getCreatedAt() { return createdAt; }
     public Integer getReferenceId() { return referenceId; }
     public String getReferenceType() { return referenceType; }
+    public Integer getConversationId() { return conversationId; }
 
     // Setters
     public void setId(int id) { this.id = id; }
