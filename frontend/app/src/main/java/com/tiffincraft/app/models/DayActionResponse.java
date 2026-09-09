@@ -87,6 +87,9 @@ public class DayActionResponse {
     public boolean isNoOp() {
         return "already_skipped".equals(code)
                 || "already_restored".equals(code)
+                || "already_unavailable".equals(code)
+                || "kitchen_already_closed".equals(code)
+                || "customer_already_skipped".equals(code)
                 || "cook_unavailable".equals(code)
                 || "already_sent".equals(code)
                 || "already_received".equals(code)

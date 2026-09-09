@@ -932,12 +932,19 @@ public class ChatActivity extends AppCompatActivity {
                 ? deleteLabelFor(selected.get(0))
                 : "Delete " + selected.size() + " messages?";
 
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
                 .setTitle("Delete")
                 .setMessage(label + "\nThis cannot be undone.")
                 .setPositiveButton("Delete", (d, w) -> deleteSelectedOnServer(selected))
                 .setNegativeButton("Cancel", null)
-                .show();
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setTextColor(getColor(R.color.error_red));
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                    .setTextColor(getColor(R.color.text_secondary));
+        });
+        dialog.show();
     }
 
     private String deleteLabelFor(ChatMessage message) {

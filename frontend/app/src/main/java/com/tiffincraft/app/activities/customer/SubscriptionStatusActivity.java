@@ -15,6 +15,7 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
@@ -466,7 +467,7 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
         if (current == null) return;
         Double total = current.getTotalAmount();
 
-        new MaterialAlertDialogBuilder(this)
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
                 .setTitle("Have you already paid?")
                 .setMessage("Pick the screenshot of the transfer you just made"
                         + (total != null ? " for Rs. " + fmt(total) : "")
@@ -475,7 +476,14 @@ public class SubscriptionStatusActivity extends AppCompatActivity {
                         + "date and name by hand before confirming.")
                 .setPositiveButton("Choose screenshot", (d, w) -> openImagePicker())
                 .setNegativeButton("Not yet", null)
-                .show();
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setTextColor(getColor(R.color.cta_teal));
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                    .setTextColor(getColor(R.color.text_secondary));
+        });
+        dialog.show();
     }
 
     private void confirmRemoveProof() {

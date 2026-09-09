@@ -256,7 +256,7 @@
             android:insetBottom="0dp"
             android:text="Request a different meal"
             android:textAllCaps="false"
-            android:textColor="@color/green_primary_dark"
+            android:textColor="@color/cta_teal"
             android:textSize="13sp"
             android:visibility="gone"
             app:cornerRadius="12dp" />

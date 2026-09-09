@@ -995,7 +995,11 @@ export const getSubscriptionCalendar = async (req, res) => {
                 // wording wrongly implies the cook skipped the delivery.
                 label: status === DAY_STATUS.CUSTOMER_SKIPPED
                     ? (isCustomer ? "You skipped" : "Customer skipped")
-                    : (DAY_STATUS_LABELS[status] || status),
+                    : status === DAY_STATUS.COOK_DELIVERY_UNAVAILABLE
+                        ? (isCustomer ? "Cook couldn't deliver" : "You marked unavailable")
+                    : status === DAY_STATUS.COOK_UNAVAILABLE
+                        ? "Kitchen closed"
+                        : (DAY_STATUS_LABELS[status] || status),
                 toggled_by: toggledBy,
                 reason,
                 credit_deducted: creditDeducted,
@@ -1018,6 +1022,15 @@ export const getSubscriptionCalendar = async (req, res) => {
                 can_unskip: isCustomer && isLive && !locked
                     && status === DAY_STATUS.CUSTOMER_SKIPPED
                     && toggledBy === "customer",
+                // Per-customer cook cancellation. This is intentionally distinct
+                // from the date-wide kitchen closure endpoint.
+                can_mark_unavailable: isCook && isLive && !locked
+                    && status === DAY_STATUS.SCHEDULED,
+                // Only the cook's single-customer cancellation is reversible
+                // here. A date-wide kitchen closure has its own reopen action.
+                can_restore_delivery: isCook && isLive && !locked
+                    && status === DAY_STATUS.COOK_DELIVERY_UNAVAILABLE
+                    && toggledBy === "cook",
                 // The swap already on this day, if any. `can_request_custom` uses
                 // exactly the same conditions the create endpoint enforces
                 // (delivering day, before cutoff, nothing already asked for), so
@@ -1250,7 +1263,8 @@ export const skipDay = async (req, res) => {
                         day: { date: target, status: DAY_STATUS.CUSTOMER_SKIPPED }
                     });
                 }
-                if (outcome.previousStatus === DAY_STATUS.COOK_UNAVAILABLE) {
+                if (outcome.previousStatus === DAY_STATUS.COOK_UNAVAILABLE
+                        || outcome.previousStatus === DAY_STATUS.COOK_DELIVERY_UNAVAILABLE) {
                     // The customer's goal (no meal, no charge) already holds.
                     // Overwriting would erase the cook's reason for closing.
                     return res.status(200).json({
@@ -1638,7 +1652,7 @@ const markSentConflictBody = (outcome, target) => {
     if (prev === DAY_STATUS.CUSTOMER_SKIPPED) {
         return { success: false, code: "customer_skipped", message: `The customer skipped ${target}, so there was no meal to send.` };
     }
-    if (prev === DAY_STATUS.COOK_UNAVAILABLE) {
+    if (prev === DAY_STATUS.COOK_UNAVAILABLE || prev === DAY_STATUS.COOK_DELIVERY_UNAVAILABLE) {
         return { success: false, code: "cook_unavailable", message: `Your kitchen is marked closed on ${target}. Reopen the date first if you did cook.` };
     }
     if (prev === DAY_STATUS.MISSED) {
@@ -1662,7 +1676,7 @@ const markReceivedConflictBody = (outcome, target) => {
     if (prev === DAY_STATUS.CUSTOMER_SKIPPED) {
         return { success: false, code: "customer_skipped", message: `You skipped ${target}, so no meal was coming.` };
     }
-    if (prev === DAY_STATUS.COOK_UNAVAILABLE) {
+    if (prev === DAY_STATUS.COOK_UNAVAILABLE || prev === DAY_STATUS.COOK_DELIVERY_UNAVAILABLE) {
         return { success: false, code: "cook_unavailable", message: `The kitchen was closed on ${target}.` };
     }
     if (prev === DAY_STATUS.MISSED) {

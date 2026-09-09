@@ -111,7 +111,8 @@ export const createCustomMealRequest = async (req, res) => {
             if (existingDay.status === DAY_STATUS.CUSTOMER_SKIPPED) {
                 return res.status(409).json({ success: false, message: `You've already skipped ${date}. Un-skipping isn't possible, so there's no meal to swap.` });
             }
-            if (existingDay.status === DAY_STATUS.COOK_UNAVAILABLE) {
+            if (existingDay.status === DAY_STATUS.COOK_UNAVAILABLE
+                    || existingDay.status === DAY_STATUS.COOK_DELIVERY_UNAVAILABLE) {
                 return res.status(409).json({ success: false, message: `The kitchen is closed on ${date}, so there's no meal to swap.` });
             }
             if (existingDay.status === DAY_STATUS.MISSED) {
@@ -236,11 +237,19 @@ export const respondToCustomMealRequest = async (req, res) => {
         const [[reqRow]] = await db.promise().query(
             `SELECT r.*, DATE_FORMAT(r.delivery_date, '%Y-%m-%d') AS date_str,
                     m.name AS meal_name, p.name AS plan_name,
-                    DATE_FORMAT(s.end_date, '%Y-%m-%d') AS sub_end_date, s.status AS sub_status
+                    DATE_FORMAT(s.end_date, '%Y-%m-%d') AS sub_end_date, s.status AS sub_status,
+                    dl.status AS daily_status,
+                    cda.id AS kitchen_closure_id
              FROM custom_meal_requests r
              JOIN subscriptions s ON s.id = r.subscription_id
              JOIN subscription_plans p ON p.id = s.plan_id
              LEFT JOIN meals m ON m.id = r.meal_id
+             LEFT JOIN subscription_daily_log dl
+                    ON dl.subscription_id = r.subscription_id
+                   AND dl.delivery_date = r.delivery_date
+             LEFT JOIN cook_daily_availability cda
+                    ON cda.cook_id = r.cook_id
+                   AND cda.unavailable_date = r.delivery_date
              WHERE r.id = ?`,
             [requestId]
         );
@@ -255,6 +264,13 @@ export const respondToCustomMealRequest = async (req, res) => {
                 success: false,
                 message: `This request is already "${reqRow.status}".`,
                 status: reqRow.status
+            });
+        }
+        if ((reqRow.daily_status && reqRow.daily_status !== DAY_STATUS.SCHEDULED)
+                || reqRow.kitchen_closure_id) {
+            return res.status(409).json({
+                success: false,
+                message: "This meal request is paused because no delivery is currently scheduled for that day. Restore the delivery first."
             });
         }
 
@@ -380,6 +396,17 @@ export const getCookCustomMealRequests = async (req, res) => {
              JOIN subscription_plans p ON p.id = s.plan_id
              LEFT JOIN meals m ON m.id = r.meal_id
              WHERE r.cook_id = ? AND r.status = 'pending'
+               AND NOT EXISTS (
+                    SELECT 1 FROM subscription_daily_log dl
+                    WHERE dl.subscription_id = r.subscription_id
+                      AND dl.delivery_date = r.delivery_date
+                      AND dl.status <> 'scheduled'
+               )
+               AND NOT EXISTS (
+                    SELECT 1 FROM cook_daily_availability cda
+                    WHERE cda.cook_id = r.cook_id
+                      AND cda.unavailable_date = r.delivery_date
+               )
              ORDER BY r.delivery_date ASC, r.created_at ASC`,
             [cookId]
         );

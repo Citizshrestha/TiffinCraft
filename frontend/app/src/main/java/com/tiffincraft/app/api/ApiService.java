@@ -573,6 +573,18 @@ public interface ApiService {
     Call<com.tiffincraft.app.models.DayActionResponse> clearCookDailyUnavailability(
             @Header("Authorization") String token, @Path("date") String date);
 
+    /** Cook cancels exactly one subscriber's future delivery, with a required reason. */
+    @POST("cook/subscriptions/{id}/unavailable-day")
+    Call<com.tiffincraft.app.models.DayActionResponse> markSubscriptionDeliveryUnavailable(
+            @Header("Authorization") String token, @Path("id") int subscriptionId,
+            @Body com.google.gson.JsonObject requestBody);
+
+    /** Cook restores their own single-customer cancellation before the cutoff. */
+    @DELETE("cook/subscriptions/{id}/unavailable-day/{date}")
+    Call<com.tiffincraft.app.models.DayActionResponse> restoreSubscriptionDelivery(
+            @Header("Authorization") String token, @Path("id") int subscriptionId,
+            @Path("date") String date);
+
     // ==================== Request → accept → pay → active flow ====================
     //
     // The cook's accept/reject gate happens BEFORE any money is asked for, which

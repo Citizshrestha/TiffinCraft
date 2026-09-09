@@ -195,6 +195,19 @@ public class FcmService extends FirebaseMessagingService {
                 requestCode = (int) System.currentTimeMillis();
             }
 
+        } else if (isCustomer && ("cook_delivery_unavailable".equals(type)
+                || "cook_delivery_restored".equals(type))
+                && subscriptionIdStr != null && !subscriptionIdStr.isEmpty()) {
+            try {
+                int subscriptionId = Integer.parseInt(subscriptionIdStr);
+                intent = com.tiffincraft.app.activities.customer.SubscriptionCalendarActivity
+                        .intentFor(this, subscriptionId, null);
+                requestCode = 65000 + (int) (System.currentTimeMillis() % 10000);
+            } catch (NumberFormatException e) {
+                intent = new Intent(this, NotificationActivity.class);
+                requestCode = (int) System.currentTimeMillis();
+            }
+
         } else if (isCook && ("subscription_day_skipped".equals(type)
                 || "subscription_day_skip_undone".equals(type))
                 && subscriptionIdStr != null && !subscriptionIdStr.isEmpty()) {

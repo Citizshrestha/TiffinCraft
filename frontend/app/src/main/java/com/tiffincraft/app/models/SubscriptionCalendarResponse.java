@@ -180,7 +180,7 @@ public class SubscriptionCalendarResponse {
         @SerializedName("date")
         private String date;
 
-        /** scheduled | customer_skipped | cook_unavailable | delivered | missed */
+        /** scheduled | customer_skipped | cook_unavailable | cook_delivery_unavailable | delivered | missed */
         @SerializedName("status")
         private String status;
 
@@ -223,6 +223,12 @@ public class SubscriptionCalendarResponse {
 
         @SerializedName("can_unskip")
         private boolean canUnskip;
+
+        @SerializedName("can_mark_unavailable")
+        private boolean canMarkUnavailable;
+
+        @SerializedName("can_restore_delivery")
+        private boolean canRestoreDelivery;
 
         /** Why this day can't be changed. Non-null exactly when isLocked. */
         @SerializedName("locked_message")
@@ -275,6 +281,8 @@ public class SubscriptionCalendarResponse {
         public boolean isLocked() { return isLocked; }
         public boolean canSkip() { return canSkip; }
         public boolean canUnskip() { return canUnskip; }
+        public boolean canMarkUnavailable() { return canMarkUnavailable; }
+        public boolean canRestoreDelivery() { return canRestoreDelivery; }
         public String getLockedMessage() { return lockedMessage; }
         public CustomMeal getCustomMeal() { return customMeal; }
         public boolean canRequestCustom() { return canRequestCustom; }
@@ -285,7 +293,10 @@ public class SubscriptionCalendarResponse {
         /** Cook has handed the meal over; waiting on the customer's confirmation. */
         public boolean isSent() { return "sent".equals(status); }
         public boolean isCustomerSkipped() { return "customer_skipped".equals(status); }
-        public boolean isCookUnavailable() { return "cook_unavailable".equals(status); }
+        public boolean isCookUnavailable() {
+            return "cook_unavailable".equals(status) || "cook_delivery_unavailable".equals(status);
+        }
+        public boolean isCookDeliveryUnavailable() { return "cook_delivery_unavailable".equals(status); }
         public boolean isDelivered() { return "delivered".equals(status); }
         public boolean isMissed() { return "missed".equals(status); }
     }

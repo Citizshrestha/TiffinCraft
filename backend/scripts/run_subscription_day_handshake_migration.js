@@ -13,7 +13,7 @@ import db from "../config/db.js";
 const statements = [
     `ALTER TABLE subscription_daily_log
         MODIFY COLUMN status
-            ENUM('scheduled','customer_skipped','cook_unavailable','delivered','missed','sent')
+            ENUM('scheduled','customer_skipped','cook_unavailable','delivered','missed','sent','cook_delivery_unavailable')
             NOT NULL DEFAULT 'scheduled'`
 ];
 

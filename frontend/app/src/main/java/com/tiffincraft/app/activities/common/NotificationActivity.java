@@ -221,6 +221,8 @@ public class NotificationActivity extends AppCompatActivity {
             case "subscription_day_skip_undone":
             case "subscription_delivery_skipped":
             case "cook_unavailable":
+            case "cook_delivery_unavailable":
+            case "cook_delivery_restored":
                 // Day-level events belong on the calendar, and it works for both
                 // roles (the response's `viewer` field drives read-only mode).
                 // Guarded on reference_type: some subscription-family types carry a

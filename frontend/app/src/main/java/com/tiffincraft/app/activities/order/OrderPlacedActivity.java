@@ -34,12 +34,12 @@ public class OrderPlacedActivity extends AppCompatActivity {
             }
         }
 
-        // Online payment isn't collected at checkout — surface the payment
-        // step immediately instead of leaving the customer to discover it
-        // buried inside Order History → Order Details later.
-        if (isOnlinePayment && binding.btnPayNow != null) {
-            binding.btnPayNow.setVisibility(android.view.View.VISIBLE);
-            binding.btnPayNow.setOnClickListener(v -> {
+        // Keep the primary post-checkout action focused on the order itself.
+        // Online orders still expose this shortcut, but it no longer suggests
+        // that eSewa payment must be started from the success screen.
+        if (isOnlinePayment && binding.btnOrderDetails != null) {
+            binding.btnOrderDetails.setVisibility(android.view.View.VISIBLE);
+            binding.btnOrderDetails.setOnClickListener(v -> {
                 if (orderIds != null && orderIds.length == 1) {
                     Intent intent = new Intent(this, OrderDetailsCustomerActivity.class);
                     intent.putExtra("order_id", orderIds[0]);

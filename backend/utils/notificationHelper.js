@@ -792,6 +792,57 @@ export const notifyCookUnavailable = async (customerId, subscriptionId, cookName
 };
 
 /**
+ * One cook-owned subscription delivery was cancelled, without closing the
+ * kitchen for the cook's other subscribers on that date.
+ */
+export const notifyCookDeliveryUnavailable = async (
+    customerId, subscriptionId, cookName, planName, deliveryDate, reason, replacementEndDate
+) => {
+    const message = `${cookName} can't deliver your "${planName}" meal on ${formatDeliveryDate(deliveryDate)}`
+        + ` — "${reason}". You have not been charged for that day`
+        + (replacementEndDate ? `, and a replacement day was added at the end of your plan (${formatDeliveryDate(replacementEndDate)}).` : ".");
+    return createNotification(
+        customerId,
+        'Delivery Unavailable',
+        message,
+        'cook_delivery_unavailable',
+        subscriptionId,
+        'subscription',
+        {
+            pushData: {
+                type: 'cook_delivery_unavailable',
+                subscriptionId: String(subscriptionId),
+                deliveryDate: String(deliveryDate)
+            }
+        }
+    );
+};
+
+/** Cook reversed a per-customer unavailable day before the cutoff. */
+export const notifyCookDeliveryRestored = async (
+    customerId, subscriptionId, cookName, planName, deliveryDate, restoredEndDate
+) => {
+    const message = `${cookName} can deliver your "${planName}" meal on ${formatDeliveryDate(deliveryDate)} after all. `
+        + `That delivery is scheduled again`
+        + (restoredEndDate ? `, and your plan now ends on ${formatDeliveryDate(restoredEndDate)}.` : ".");
+    return createNotification(
+        customerId,
+        'Delivery Restored',
+        message,
+        'cook_delivery_restored',
+        subscriptionId,
+        'subscription',
+        {
+            pushData: {
+                type: 'cook_delivery_restored',
+                subscriptionId: String(subscriptionId),
+                deliveryDate: String(deliveryDate)
+            }
+        }
+    );
+};
+
+/**
  * Payment verified but the customer's chosen start date is still in the future
  * (sent to the customer). Deliberately distinct from
  * notifySubscriptionVerified, whose "your first delivery is on the way" is a
@@ -919,6 +970,8 @@ export default {
     notifyCustomMealRequest,
     notifyCustomMealResponse,
     notifyCookUnavailable,
+    notifyCookDeliveryUnavailable,
+    notifyCookDeliveryRestored,
     notifySubscriptionScheduled,
     notifySubscriptionCompleted,
     notifySubscriptionCompletedToCook,

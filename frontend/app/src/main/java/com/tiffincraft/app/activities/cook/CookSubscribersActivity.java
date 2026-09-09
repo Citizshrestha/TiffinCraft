@@ -380,15 +380,22 @@ public class CookSubscribersActivity extends AppCompatActivity {
     }
 
     private void respondToSubscriptionRequest(SubscriptionRequestsResponse.Item request, boolean accept) {
-        new MaterialAlertDialogBuilder(this)
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
                 .setTitle(accept ? "Accept subscription?" : "Decline subscription?")
                 .setMessage(accept ? "The customer can continue to payment after you accept." : "The customer will be told this plan is unavailable.")
                 .setNegativeButton("Cancel", null)
-                .setPositiveButton(accept ? "Accept" : "Decline", (dialog, which) -> {
+                .setPositiveButton(accept ? "Accept" : "Decline", (ignoredDialog, which) -> {
                     JsonObject body = new JsonObject();
                     body.addProperty("action", accept ? "accept" : "reject");
                     submitRequestAction(apiService.respondToSubscriptionRequest("Bearer " + sessionManager.getToken(), request.getId(), body));
-                }).show();
+                }).create();
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                    .setTextColor(getColor(R.color.text_secondary));
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setTextColor(getColor(accept ? R.color.green_primary_dark : R.color.error_red));
+        });
+        dialog.show();
     }
 
     private void respondToMealChange(CustomMeal request, boolean accept) {
@@ -524,21 +531,33 @@ public class CookSubscribersActivity extends AppCompatActivity {
         ImageView ivFullImage = new ImageView(ctx);
         ivFullImage.setAdjustViewBounds(true);
         ivFullImage.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        int imageInset = (int) (16 * getResources().getDisplayMetrics().density);
+        ivFullImage.setPadding(imageInset, imageInset, imageInset, imageInset);
+        ivFullImage.setBackgroundColor(getColor(R.color.bg_app));
         
         if (sub.getPaymentScreenshotUrl() != null) {
             ImageUrlHelper.loadNoCrop(ivFullImage, sub.getPaymentScreenshotUrl(),
                     R.drawable.ic_image_placeholder);
         }
         
-        new AlertDialog.Builder(ctx)
+        AlertDialog dialog = new MaterialAlertDialogBuilder(ctx, R.style.RoundedWhiteDialog)
                 .setTitle(sub.getCustomerName() + " - Payment Proof")
                 .setView(ivFullImage)
-                .setPositiveButton("Verify", (dialog, which) ->
+                .setPositiveButton("Verify", (ignoredDialog, which) ->
                         submitVerification(sub.getId(), "verified", ""))
-                .setNegativeButton("Reject", (dialog, which) ->
+                .setNegativeButton("Reject", (ignoredDialog, which) ->
                         showRejectDialog(sub))
                 .setNeutralButton("Close", null)
-                .show();
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setTextColor(getColor(R.color.green_primary_dark));
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                    .setTextColor(getColor(R.color.error_red));
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL)
+                    .setTextColor(getColor(R.color.text_secondary));
+        });
+        dialog.show();
     }
     
     /**

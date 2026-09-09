@@ -31,12 +31,18 @@ export const DAY_STATUS = {
     SENT: "sent",
     CUSTOMER_SKIPPED: "customer_skipped",
     COOK_UNAVAILABLE: "cook_unavailable",
+    /** Cook cancelled one subscriber's delivery; not a whole-kitchen closure. */
+    COOK_DELIVERY_UNAVAILABLE: "cook_delivery_unavailable",
     DELIVERED: "delivered",
     MISSED: "missed"
 };
 
 /** Statuses that mean "no meal is coming, and no credit was spent". */
-export const NON_DELIVERY_STATUSES = [DAY_STATUS.CUSTOMER_SKIPPED, DAY_STATUS.COOK_UNAVAILABLE];
+export const NON_DELIVERY_STATUSES = [
+    DAY_STATUS.CUSTOMER_SKIPPED,
+    DAY_STATUS.COOK_UNAVAILABLE,
+    DAY_STATUS.COOK_DELIVERY_UNAVAILABLE
+];
 
 /** Customer-facing wording for each day status. Kept server-side so the
  *  Android app and any future web client can't drift apart on it. */
@@ -45,6 +51,7 @@ export const DAY_STATUS_LABELS = {
     [DAY_STATUS.SENT]: "Sent",
     [DAY_STATUS.CUSTOMER_SKIPPED]: "You skipped",
     [DAY_STATUS.COOK_UNAVAILABLE]: "Kitchen closed",
+    [DAY_STATUS.COOK_DELIVERY_UNAVAILABLE]: "Delivery unavailable",
     [DAY_STATUS.DELIVERED]: "Delivered",
     [DAY_STATUS.MISSED]: "Missed"
 };

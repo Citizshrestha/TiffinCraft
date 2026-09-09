@@ -20,6 +20,8 @@ import {
 import {
     setCookDailyUnavailability,
     clearCookDailyUnavailability,
+    markSubscriptionDeliveryUnavailable,
+    restoreSubscriptionDelivery,
     getTodayDeliveries
 } from "../controllers/cookDeliveryController.js";
 
@@ -69,6 +71,8 @@ router.get("/nearby", nearbyLimiter, protect, roleOnly("customer"), getNearbyCoo
 
 
 router.get("/today-deliveries", protect, roleOnly("cook"), getTodayDeliveries);
+router.post("/subscriptions/:id/unavailable-day", protect, roleOnly("cook"), cookAvailabilityLimiter, markSubscriptionDeliveryUnavailable);
+router.delete("/subscriptions/:id/unavailable-day/:date", protect, roleOnly("cook"), cookAvailabilityLimiter, restoreSubscriptionDelivery);
 router.post("/daily-availability", protect, roleOnly("cook"), cookAvailabilityLimiter, setCookDailyUnavailability);
 router.delete("/daily-availability/:date", protect, roleOnly("cook"), cookAvailabilityLimiter, clearCookDailyUnavailability);
 

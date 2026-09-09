@@ -232,6 +232,16 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                 bgRes = R.drawable.circle_icon_green;
                 tintColor = 0xFF388E3C;
                 break;
+            case "cook_delivery_unavailable":
+                iconRes = R.drawable.ic_close;
+                bgRes = R.drawable.circle_icon_red;
+                tintColor = 0xFFE53935;
+                break;
+            case "cook_delivery_restored":
+                iconRes = R.drawable.ic_check_circle;
+                bgRes = R.drawable.circle_icon_green;
+                tintColor = 0xFF388E3C;
+                break;
             case "system":
             default:
                 iconRes = R.drawable.ic_notifications;

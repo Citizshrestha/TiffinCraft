@@ -26,6 +26,7 @@ import com.tiffincraft.app.models.RegisterResponse;
 import com.tiffincraft.app.models.SubscriptionActionResponse;
 import com.tiffincraft.app.models.SubscriptionCalendarResponse;
 import com.tiffincraft.app.session.SessionManager;
+import com.tiffincraft.app.utils.ApiErrorMessage;
 import com.tiffincraft.app.utils.DeliveryDateUtils;
 
 import java.util.ArrayList;
@@ -256,7 +257,13 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
 
         applyDayChip(day, tvChip, accent);
 
-        if (day.getReason() != null && !day.getReason().trim().isEmpty()) {
+        // A customer's own skip/restore reason is an internal action note, not
+        // useful content on the customer-facing schedule. Keep cook-authored
+        // notes visible to the customer, while the cook view retains both sides.
+        boolean showReason = day.getReason() != null
+                && !day.getReason().trim().isEmpty()
+                && !(isCustomerView && "customer".equals(day.getToggledBy()));
+        if (showReason) {
             String notePrefix;
             if ("cook".equals(day.getToggledBy())) {
                 notePrefix = isCustomerView ? "Cook's note: " : "Your note: ";
@@ -267,9 +274,7 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             }
             tvReason.setText(notePrefix + day.getReason());
             layoutReason.setVisibility(View.VISIBLE);
-        } else {
-            layoutReason.setVisibility(View.GONE);
-        }
+        } else layoutReason.setVisibility(View.GONE);
 
         boolean handshakeShown = applyDayHandshake(day, btnHandshake);
         applyDayAction(day, btnAction, layoutLocked, tvLocked, handshakeShown);
@@ -334,8 +339,37 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         layoutLocked.setVisibility(View.GONE);
         btn.setOnClickListener(null);
 
-        if (!isCustomerView || handshakeShown) {
+        if (handshakeShown) {
             btn.setVisibility(View.GONE);
+            return;
+        }
+
+        if (!isCustomerView) {
+            if (day.canMarkUnavailable()) {
+                btn.setVisibility(View.VISIBLE);
+                btn.setEnabled(true);
+                btn.setText("Unable to deliver");
+                btn.setTextColor(getColor(R.color.error));
+                btn.setStrokeColorResource(R.color.error);
+                btn.setOnClickListener(v -> promptCookUnavailable(day));
+            } else if (day.canRestoreDelivery()) {
+                btn.setVisibility(View.VISIBLE);
+                btn.setEnabled(true);
+                btn.setText("Restore delivery");
+                btn.setTextColor(getColor(R.color.green_primary_dark));
+                btn.setStrokeColorResource(R.color.green_primary_dark);
+                btn.setOnClickListener(v -> confirmRestoreCookDelivery(day));
+            } else {
+                btn.setVisibility(View.GONE);
+                if (day.isScheduled() && day.isLocked()) {
+                    TextView noteIcon = layoutLocked.findViewById(R.id.tvDayNoteIcon);
+                    if (noteIcon != null) noteIcon.setText("🔒");
+                    lockedNote.setText(day.getLockedMessage() != null
+                            ? day.getLockedMessage()
+                            : "The cutoff for changing this delivery has passed.");
+                    layoutLocked.setVisibility(View.VISIBLE);
+                }
+            }
             return;
         }
 
@@ -371,6 +405,9 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
             note = day.getLockedMessage() != null
                     ? day.getLockedMessage()
                     : "The cutoff for this day has passed, so it can't be changed.";
+        } else if (day.isCookDeliveryUnavailable()) {
+            icon = "🚫";
+            note = "Your cook couldn't deliver on this day. A replacement day was added to your plan.";
         } else if (day.isCookUnavailable()) {
             icon = "🚫";
             note = "The kitchen is closed on this day — nothing to skip.";
@@ -594,6 +631,111 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
                         Toast.makeText(SubscriptionCalendarActivity.this, "Network error. Try again.", Toast.LENGTH_SHORT).show();
                     }
                 });
+    }
+
+    private void promptCookUnavailable(SubscriptionCalendarResponse.Day day) {
+        String pretty = DeliveryDateUtils.formatLongDate(day.getDate());
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setHint("Tell the customer why");
+        input.setMinLines(2);
+
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        FrameLayout wrapper = new FrameLayout(this);
+        wrapper.setPadding(pad, pad / 2, pad, 0);
+        wrapper.addView(input);
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
+                .setTitle("Unable to deliver on " + pretty + "?")
+                .setMessage("Only this customer's delivery will be cancelled. They won't be charged, and a replacement day will be added to the end of their plan.")
+                .setView(wrapper)
+                .setPositiveButton("Mark unavailable", null)
+                .setNegativeButton("Keep scheduled", null)
+                .create();
+
+        dialog.setOnShowListener(ignored -> {
+            Button positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            positive.setTextColor(getColor(R.color.error));
+            positive.setOnClickListener(v -> {
+                String reason = input.getText().toString().trim();
+                if (reason.isEmpty()) {
+                    input.setError("A reason is required");
+                    return;
+                }
+                dialog.dismiss();
+                markCookUnavailable(day, reason);
+            });
+        });
+        dialog.show();
+    }
+
+    private void markCookUnavailable(SubscriptionCalendarResponse.Day day, String reason) {
+        if (actionInFlight) return;
+        actionInFlight = true;
+
+        JsonObject body = new JsonObject();
+        body.addProperty("date", day.getDate());
+        body.addProperty("reason", reason);
+
+        apiService.markSubscriptionDeliveryUnavailable(
+                "Bearer " + sessionManager.getToken(), subscriptionId, body
+        ).enqueue(new Callback<DayActionResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<DayActionResponse> call,
+                                   @NonNull Response<DayActionResponse> response) {
+                actionInFlight = false;
+                DayActionResponse result = response.body();
+                String message = response.isSuccessful() && result != null && result.getMessage() != null
+                        ? result.getMessage()
+                        : ApiErrorMessage.from(response, "Couldn't change that delivery. Please try again.");
+                Toast.makeText(SubscriptionCalendarActivity.this, message, Toast.LENGTH_LONG).show();
+                if (response.isSuccessful()) loadCalendar();
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<DayActionResponse> call, @NonNull Throwable t) {
+                actionInFlight = false;
+                Toast.makeText(SubscriptionCalendarActivity.this,
+                        ApiErrorMessage.fromFailure(t), Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void confirmRestoreCookDelivery(SubscriptionCalendarResponse.Day day) {
+        String pretty = DeliveryDateUtils.formatLongDate(day.getDate());
+        new MaterialAlertDialogBuilder(this, R.style.RoundedWhiteDialog)
+                .setTitle("Restore delivery on " + pretty + "?")
+                .setMessage("This customer's meal will be scheduled again. The replacement day previously added to the end of their plan will be removed, and the customer will be notified.")
+                .setPositiveButton("Restore delivery", (d, w) -> restoreCookDelivery(day))
+                .setNegativeButton("Keep unavailable", null)
+                .show();
+    }
+
+    private void restoreCookDelivery(SubscriptionCalendarResponse.Day day) {
+        if (actionInFlight) return;
+        actionInFlight = true;
+
+        apiService.restoreSubscriptionDelivery(
+                "Bearer " + sessionManager.getToken(), subscriptionId, day.getDate()
+        ).enqueue(new Callback<DayActionResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<DayActionResponse> call,
+                                   @NonNull Response<DayActionResponse> response) {
+                actionInFlight = false;
+                DayActionResponse result = response.body();
+                String message = response.isSuccessful() && result != null && result.getMessage() != null
+                        ? result.getMessage()
+                        : ApiErrorMessage.from(response, "Couldn't restore that delivery. Please try again.");
+                Toast.makeText(SubscriptionCalendarActivity.this, message, Toast.LENGTH_LONG).show();
+                if (response.isSuccessful()) loadCalendar();
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<DayActionResponse> call, @NonNull Throwable t) {
+                actionInFlight = false;
+                Toast.makeText(SubscriptionCalendarActivity.this,
+                        ApiErrorMessage.fromFailure(t), Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     private void confirmMarkSent(SubscriptionCalendarResponse.Day day) {

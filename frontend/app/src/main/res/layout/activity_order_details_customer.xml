@@ -463,7 +463,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="14dp"
-                        android:text="Or scan the cook's eSewa QR (tap to save). Other online payment screenshots are also accepted."
+                        android:text="Or scan the cook's QR (tap to save). Other online payment screenshots are also accepted."
                         android:textAlignment="center"
                         android:textColor="@color/text_subtitle"
                         android:textSize="12sp"
