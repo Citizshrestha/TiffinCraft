@@ -176,6 +176,7 @@ public class NotificationActivity extends AppCompatActivity {
             case "subscription_completed":
             case "subscription_update":
             case "subscription_paused":
+            case "subscription_resumed":
             case "subscription_cancelled":
                 // Subscription lifecycle alerts can be received by either role.
                 // Never send a cook into a customer-only Activity: use the

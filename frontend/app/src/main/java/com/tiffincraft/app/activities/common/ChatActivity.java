@@ -187,7 +187,6 @@ public class ChatActivity extends AppCompatActivity {
         super.onResume();
         // Suppress system notifications for the conversation on screen and
         // clear any that fired for it while we were away.
-        ChatNotifier.setActiveConversation(conversationId);
         ChatNotifier.cancel(this, conversationId);
         if (skipNextResumeReload) {
             skipNextResumeReload = false;
@@ -201,7 +200,6 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        ChatNotifier.clearActiveConversation();
     }
 
     private void initViews() {
@@ -1069,12 +1067,21 @@ public class ChatActivity extends AppCompatActivity {
                     .into(mediaPreview);
         }
 
-        new MaterialAlertDialogBuilder(this)
+        AlertDialog confirmationDialog = new MaterialAlertDialogBuilder(this)
                 .setView(preview)
                 .setPositiveButton("Send", (dialog, which) -> uploadAndSendMedia(mediaUri))
                 .setNeutralButton("Choose another", (dialog, which) -> openMediaPickerIntent())
                 .setNegativeButton("Cancel", null)
-                .show();
+                .create();
+        confirmationDialog.setOnShowListener(ignored -> {
+            confirmationDialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setTextColor(ContextCompat.getColor(this, R.color.green_primary_dark));
+            confirmationDialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                    .setTextColor(ContextCompat.getColor(this, R.color.error_red));
+            confirmationDialog.getButton(AlertDialog.BUTTON_NEUTRAL)
+                    .setTextColor(ContextCompat.getColor(this, R.color.cta_teal));
+        });
+        confirmationDialog.show();
     }
 
     private void uploadAndSendMedia(Uri mediaUri) {

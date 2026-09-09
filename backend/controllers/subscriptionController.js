@@ -765,10 +765,17 @@ export const resumeSubscription = async (req, res) => {
         const { id } = req.params;
 
         const [subs] = await db.promise().query(
-            `SELECT id, cook_id, status,
-                    DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date,
-                    DATE_FORMAT(end_date, '%Y-%m-%d')   AS end_date
-             FROM subscriptions WHERE id = ? AND (customer_id = ? OR cook_id = ?)`,
+            `SELECT s.id, s.customer_id, s.cook_id, s.status,
+                    DATE_FORMAT(s.start_date, '%Y-%m-%d') AS start_date,
+                    DATE_FORMAT(s.end_date, '%Y-%m-%d')   AS end_date,
+                    p.name AS plan_name, p.duration,
+                    cu.full_name AS customer_name,
+                    ck.full_name AS cook_name
+             FROM subscriptions s
+             JOIN subscription_plans p ON p.id = s.plan_id
+             JOIN users cu ON cu.id = s.customer_id
+             JOIN users ck ON ck.id = s.cook_id
+             WHERE s.id = ? AND (s.customer_id = ? OR s.cook_id = ?)`,
             [id, userId, userId]
         );
 
@@ -810,18 +817,58 @@ export const resumeSubscription = async (req, res) => {
             [resumeStatus, resumeDate, id]
         );
 
+        const actor = userId === sub.cook_id ? "cook" : "customer";
         await logDayEvent({
             subscriptionId: id,
             event: "resumed",
-            actor: userId === sub.cook_id ? "cook" : "customer",
+            actor,
             detail: `Resumed as "${resumeStatus}"; next delivery ${resumeDate}.`
+        });
+
+        const senderId = actor === "customer" ? sub.customer_id : sub.cook_id;
+        const recipientId = actor === "customer" ? sub.cook_id : sub.customer_id;
+        const senderName = actor === "customer" ? sub.customer_name : sub.cook_name;
+        const cardText = actor === "customer"
+            ? `${sub.customer_name} resumed their ${sub.plan_name} subscription. Next delivery: ${resumeDate}.`
+            : `${sub.cook_name} resumed your ${sub.plan_name} subscription. Next delivery: ${resumeDate}.`;
+        const body = actor === "customer"
+            ? `${sub.customer_name} resumed "${sub.plan_name}". Please prepare their next meal for ${resumeDate}.`
+            : `${sub.cook_name} resumed "${sub.plan_name}". Your next delivery is ${resumeDate}.`;
+
+        const notification = await announceSubscriptionEvent({
+            io: req.app.get("io"),
+            customerId: sub.customer_id,
+            cookId: sub.cook_id,
+            senderId,
+            recipientId,
+            senderName,
+            cardType: CARD_TYPES.SUBSCRIPTION_UPDATE,
+            cardText,
+            metadata: subscriptionCardMeta({
+                subscriptionId: sub.id,
+                planName: sub.plan_name,
+                duration: sub.duration,
+                startDate: sub.start_date,
+                endDate: sub.end_date,
+                status: resumeStatus,
+                customerName: sub.customer_name,
+                cookName: sub.cook_name,
+                nextDeliveryDate: resumeDate,
+                note: `Subscription resumed. Next delivery ${resumeDate}.`
+            }),
+            referenceId: sub.id,
+            referenceType: "subscription",
+            title: "Subscription resumed",
+            body,
+            notifType: "subscription_resumed"
         });
 
         return res.status(200).json({
             success: true,
             message: `Subscription resumed — next delivery ${resumeDate}.`,
             next_delivery_date: resumeDate,
-            status: resumeStatus
+            status: resumeStatus,
+            conversation_id: notification.conversationId
         });
 
     } catch (error) {
@@ -1016,12 +1063,13 @@ export const getSubscriptionCalendar = async (req, res) => {
                 // it AND the cutoff hasn't passed. Days the cook already closed
                 // are excluded — there's nothing left to skip.
                 can_skip: isLive && !locked && status === DAY_STATUS.SCHEDULED,
-                // Only the owning customer may reverse their own advance skip,
+                // Only the owning customer may reverse a customer-skipped day,
                 // and only while the same delivery-change cutoff is still open.
-                // Cook closures and settled days are deliberately excluded.
+                // The status itself proves this was a customer skip. Do not also
+                // require toggled_by: legacy rows created before that column was
+                // populated legitimately have NULL there and must stay restorable.
                 can_unskip: isCustomer && isLive && !locked
-                    && status === DAY_STATUS.CUSTOMER_SKIPPED
-                    && toggledBy === "customer",
+                    && status === DAY_STATUS.CUSTOMER_SKIPPED,
                 // Per-customer cook cancellation. This is intentionally distinct
                 // from the date-wide kitchen closure endpoint.
                 can_mark_unavailable: isCook && isLive && !locked
@@ -1439,7 +1487,10 @@ export const undoSkipDay = async (req, res) => {
                 [sub.id, target]
             );
 
-            if (!dayRow || dayRow.status !== DAY_STATUS.CUSTOMER_SKIPPED || dayRow.toggled_by !== "customer") {
+            // customer_skipped can only be produced by the customer endpoint.
+            // Older valid rows may have NULL toggled_by, so status + subscription
+            // ownership are the reliable authorization checks here.
+            if (!dayRow || dayRow.status !== DAY_STATUS.CUSTOMER_SKIPPED) {
                 await connection.rollback();
                 if (dayRow?.status === DAY_STATUS.SCHEDULED) {
                     return res.status(200).json({

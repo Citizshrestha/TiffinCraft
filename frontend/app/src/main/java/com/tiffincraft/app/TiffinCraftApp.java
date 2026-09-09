@@ -6,8 +6,6 @@ import android.app.NotificationManager;
 
 import androidx.appcompat.app.AppCompatDelegate;
 
-import com.tiffincraft.app.utils.ChatNotifier;
-
 /**
  * Application entry point. TiffinCraft is a light-theme-only app, so night mode
  * is forced off here — this guarantees no screen ever resolves dark resources,
@@ -19,7 +17,6 @@ public class TiffinCraftApp extends Application {
     public void onCreate() {
         super.onCreate();
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
-        ChatNotifier.createChannel(this);
         createAlertChannel();
     }
 

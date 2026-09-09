@@ -20,6 +20,7 @@ import com.bumptech.glide.Glide;
 import com.google.android.material.button.MaterialButton;
 import com.tiffincraft.app.R;
 import com.tiffincraft.app.activities.common.CartActivity;
+import com.tiffincraft.app.utils.ApiErrorMessage;
 import com.tiffincraft.app.utils.ImageUrlHelper;
 import com.tiffincraft.app.api.ApiService;
 import com.tiffincraft.app.api.RetrofitClient;
@@ -918,7 +919,8 @@ public class CookDetailsActivity extends AppCompatActivity {
                 // The refusals are specific — an existing plan with this same cook,
                 // a start date outside the window — so show the server's sentence.
                 String message = b != null && b.getMessage() != null
-                        ? b.getMessage() : "Could not send the request. Please try again.";
+                        ? b.getMessage()
+                        : ApiErrorMessage.from(response, "Could not send the request. Please try again.");
                 Toast.makeText(CookDetailsActivity.this, message, Toast.LENGTH_LONG).show();
             }
 

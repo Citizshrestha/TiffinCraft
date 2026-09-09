@@ -392,6 +392,24 @@ public class SubscriptionCalendarActivity extends AppCompatActivity {
         btn.setVisibility(View.GONE);
 
         if (day.isCustomerSkipped()) {
+            if (day.isLocked()) {
+                // Keep the intended action visible so the screen explains why it
+                // cannot be used instead of looking as though Cancel skip was
+                // never implemented. Restoring after cutoff would surprise a cook
+                // who was already told not to prepare the meal.
+                btn.setVisibility(View.VISIBLE);
+                btn.setEnabled(false);
+                btn.setText("Cancel skip");
+                btn.setTextColor(getColor(R.color.text_disabled));
+                btn.setStrokeColorResource(R.color.divider);
+
+                TextView noteIcon = layoutLocked.findViewById(R.id.tvDayNoteIcon);
+                if (noteIcon != null) noteIcon.setText("🔒");
+                lockedNote.setText(day.getLockedMessage() != null
+                        ? day.getLockedMessage()
+                        : "The cutoff for restoring this delivery has passed.");
+                layoutLocked.setVisibility(View.VISIBLE);
+            }
             return;
         }
 

@@ -171,10 +171,14 @@ export const createSubscriptionRequest = async (req, res) => {
             [customerId, cookId, BLOCKING_STATUSES]
         );
         if (blocking.length > 0) {
+            const current = blocking[0];
+            const message = current.status === "active"
+                ? `Your current subscription with this cook ("${current.plan_name}") is active. Cancel it or wait for it to finish before subscribing to another plan from this cook.`
+                : `You already have a subscription with this cook ("${current.plan_name}") — it's ${describeStatus(current.status)}. Finish or cancel that one first.`;
             return res.status(409).json({
                 success: false,
-                message: `You already have a subscription with this cook ("${blocking[0].plan_name}") — it's ${describeStatus(blocking[0].status)}. Finish or cancel that one first.`,
-                subscription_id: blocking[0].id
+                message,
+                subscription_id: current.id
             });
         }
 

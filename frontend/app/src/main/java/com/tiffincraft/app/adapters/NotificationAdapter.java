@@ -215,6 +215,11 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                 bgRes = R.drawable.circle_icon_orange;
                 tintColor = 0xFFF57C00;
                 break;
+            case "subscription_resumed":
+                iconRes = R.drawable.ic_check_circle;
+                bgRes = R.drawable.circle_icon_green;
+                tintColor = 0xFF388E3C;
+                break;
             case "subscription_cancelled":
                 iconRes = R.drawable.ic_close;
                 bgRes = R.drawable.circle_icon_red;

@@ -135,26 +135,13 @@ public class SocketManager {
                 }
             });
 
-            // Global listener: raise a system notification (sound + heads-up) for
-            // any incoming chat message, then hand the event to the current
-            // screen's badge listener (if any). Lives on the socket itself so it
-            // keeps working as the user moves between Activities. ChatNotifier
-            // suppresses the conversation currently on screen.
+            // Chat pushes are displayed exclusively by FcmService. The socket
+            // event is only for immediate in-app message/badge refresh. Showing
+            // a notification here as well produced two Android notifications for
+            // the same message whenever both Socket.IO and FCM were connected.
             socket.on("chatNotification", new Emitter.Listener() {
                 @Override
                 public void call(Object... args) {
-                    try {
-                        if (args.length > 0 && args[0] instanceof JSONObject) {
-                            JSONObject data = (JSONObject) args[0];
-                            int conversationId = data.optInt("conversation_id", 0);
-                            String senderName = data.optString("sender_name", "New message");
-                            String preview = data.optString("preview", "You have a new message");
-                            ChatNotifier.showMessageNotification(context, conversationId, senderName, preview);
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "chatNotification handling error", e);
-                    }
-
                     Emitter.Listener badgeListener = screenListeners.get("chatNotification");
                     if (badgeListener != null) {
                         badgeListener.call(args);

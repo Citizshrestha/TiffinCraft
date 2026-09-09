@@ -20,7 +20,6 @@ public class OrderPlacedActivity extends AppCompatActivity {
 
         int orderCount = getIntent().getIntExtra("order_count", 1);
         String message = getIntent().getStringExtra("message");
-        boolean isOnlinePayment = "online".equals(getIntent().getStringExtra("payment_method"));
         int[] orderIds = getIntent().getIntArrayExtra("order_ids");
 
         TextView tvMessage = findViewById(com.tiffincraft.app.R.id.tvOrderMessage);
@@ -34,10 +33,9 @@ public class OrderPlacedActivity extends AppCompatActivity {
             }
         }
 
-        // Keep the primary post-checkout action focused on the order itself.
-        // Online orders still expose this shortcut, but it no longer suggests
-        // that eSewa payment must be started from the success screen.
-        if (isOnlinePayment && binding.btnOrderDetails != null) {
+        // Both COD and online checkout create the same order records, so the
+        // success screen should expose the same order actions for both methods.
+        if (binding.btnOrderDetails != null) {
             binding.btnOrderDetails.setVisibility(android.view.View.VISIBLE);
             binding.btnOrderDetails.setOnClickListener(v -> {
                 if (orderIds != null && orderIds.length == 1) {
